@@ -1,26 +1,65 @@
-# Python bytecode and tooling caches
+# Python bytecode and native extensions
 __pycache__/
-*.py[cod]
+*.py[codz]
 *$py.class
+*.so
+
+# Distribution and packaging
+.Python
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Test, coverage, and analysis caches
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.tox/
+.nox/
+.hypothesis/
+.cache/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
-build/
-dist/
-*.egg-info/
+cover/
+*.cover
+*.py.cover
 
-# Virtual environments
+# Virtual environments and local configuration
 .venv/
 venv/
 env/
-
-# Local environment and secrets
+ENV/
+env.bak/
+venv.bak/
+__pypackages__/
+.pdm-python
+.pdm-build/
+.pixi/
 .env
 .env.*
 !.env.example
+.envrc
+local_settings.py
 
 # Django and runtime data
 *.sqlite3
@@ -34,6 +73,29 @@ env/
 /tmp/
 *.log
 *.pid
+
+# Generated documentation and notebook state
+docs/_build/
+/site/
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# Tool and framework state
+.scrapy/
+.pybuilder/
+target/
+.spyderproject
+.spyproject
+.ropeproject
+.abstra/
+.pypirc
+tempCodeRunnerFile.py
+cython_debug/
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+.streamlit/secrets.toml
 
 # Historical specification archives (kept locally, not versioned)
 docs/spec/spec-backup/
