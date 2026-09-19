@@ -1,0 +1,46 @@
+# Python bytecode and tooling caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Django and runtime data
+*.sqlite3
+*.sqlite3-*
+*.db
+/data/
+/media/
+/staticfiles/
+/backups/
+/logs/
+/tmp/
+*.log
+*.pid
+
+# Historical specification archives (kept locally, not versioned)
+docs/spec/spec-backup/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
