@@ -212,7 +212,8 @@ far_annotation(optional)
 - 否则统计 `delivered_count = 未取消且 delivery_status=DELIVERED` 的订单数；
 - `delivered_count == 0`：表示本轮全部订单已取消，立即自动 CLOSED，不创建 ConsolidationRound；
 - `delivered_count == 1`：无需归拢，直接 CLOSED；
-- `delivered_count >= 2`：按 eligibility 计算需要归拢的候选；候选为空时直接 CLOSED；存在候选时创建/等待必要 ConsolidationRound，全部必要归拢 COMPLETED 后 CLOSED。
+- `delivered_count >= 2` 时必须先检查该 ExpressRound 已存在的 ConsolidationRound：只要任意一条仍为 `PENDING / IN_PROGRESS`，ExpressRound 必须继续 OPEN 等待该归拢完成；不得因为这些成员已被排除出“剩余候选集合”而把候选为空误判成无需归拢；
+- 当不存在未完成 ConsolidationRound 时，再计算“尚未进入已完成 ConsolidationRound 的剩余合格候选”。若剩余合格候选数量 `>= 2`，创建下一条必要 ConsolidationRound 并保持 OPEN；若数量 `< 2`，说明不存在新的必要归拢，ExpressRound 可以 CLOSED。已经 COMPLETED 的 ConsolidationRound 成员不重复进入候选。
 
 不同 service_date 永不互相阻塞；一个 round CLOSED 后同一天新增快递也创建下一 round_no。
 
@@ -257,7 +258,11 @@ complete_delivery_drop()
 
 ## 17. ProxyBatch 状态服务
 
-`evaluate_proxy_batch_ready(batch)` 先统计非取消订单。若非取消订单数量为 0（例如录单员逐单取消了整批所有订单），不得利用“全部非取消订单已完成”的空集合条件推进 READY_TO_SETTLE，而应将仍为 OPEN 的 ProxyBatch 自动置为 CANCELED、确认相关 ExpressRound 已按规则 CLOSED，并写 AuditEvent。
+`evaluate_proxy_batch_ready(batch)` 必须同时统计“历史订单总数”和“当前非取消订单数”：
+
+- `历史订单总数 == 0`：这是刚创建但尚未录入任何订单的空 ProxyBatch，必须保持 OPEN，不得因为空集合条件自动 CANCELED，也不得进入 READY_TO_SETTLE；
+- `历史订单总数 > 0 && 当前非取消订单数 == 0`：说明该批次曾经存在订单、但现在已经全部逐单取消，应将仍为 OPEN 的 ProxyBatch 自动置为 CANCELED，确认相关 ExpressRound 已按规则 CLOSED，并写 AuditEvent；
+- 只有至少存在 1 个非取消订单时，才允许继续评估 READY_TO_SETTLE。
 
 只有至少存在 1 个非取消订单时，才在以下全部满足后把 OPEN 自动推进为 READY_TO_SETTLE：
 
@@ -271,14 +276,15 @@ complete_delivery_drop()
 
 `cancel_proxy_batch(batch, operator, reason)`：只允许 `status=OPEN`，并且批次内不存在任何 `PICKED / DELIVERING / DELIVERED` 的有效快递。该操作必须在一个事务中完成，不要求录单员先逐单取消：
 
-1. 锁定/重新读取批次及其非取消订单，重复校验没有已取实物或已完成订单；
-2. 将仍为 NEW/ASSIGNED 的订单按“代理批次取消”原因走正常取消逻辑；
-3. 对 ASSIGNED 但未 PICKED 的订单释放 Assignment/任务占用；
-4. 收集受影响的 ExpressRound 并逐个调用 `evaluate_express_round()`；全取消轮次应自动 CLOSED；
-5. ProxyBatch → CANCELED；
-6. 写批次级和必要的订单级 AuditEvent。
+1. 锁定/重新读取批次及其全部历史订单、当前非取消订单，重复校验没有已取实物或已完成订单；
+2. 如果批次从未录入过任何订单，允许把这个空 OPEN 批次直接置为 CANCELED，并写批次级 AuditEvent；
+3. 如果存在订单，将仍为 NEW/ASSIGNED 的订单按“代理批次取消”原因走正常取消逻辑；
+4. 对 ASSIGNED 但未 PICKED 的订单释放 Assignment/任务占用；
+5. 收集受影响的 ExpressRound 并逐个调用 `evaluate_express_round()`；全取消轮次应自动 CLOSED；
+6. ProxyBatch → CANCELED；
+7. 写批次级和必要的订单级 AuditEvent。
 
-任一有效快递已 PICKED/DELIVERING/DELIVERED 时整个事务拒绝，不做部分批次取消。此时仍可逐单取消尚未取件订单；已取实物/已完成订单走配送、异常或人工处理。READY_TO_SETTLE 不允许整批取消。
+“空批次保持 OPEN”只适用于自动状态评估；用户显式执行 `cancel_proxy_batch()` 时允许关闭空批次。任一有效快递已 PICKED/DELIVERING/DELIVERED 时整个事务拒绝，不做部分批次取消。此时仍可逐单取消尚未取件订单；已取实物/已完成订单走配送、异常或人工处理。READY_TO_SETTLE 不允许整批取消。
 
 SETTLED 后禁止追加成员或订单。
 

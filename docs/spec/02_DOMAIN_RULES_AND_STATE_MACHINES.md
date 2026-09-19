@@ -212,7 +212,7 @@ ExpressRound 的关闭判定先确认不存在 `NEW/ASSIGNED/PICKED/DELIVERING` 
 
 - `0` 件：说明本轮全部订单都已取消，立即自动 `CLOSED`，不创建 ConsolidationRound；
 - `1` 件：无需归拢，立即 `CLOSED`；
-- `>=2` 件：计算归拢候选；若没有任何需要归拢的候选（例如均为上楼/当面交付），直接 `CLOSED`；若存在必要归拢，则创建/完成对应 ConsolidationRound，全部必要归拢完成后再 `CLOSED`；
+- `>=2` 件：先检查已经存在的 ConsolidationRound。只要有 `PENDING / IN_PROGRESS` 的归拢轮次，ExpressRound 必须保持 OPEN 等待其完成，不能因为归拢成员已不在剩余候选中而提前 CLOSED；当不存在未完成归拢轮次时，再计算尚未进入已完成 ConsolidationRound 的剩余合格候选，剩余候选 `>=2` 时创建下一必要归拢轮次，剩余候选 `<2` 时才可 `CLOSED`；
 - 只要仍有 NEW/ASSIGNED/PICKED/DELIVERING 的有效快递，保持 OPEN。
 
 不同 service_date 的快递永远属于不同 ExpressRound，因此明天的 NEW 快递不会阻塞今天的归拢。
@@ -264,7 +264,7 @@ SETTLED → READY_TO_SETTLE       # 仅误结算撤销
 
 `OPEN`：允许新增 ProxyRecipient 和快递。
 
-进入 `READY_TO_SETTLE` 前必须至少存在 1 个非取消快递。若批次所有订单都已逐单取消，则 OPEN 批次应自动转 `CANCELED`，不得因空集合条件进入 READY_TO_SETTLE。
+自动评估 ProxyBatch 状态时，刚创建且历史上从未录入任何订单的空批次保持 `OPEN`；只有“历史上至少存在 1 笔订单，且这些订单现已全部逐单取消”时，OPEN 批次才应自动转 `CANCELED`。进入 `READY_TO_SETTLE` 前必须至少存在 1 个非取消快递，不得因空集合条件进入 READY_TO_SETTLE。
 
 存在至少 1 个非取消快递时，进入 `READY_TO_SETTLE` 必须同时满足：
 
@@ -282,7 +282,7 @@ SETTLED → READY_TO_SETTLE       # 仅误结算撤销
 
 `SETTLED` 后禁止追加 ProxyRecipient 或订单。新的快递必须建立新的 ProxyBatch。
 
-整批 `CANCELED` 通过 `cancel_proxy_batch()` 完成，采用原子事务，不要求先逐单取消。仅 `OPEN` 批次且批次内不存在 `PICKED / DELIVERING / DELIVERED` 的有效快递时允许：系统自动将仍为 `NEW / ASSIGNED` 的非取消订单按“批次取消”原因取消，释放对应未取件 Assignment/任务占用，随后逐个重新评估相关 ExpressRound；因此变成全部取消的轮次应自动 `CLOSED`；最后把 ProxyBatch 置为 `CANCELED` 并写 AuditEvent。
+整批 `CANCELED` 通过 `cancel_proxy_batch()` 完成，采用原子事务，不要求先逐单取消。仅 `OPEN` 批次且批次内不存在 `PICKED / DELIVERING / DELIVERED` 的有效快递时允许：如果批次尚未录入任何订单，可直接把空批次置为 `CANCELED`；如果已有订单，则系统自动将仍为 `NEW / ASSIGNED` 的非取消订单按“批次取消”原因取消，释放对应未取件 Assignment/任务占用，随后逐个重新评估相关 ExpressRound；因此变成全部取消的轮次应自动 `CLOSED`；最后把 ProxyBatch 置为 `CANCELED` 并写 AuditEvent。空批次不会被自动评估为 CANCELED，但允许用户显式取消。
 
 如果批次中任意有效快递已经 `PICKED / DELIVERING / DELIVERED`，整批取消必须拒绝。录单员仍可逐单取消尚未取件的订单；已经拿到实物或已完成的订单只能走正常配送、异常或人工处理，批次继续按剩余有效订单推进。`READY_TO_SETTLE` 不允许转 `CANCELED`。
 

@@ -31,7 +31,7 @@
 ## Phase 2：代理人体系
 
 - [ ] Agent
-- [ ] ProxyBatch 状态机 + `cancel_proxy_batch()` 原子整批取消（取消 NEW/ASSIGNED、释放未取件 Assignment、联动关闭全取消 ExpressRound）
+- [ ] ProxyBatch 基础模型、状态字段与不依赖 Order/ExpressRound/Assignment 的基础状态机边界
 - [ ] ProxyRecipient
 - [ ] 仅 EXPRESS 可使用代理来源的约束
 - [ ] 自动临时命名
@@ -90,7 +90,8 @@
 - [ ] 楼栋/收件归属排序
 - [ ] 已取实物交接转单
 - [ ] 快递配送完成收益归属
-- [ ] ExpressRound 完成/关闭判定（含全部取消、有效已送达=0 自动 CLOSED）
+- [ ] ExpressRound 基础归轮与不涉及归拢的关闭判定：全取消/有效已送达=0 自动 CLOSED，单件已送达直接 CLOSED；多件需要归拢的分支保持 OPEN，留到 Phase 6 完成
+- [ ] `cancel_proxy_batch()` 原子整批取消：此时 Order、Assignment、ExpressRound 依赖均已具备；支持空 OPEN 批次显式取消，非空批次按规则取消 NEW/ASSIGNED、释放 Assignment、联动评估 ExpressRound
 
 ## Phase 6：归拢、结算构建与凭证
 
@@ -99,6 +100,7 @@
 - [ ] 默认归拢负责人 = 归拢成员最后完成配送员
 - [ ] `reassign_consolidation_round()` 独立改派 + AuditEvent
 - [ ] frozen ConsolidationRound
+- [ ] ExpressRound 多件归拢关闭逻辑：已有 PENDING/IN_PROGRESS ConsolidationRound 时继续等待；全部完成后重新评估剩余候选，少于 2 件才 CLOSED
 - [ ] 找件清单
 - [ ] 最终近景/远景标注/位置
 - [ ] ProxyBatch READY_TO_SETTLE 判定/重新打开

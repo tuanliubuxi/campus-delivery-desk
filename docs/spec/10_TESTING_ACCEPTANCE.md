@@ -115,7 +115,9 @@
 - 不同 service_date 永不相互阻塞。
 - ExpressRound CLOSED 后，同日新增快递进入下一轮。
 - OPEN round 存在 NEW/ASSIGNED/PICKED/DELIVERING 时不能自动关闭。
-- 不再存在 NEW/ASSIGNED/PICKED/DELIVERING 后：若本轮所有订单均 CANCELED、有效已送达数量为 0，ExpressRound 必须自动 CLOSED 且不创建 ConsolidationRound；1 件 DELIVERED 直接 CLOSED；>=2 件按 eligibility 建立必要 ConsolidationRound，若候选为空直接 CLOSED，存在必要归拢时全部完成后 CLOSED。
+- 不再存在 NEW/ASSIGNED/PICKED/DELIVERING 后：若本轮所有订单均 CANCELED、有效已送达数量为 0，ExpressRound 必须自动 CLOSED 且不创建 ConsolidationRound；1 件 DELIVERED 直接 CLOSED；>=2 件按 eligibility 建立必要 ConsolidationRound。
+- 当某 ExpressRound 已存在 `PENDING` 或 `IN_PROGRESS` ConsolidationRound 时，即使这些成员因“已进入归拢轮次”而导致当前剩余候选集合为空，ExpressRound 仍必须保持 OPEN；只有现有归拢全部 COMPLETED，且重新评估后剩余合格候选少于 2，才能 CLOSED。
+- 已完成一个 ConsolidationRound 后若仍有至少 2 个尚未归拢的合格物件，应继续创建下一必要 ConsolidationRound；若只剩 0 或 1 个合格物件，则无需再归拢并允许 ExpressRound CLOSED。
 - 归拢候选遇到 `OPEN && blocks_consolidation=true` 异常必须排除。
 - ConsolidationRound 成员冻结后不能追加。
 - 默认负责人是对应成员中最后完成配送员。
@@ -180,7 +182,7 @@
 
 1. OPEN 可新增 ProxyRecipient/快递。
 2. 有未完成配送、未关闭 ExpressRound/待归拢、UNKNOWN 大小或 `OPEN && blocks_settlement=true` 异常时不能进入 READY_TO_SETTLE。
-3. 全部条件满足且至少存在 1 个非取消订单时可自动进入 READY_TO_SETTLE；若所有订单都已逐单取消，ProxyBatch 必须自动 CANCELED，不能因空集合判断进入 READY_TO_SETTLE。
+3. 全部条件满足且至少存在 1 个非取消订单时可自动进入 READY_TO_SETTLE；刚创建、历史订单数为 0 的空 ProxyBatch 必须保持 OPEN；只有历史上至少存在订单且现在全部逐单取消时，才自动 CANCELED，不能因空集合判断进入 READY_TO_SETTLE。
 4. READY_TO_SETTLE 后成员冻结；显式 reopen 后回 OPEN，未结算汇总图失效。
 5. 生成 ProxyRecipient 凭证/Agent 汇总图不改变 ProxyBatch 状态。
 6. 每个 ProxyRecipient 能独立生成客户凭证。
@@ -188,9 +190,10 @@
 8. Agent 汇总图没有任何配送照片。
 9. Agent 汇总金额与 SettlementLine 总额一致。
 10. SETTLED 后不能追加成员/订单。
-11. OPEN 批次且没有 PICKED/DELIVERING/DELIVERED 有效快递时，`cancel_proxy_batch()` 必须一次事务自动取消仍为 NEW/ASSIGNED 的非取消订单、释放未取件 Assignment、关闭因此全取消的 ExpressRound，并将 ProxyBatch 置 CANCELED；不要求先逐单取消。
-12. 批次已有任一 PICKED/DELIVERING/DELIVERED 有效快递时，整批取消必须整体拒绝且不能产生半取消状态；READY_TO_SETTLE/SETTLED 也不能整批取消。尚未取件订单仍允许单独取消。
-13. 代理人的下游价格无字段、无统计。
+11. OPEN 空批次（历史订单数为 0）不会被自动状态评估取消，但显式执行 `cancel_proxy_batch()` 必须允许直接将其置为 CANCELED 并写 AuditEvent。
+12. OPEN 非空批次且没有 PICKED/DELIVERING/DELIVERED 有效快递时，`cancel_proxy_batch()` 必须一次事务自动取消仍为 NEW/ASSIGNED 的非取消订单、释放未取件 Assignment、关闭因此全取消的 ExpressRound，并将 ProxyBatch 置 CANCELED；不要求先逐单取消。
+13. 批次已有任一 PICKED/DELIVERING/DELIVERED 有效快递时，整批取消必须整体拒绝且不能产生半取消状态；READY_TO_SETTLE/SETTLED 也不能整批取消。尚未取件订单仍允许单独取消。
+14. 代理人的下游价格无字段、无统计。
 
 ## 17. 结算确认、VOID 与撤销
 

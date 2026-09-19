@@ -85,7 +85,7 @@ ready_at nullable
 settled_at nullable
 ```
 
-ProxyBatch 状态迁移限定为 `OPEN → READY_TO_SETTLE → SETTLED`、`OPEN → CANCELED`、`READY_TO_SETTLE → OPEN`（显式重新打开）和 `SETTLED → READY_TO_SETTLE`（仅误结算撤销）。整批取消不要求先逐单操作：`cancel_proxy_batch()` 在 OPEN 且不存在 PICKED/DELIVERING/DELIVERED 有效快递时，事务内取消仍可取消的 NEW/ASSIGNED 订单、释放未取件 Assignment、重新评估相关 ExpressRound 并最终置批次为 CANCELED。若订单被逐单取消后批次的非取消订单数量变为 0，也应自动将 OPEN 批次置为 CANCELED，而不是进入 READY_TO_SETTLE。
+ProxyBatch 状态迁移限定为 `OPEN → READY_TO_SETTLE → SETTLED`、`OPEN → CANCELED`、`READY_TO_SETTLE → OPEN`（显式重新打开）和 `SETTLED → READY_TO_SETTLE`（仅误结算撤销）。刚创建且历史上从未录入订单的空批次在自动评估时保持 OPEN；若历史上至少存在一笔订单，且订单被逐单取消后非取消订单数量变为 0，则自动将 OPEN 批次置为 CANCELED，而不是进入 READY_TO_SETTLE。`cancel_proxy_batch()` 属于显式操作：在 OPEN 且不存在 PICKED/DELIVERING/DELIVERED 有效快递时，空批次可以直接 CANCELED；非空批次则在事务内取消仍可取消的 NEW/ASSIGNED 订单、释放未取件 Assignment、重新评估相关 ExpressRound 并最终置批次为 CANCELED。
 
 ### ProxyRecipient
 
@@ -258,7 +258,7 @@ closed_at nullable
 - 新快递加入“同一收件归属 + 相同 service_date + OPEN”的 ExpressRound；没有则创建新 round_no；
 - 一个 round CLOSED 后，同一天后续新快递也进入新的 round；
 - 不同 service_date 永不互相阻塞；
-- round 内不再存在 NEW/ASSIGNED/PICKED/DELIVERING 后：若未取消且已送达数量为 0，则代表全取消并自动 CLOSED；为 1 时直接 CLOSED；>=2 时仅在存在必要归拢候选时等待 ConsolidationRound，若无候选则直接 CLOSED；
+- round 内不再存在 NEW/ASSIGNED/PICKED/DELIVERING 后：若未取消且已送达数量为 0，则代表全取消并自动 CLOSED；为 1 时直接 CLOSED；>=2 时先等待所有已存在的 PENDING/IN_PROGRESS ConsolidationRound 完成，再评估尚未进入已完成归拢轮次的剩余合格候选；剩余候选 >=2 时创建/等待下一必要 ConsolidationRound，少于 2 时才 CLOSED；
 - CLOSED round 不再接收新订单，同一 service_date 的后续订单进入新的 round_no。
 
 ## 8. DeliveryTask / Assignment
