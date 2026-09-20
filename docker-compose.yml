@@ -1,0 +1,53 @@
+services:
+  web:
+    build: .
+    command: >
+      sh -c "mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
+      && python manage.py collectstatic --noinput
+      && gunicorn config.wsgi:application --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:8000"
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    volumes:
+      - ./data:/data
+      - static_data:/app/staticfiles
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    command: >
+      sh -c "mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
+      && python manage.py run_scheduler"
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - static_data:/srv/static:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  static_data:
+  caddy_data:
+  caddy_config:

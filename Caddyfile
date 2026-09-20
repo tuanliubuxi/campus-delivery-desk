@@ -1,0 +1,12 @@
+{$APP_DOMAIN:localhost} {
+  encode zstd gzip
+
+  handle_path /static/* {
+    root * /srv/static
+    file_server
+  }
+
+  handle {
+    reverse_proxy web:8000
+  }
+}

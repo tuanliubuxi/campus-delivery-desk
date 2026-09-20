@@ -1,0 +1,40 @@
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --cdd-bg: #f5f7fb;
+  --cdd-surface: #ffffff;
+  --cdd-text: #172033;
+  --cdd-muted: #526079;
+  --cdd-primary: #2456a6;
+  --cdd-border: #d8e0eb;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --cdd-bg: #101724;
+  --cdd-surface: #1c2738;
+  --cdd-text: #f2f6fc;
+  --cdd-muted: #b1bed2;
+  --cdd-primary: #93b9ff;
+  --cdd-border: #35465e;
+}
+
+[data-theme="warm"] {
+  color-scheme: light;
+  --cdd-bg: #fbf4e9;
+  --cdd-surface: #fffaf2;
+  --cdd-text: #392a21;
+  --cdd-muted: #715d50;
+  --cdd-primary: #965025;
+  --cdd-border: #e6d4bf;
+}
+
+[data-theme="fresh"] {
+  color-scheme: light;
+  --cdd-bg: #eaf7f8;
+  --cdd-surface: #ffffff;
+  --cdd-text: #153344;
+  --cdd-muted: #496b78;
+  --cdd-primary: #087d92;
+  --cdd-border: #bddfe4;
+}

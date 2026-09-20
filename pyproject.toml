@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "campus-delivery-desk"
+version = "0.1.0"
+description = "Self-hosted campus delivery operations desk"
+requires-python = ">=3.12"
+dependencies = [
+  "Django>=5.2,<5.3",
+  "Pillow>=11,<13",
+  "openpyxl>=3.1,<4",
+  "APScheduler>=3.11,<4",
+  "gunicorn>=23,<25",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "pytest-django>=4.11,<5",
+  "ruff>=0.11,<1",
+]
+
+[tool.setuptools.packages.find]
+include = ["config*", "apps*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.dev"
+python_files = ["test_*.py"]
+testpaths = ["tests", "apps"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

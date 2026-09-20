@@ -1,0 +1,10 @@
+.git
+.venv
+data
+staticfiles
+docs/spec/spec-backup
+*.sqlite3
+*.log
+.env
+.env.*
+!.env.example

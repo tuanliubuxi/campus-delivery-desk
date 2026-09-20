@@ -1,0 +1,13 @@
+{
+  "name": "校驿 Campus Delivery Desk",
+  "short_name": "校驿",
+  "description": "校园配送运营工作台",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#2456a6",
+  "icons": [
+    {"src": "/static/pwa/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

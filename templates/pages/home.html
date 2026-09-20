@@ -1,0 +1,19 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<main class="container py-5">
+  <section class="cdd-card p-4">
+    <h1>校驿</h1>
+    <p class="cdd-muted">工程骨架已就绪；业务工作台将在后续阶段逐步开放。</p>
+    <label for="theme" class="form-label">主题</label>
+    <select id="theme" class="form-select" style="max-width: 16rem"
+            x-data="{ theme: localStorage.getItem('cdd-theme') || 'light' }"
+            x-model="theme" @change="cddSetTheme(theme)">
+      <option value="light">亮色</option>
+      <option value="dark">暗色</option>
+      <option value="warm">暖色</option>
+      <option value="fresh">清爽蓝青</option>
+    </select>
+  </section>
+</main>
+{% endblock %}
