@@ -1,0 +1,2 @@
+{% extends "layouts/base.html" %}
+{% block content %}<main class="container py-4" style="max-width: 820px"><h1 class="h3">{{ title }}</h1><section class="cdd-card p-3"><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">保存</button> <a class="btn btn-link" href="{% url 'config_center:index' %}">取消</a></form></section></main>{% endblock %}

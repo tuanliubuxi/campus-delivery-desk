@@ -12,7 +12,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         scheduler = BlockingScheduler(timezone="Asia/Shanghai")
         # Business jobs and JobRun-backed service calls are added in Phase 10.
-        logger.info("Scheduler started; no business jobs are registered in Phase 0")
+        logger.info("Scheduler started; JobRun-backed jobs are scheduled for Phase 10")
         try:
             scheduler.start()
         except (KeyboardInterrupt, SystemExit):

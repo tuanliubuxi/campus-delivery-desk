@@ -1,0 +1,11 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<main class="container py-4">
+  <div class="d-flex justify-content-between"><h1 class="h3">配置中心</h1><a class="btn btn-primary" href="{% url 'config_center:site-edit' %}">价格与全局规则</a></div>
+  <h2 class="h5 mt-4">业务类型</h2><div class="row g-2">
+  {% for item in business_configs %}<div class="col-md-6 col-xl-4"><a class="cdd-card p-3 d-block cdd-dashboard-link" href="{% url 'config_center:business-edit' item.id %}">{{ item.icon }} {{ item.display_name }} · {% if item.enabled %}启用{% else %}停用{% endif %}</a></div>{% endfor %}</div>
+  <div class="d-flex justify-content-between align-items-center mt-4"><h2 class="h5">楼栋与区域</h2><a href="{% url 'config_center:building-create' %}">新增楼栋</a></div>
+  <div class="cdd-card table-responsive"><table class="table mb-0"><thead><tr><th>代码</th><th>名称</th><th>区域</th><th>顺序</th></tr></thead><tbody>{% for item in buildings %}<tr><td><a href="{% url 'config_center:building-edit' item.id %}">{{ item.code }}</a></td><td>{{ item.name }}</td><td>{{ item.get_zone_display }}</td><td>{{ item.route_order }}</td></tr>{% endfor %}</tbody></table></div>
+  <h2 class="h5 mt-4">配送员分成</h2><div class="cdd-card table-responsive"><table class="table mb-0"><tbody>{% for item in commissions %}<tr><td>{{ item.get_business_type_display }}</td><td>{{ item.get_earning_source_display }}</td><td>{{ item.commission_rate }}</td><td><a href="{% url 'config_center:commission-edit' item.id %}">编辑</a></td></tr>{% endfor %}</tbody></table></div>
+</main>
+{% endblock %}

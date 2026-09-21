@@ -1,0 +1,8 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<main class="container py-4" style="max-width: 760px">
+  <div class="d-flex justify-content-between"><h1 class="h3">{{ title }}</h1><a href="{% url 'customers:list' %}">返回列表</a></div>
+  <section class="cdd-card p-3"><form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary cdd-touch">保存</button></form></section>
+  {% if customer %}<form method="post" action="{% url 'customers:delete' customer.id %}" class="mt-3" onsubmit="return confirm('确认删除此客户档案？')">{% csrf_token %}<button class="btn btn-outline-danger">删除客户</button></form>{% endif %}
+</main>
+{% endblock %}

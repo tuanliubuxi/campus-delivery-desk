@@ -1,0 +1,20 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<main class="container py-4">
+  <h1 class="h3">人员与会话</h1>
+  {% if generated_password %}<div class="alert alert-warning">新账号口令：<strong>{{ generated_password }}</strong>（仅本页显示，请安全交付）</div>{% endif %}
+  <div class="row g-4">
+    <section class="col-lg-4"><div class="cdd-card p-3"><h2 class="h5">创建账号</h2>
+      <form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">创建</button></form>
+    </div></section>
+    <section class="col-lg-8"><div class="cdd-card table-responsive"><table class="table mb-0 align-middle">
+      <thead><tr><th>人员</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
+      {% for item in users %}<tr><td>{{ item.emoji_avatar }} {{ item.display_name }}<div class="small cdd-muted">{{ item.username }}</div></td><td>{{ item.get_role_display }}</td><td>{% if item.is_active %}启用{% else %}停用{% endif %}</td><td><div class="d-flex flex-wrap gap-1">
+        <form method="post" action="{% url 'accounts:force-logout' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">强制下线</button></form>
+        <form method="post" action="{% url 'accounts:reset-password' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">重置口令</button></form>
+        <form method="post" action="{% url 'accounts:toggle-active' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">{% if item.is_active %}停用{% else %}启用{% endif %}</button></form>
+      </div></td></tr>{% empty %}<tr><td colspan="4">暂无账号</td></tr>{% endfor %}
+      </tbody></table></div></section>
+  </div>
+</main>
+{% endblock %}

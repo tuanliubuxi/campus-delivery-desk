@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-theme="{{ effective_theme|default:'light' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,7 +15,42 @@
   <script defer src="{% static 'js/app.js' %}"></script>
   <title>{% block title %}校驿{% endblock %}</title>
 </head>
-<body>
+<body data-heartbeat-interval="{{ heartbeat_interval|default:0 }}"
+      data-heartbeat-url="{% url 'accounts:heartbeat' %}"
+      data-theme-url="{% url 'accounts:theme-preference' %}"
+      data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
+  {% if user.is_authenticated %}
+  <nav class="navbar cdd-nav border-bottom mb-3">
+    <div class="container-fluid gap-2">
+      <a class="navbar-brand fw-bold" href="{% url 'home' %}">校驿</a>
+      <div class="d-flex align-items-center gap-2 ms-auto flex-wrap justify-content-end">
+        {% if user.is_admin %}
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:user-list' %}">人员</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'config_center:index' %}">配置中心</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
+        {% elif user.is_recorder %}
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
+        {% endif %}
+        <select class="form-select form-select-sm cdd-theme-select" aria-label="主题"
+                onchange="cddSetTheme(this.value)">
+          <option value="light" {% if effective_theme == 'light' %}selected{% endif %}>亮色</option>
+          <option value="dark" {% if effective_theme == 'dark' %}selected{% endif %}>暗色</option>
+          <option value="warm" {% if effective_theme == 'warm' %}selected{% endif %}>暖色</option>
+          <option value="fresh" {% if effective_theme == 'fresh' %}selected{% endif %}>蓝青</option>
+        </select>
+        <span>{{ user.emoji_avatar }} {{ user.display_name }}</span>
+        <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger">退出</button>
+        </form>
+      </div>
+    </div>
+  </nav>
+  {% endif %}
+  {% if messages %}
+  <div class="container">
+    {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}
+  </div>
+  {% endif %}
   {% block content %}{% endblock %}
 </body>
 </html>

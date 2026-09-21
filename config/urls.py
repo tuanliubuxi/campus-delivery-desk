@@ -1,13 +1,19 @@
 from django.contrib import admin
 from django.http import HttpResponse
-from django.shortcuts import render
-from django.urls import path
+from django.shortcuts import redirect
+from django.urls import include, path
 
 from apps.operations.views import health_live, health_ready
 
 
 def home(request):
-    return render(request, "pages/home.html")
+    if not request.user.is_authenticated:
+        return redirect("accounts:login")
+    if request.user.is_courier:
+        return redirect("accounts:courier-dashboard")
+    if request.user.is_admin:
+        return redirect("accounts:admin-dashboard")
+    return redirect("customers:list")
 
 
 def pwa_manifest(request):
@@ -31,6 +37,9 @@ def service_worker(request):
 
 urlpatterns = [
     path("", home, name="home"),
+    path("", include("apps.accounts.urls")),
+    path("", include("apps.customers.urls")),
+    path("", include("apps.config_center.urls")),
     path("manifest.webmanifest", pwa_manifest, name="pwa-manifest"),
     path("service-worker.js", service_worker, name="service-worker"),
     path("admin/", admin.site.urls),

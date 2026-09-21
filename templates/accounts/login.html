@@ -1,0 +1,42 @@
+{% extends "layouts/base.html" %}
+{% block title %}{% if admin_login %}管理员登录{% else %}登录{% endif %} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-5 cdd-login-shell">
+  <section class="cdd-card p-4 shadow-sm">
+    <h1 class="h3 mb-1">校驿</h1>
+    <p class="cdd-muted">{% if admin_login %}管理员入口{% else %}选择角色与人员后输入口令{% endif %}</p>
+    <form method="post" novalidate>{% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="mb-3">{{ form.role.label_tag }}{{ form.role }}{{ form.role.errors }}</div>
+      <div class="mb-3"><label for="id_user">人员</label>
+        <select class="form-select" name="user" id="id_user" required>
+          <option value="">请选择人员</option>
+          {% for person in login_users %}<option value="{{ person.id }}" data-role="{{ person.role }}" {% if form.data.user == person.id|stringformat:'s' %}selected{% endif %}>{{ person.emoji_avatar }} {{ person.display_name }}</option>{% endfor %}
+        </select>{{ form.user.errors }}
+      </div>
+      <div class="mb-3">{{ form.password.label_tag }}{{ form.password }}{{ form.password.errors }}</div>
+      <button class="btn btn-primary w-100 cdd-touch">登录</button>
+    </form>
+    {% if admin_login %}
+      <a class="small d-block mt-3" href="{% url 'accounts:login' %}">返回普通入口</a>
+    {% else %}
+      <a class="small cdd-admin-corner" href="{% url 'accounts:admin-login' %}">管理员入口</a>
+    {% endif %}
+  </section>
+</main>
+{% if not admin_login %}<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const role = document.getElementById("id_role");
+  const people = document.getElementById("id_user");
+  const filterPeople = () => {
+    for (const option of people.options) {
+      if (!option.value) continue;
+      option.hidden = option.dataset.role !== role.value;
+      if (option.hidden && option.selected) people.value = "";
+    }
+  };
+  role.addEventListener("change", filterPeople);
+  filterPeople();
+});
+</script>{% endif %}
+{% endblock %}

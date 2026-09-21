@@ -18,3 +18,44 @@ body {
   width: min(100%, 480px);
   margin-inline: auto;
 }
+
+.cdd-nav,
+.table {
+  background: var(--cdd-surface);
+  color: var(--cdd-text);
+}
+
+.cdd-login-shell {
+  width: min(100%, 480px);
+}
+
+.cdd-admin-corner {
+  display: block;
+  margin-top: 2rem;
+  text-align: right;
+  color: var(--cdd-muted);
+}
+
+.cdd-theme-select {
+  width: 6.5rem;
+}
+
+.cdd-touch {
+  min-height: 44px;
+}
+
+.cdd-dashboard-link {
+  color: var(--cdd-text);
+  text-decoration: none;
+}
+
+.errorlist {
+  color: #b42318;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 420px) {
+  .container {
+    padding-inline: 0.75rem;
+  }
+}
