@@ -1,6 +1,6 @@
 # 校驿 · Campus Delivery Desk
 
-面向小型校园代取/配送团队的自托管运营系统。工程骨架以及账号、客户、基础配置功能已经建立；后续业务功能按 [V1 实施计划](docs/spec/11_IMPLEMENTATION_PLAN.md) 逐阶段实现。V1 权威规格见 [docs/spec/README.md](docs/spec/README.md)。
+面向小型校园代取/配送团队的自托管运营系统。工程骨架、账号、客户、基础配置和代理人/代理批次功能已经建立；后续业务功能按 [V1 实施计划](docs/spec/11_IMPLEMENTATION_PLAN.md) 逐阶段实现。V1 权威规格见 [docs/spec/README.md](docs/spec/README.md)。
 
 ## 技术栈
 

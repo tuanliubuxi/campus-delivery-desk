@@ -42,9 +42,22 @@
 - [x] 全部代码与可注释配置文件补充文件职责说明，并在账号租约、配置快照、SQLite WAL、容器边界等关键位置补充维护性注释（严格 JSON 配置保持标准格式）
 - [x] 根目录新增 `run-dev.bat` 与 `run-prod.bat`，两者的 `--check` 模式均通过
 
+## Phase 2：代理人体系（已完成）
+
+- [x] Agent 长期档案、搜索、修改与停用（历史记录不删除）
+- [x] ProxyBatch 基础模型、OPEN/READY_TO_SETTLE/SETTLED/CANCELED 状态字段与 OPEN 追加边界
+- [x] ProxyRecipient 批次内临时资料，与 Customer 完全隔离
+- [x] 代理来源业务类型守卫：仅 EXPRESS 可用
+- [x] `{楼栋}号楼#{本批次序号}` 自动临时命名及批次内唯一约束
+- [x] 代理批次工作台、新建批次、连续维护临时收件人响应式 UI
+- [x] `show_price_on_receipt` 默认开启且可在 OPEN 批次内修改
+- [x] 代理人/联系方式/批次/临时收件人搜索，创建与修改写入 AuditEvent
+- [x] migration、专项/全量测试、Docker Compose 构建及运行态回归
+
+本阶段新增 `agents.0001_initial`，建立 Agent、ProxyBatch、ProxyRecipient 及批次编号、临时名称数据库约束。全量 36 项 pytest 测试通过；Ruff、Django check、migration drift check 通过；生产镜像构建成功，容器内迁移无遗漏，Web healthy 且 `/health/ready` 返回 200，scheduler 正常常驻。按阶段依赖，涉及 Order/Assignment/ExpressRound 的 `cancel_proxy_batch()` 保留到 Phase 5，READY 自动判定、显式 reopen 与凭证失效保留到 Phase 6。
+
 ## 后续阶段
 
-- [ ] Phase 2：代理人体系（基础模型；原子整批取消留到 Phase 5）
 - [ ] Phase 3：订单、费用与结算基础模型
 - [ ] Phase 4：简单配送业务
 - [ ] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
