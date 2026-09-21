@@ -1,0 +1,46 @@
+{# Proxy batch intake page showing frozen state and batch-scoped recipients. #}
+{% extends "layouts/base.html" %}
+{% block title %}{{ batch.agent.name }} {{ batch.display_code }} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+    <div>
+      <a href="{% url 'agents:workspace' %}" class="small">← 返回代理批次</a>
+      <h1 class="h3 mt-2 mb-1">{{ batch.agent.name }} · {{ batch.display_code }}</h1>
+      <div class="cdd-muted">{{ batch.get_status_display }} · 仅限快递 · {{ batch.batch_date }}</div>
+    </div>
+    {% if batch.accepts_new_members %}
+      <a class="btn btn-primary cdd-touch" href="{% url 'agents:recipient-create' batch.pk %}">新增临时收件人</a>
+    {% else %}
+      <button class="btn btn-secondary cdd-touch" disabled>批次已冻结，不能追加</button>
+    {% endif %}
+  </div>
+
+  {% if batch.note %}<div class="alert alert-light border">批次备注：{{ batch.note }}</div>{% endif %}
+  <div class="row g-3">
+    {% for recipient in batch.recipients.all %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <article class="cdd-card p-3 h-100">
+        <div class="d-flex justify-content-between gap-2">
+          <strong>{{ recipient.display_name }}</strong>
+          <span class="badge text-bg-light">{% if recipient.show_price_on_receipt %}凭证显示价格{% else %}凭证隐藏价格{% endif %}</span>
+        </div>
+        <dl class="row small mt-3 mb-0">
+          <dt class="col-4">楼栋</dt><dd class="col-8">{{ recipient.building|default:"校外/待录单确认" }}</dd>
+          <dt class="col-4">收件人</dt><dd class="col-8">{{ recipient.recipient_names|default:"—" }}</dd>
+          <dt class="col-4">微信</dt><dd class="col-8">{{ recipient.wechat_nickname|default:"—" }}</dd>
+          <dt class="col-4">尾号</dt><dd class="col-8">{{ recipient.phone_suffixes|default:"—" }}</dd>
+          <dt class="col-4">房间</dt><dd class="col-8">{{ recipient.floor|default:"" }} {{ recipient.room|default:"—" }}</dd>
+        </dl>
+        {% if recipient.note %}<p class="small border-top pt-2 mb-0">{{ recipient.note }}</p>{% endif %}
+        {% if batch.accepts_new_members %}<a class="btn btn-sm btn-outline-secondary mt-3" href="{% url 'agents:recipient-edit' recipient.pk %}">编辑资料</a>{% endif %}
+      </article>
+    </div>
+    {% empty %}
+    <div class="col-12">
+      <div class="cdd-card p-4 cdd-muted">此批次还没有临时收件人。先创建收件归属，再连续录入其快递。</div>
+    </div>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,78 @@
+{# Searchable proxy workspace for long-lived agents and their temporary batches. #}
+{% extends "layouts/base.html" %}
+{% block title %}代理人/代理批次 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1">代理人/代理批次</h1>
+      <p class="cdd-muted mb-0">代理体系仅用于快递；临时收件人不会进入正式客户库。</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary" href="{% url 'agents:agent-create' %}">新建代理人</a>
+      <a class="btn btn-primary" href="{% url 'agents:batch-create' %}">新建批次</a>
+    </div>
+  </div>
+
+  <form method="get" class="cdd-card p-3 mb-4" role="search">
+    <label class="form-label" for="proxy-search">搜索代理人、联系方式、批次备注或临时收件人</label>
+    <div class="input-group">
+      <input id="proxy-search" class="form-control" name="q" value="{{ query }}" placeholder="名称 / 手机尾号 / 批次 ID">
+      <button class="btn btn-primary">搜索</button>
+    </div>
+  </form>
+
+  {% if agents %}
+  <section class="mb-4" aria-labelledby="agents-heading">
+    <h2 id="agents-heading" class="h5">代理人</h2>
+    <div class="row g-3">
+      {% for agent in agents %}
+      <div class="col-12 col-md-6 col-xl-4">
+        <article class="cdd-card p-3 h-100">
+          <div class="d-flex justify-content-between gap-2">
+            <strong>{{ agent.name }}</strong>
+            <span class="badge text-bg-{% if agent.is_active %}success{% else %}secondary{% endif %}">{% if agent.is_active %}启用{% else %}停用{% endif %}</span>
+          </div>
+          <div class="cdd-muted small mt-2">{{ agent.contact_text|default:"未填写联系方式" }}</div>
+          <div class="small mt-2">批次：{{ agent.batch_count }}</div>
+          <div class="d-flex gap-2 mt-3">
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'agents:agent-edit' agent.pk %}">编辑</a>
+            {% if agent.is_active %}<a class="btn btn-sm btn-outline-primary" href="{% url 'agents:batch-create' %}?agent={{ agent.pk }}">新建批次</a>{% endif %}
+          </div>
+        </article>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section aria-labelledby="batches-heading">
+    <h2 id="batches-heading" class="h5">代理批次</h2>
+    <div class="row g-3">
+      {% for batch in batch_page %}
+      <div class="col-12 col-md-6 col-xl-4">
+        <article class="cdd-card p-3 h-100">
+          <div class="d-flex justify-content-between gap-2">
+            <strong>{{ batch.agent.name }}</strong>
+            <span class="badge text-bg-{% if batch.status == 'OPEN' %}primary{% elif batch.status == 'CANCELED' %}secondary{% else %}warning{% endif %}">{{ batch.get_status_display }}</span>
+          </div>
+          <div class="mt-2">批次 {{ batch.display_code }}</div>
+          <div class="cdd-muted small">临时收件人 {{ batch.recipient_count }} 人 · 创建人 {{ batch.created_by|default:"系统" }}</div>
+          {% if batch.note %}<p class="small mt-2 mb-0">{{ batch.note }}</p>{% endif %}
+          <a class="btn btn-sm btn-primary mt-3" href="{% url 'agents:batch-detail' batch.pk %}">进入批次</a>
+        </article>
+      </div>
+      {% empty %}
+      <div class="col-12"><div class="cdd-card p-4 cdd-muted">没有匹配的代理批次。</div></div>
+      {% endfor %}
+    </div>
+    {% if batch_page.has_other_pages %}
+    <nav class="mt-3" aria-label="代理批次分页">
+      {% if batch_page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?q={{ query|urlencode }}&page={{ batch_page.previous_page_number }}">上一页</a>{% endif %}
+      <span class="mx-2">第 {{ batch_page.number }} / {{ batch_page.paginator.num_pages }} 页</span>
+      {% if batch_page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?q={{ query|urlencode }}&page={{ batch_page.next_page_number }}">下一页</a>{% endif %}
+    </nav>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

@@ -1,0 +1,21 @@
+{# Batch-scoped temporary-recipient form with optional automatic naming. #}
+{% extends "layouts/base.html" %}
+{% block title %}新增临时收件人 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-4" style="max-width: 760px">
+  <a href="{% url 'agents:batch-detail' batch.pk %}" class="small">← 返回批次</a>
+  <h1 class="h3 mt-2">{% if recipient %}编辑{% else %}新增{% endif %}临时收件人</h1>
+  <p class="cdd-muted">{{ batch.agent.name }} · {{ batch.display_code }}。资料只属于本批次，不会进入正式客户库。</p>
+  {% if batch.accepts_new_members %}
+  <section class="cdd-card p-3">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary cdd-touch">保存并返回批次</button>
+    </form>
+  </section>
+  {% else %}
+  <div class="alert alert-warning">该批次已冻结，不能新增临时收件人。</div>
+  {% endif %}
+</main>
+{% endblock %}

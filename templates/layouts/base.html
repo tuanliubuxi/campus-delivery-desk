@@ -29,8 +29,10 @@
           <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:user-list' %}">人员</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'config_center:index' %}">配置中心</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'agents:workspace' %}">代理</a>
         {% elif user.is_recorder %}
           <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'agents:workspace' %}">代理</a>
         {% endif %}
         <select class="form-select form-select-sm cdd-theme-select" aria-label="主题"
                 onchange="cddSetTheme(this.value)">

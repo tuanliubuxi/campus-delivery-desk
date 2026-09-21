@@ -40,6 +40,7 @@ def service_worker(request):
 urlpatterns = [
     path("", home, name="home"),
     path("", include("apps.accounts.urls")),
+    path("", include("apps.agents.urls")),
     path("", include("apps.customers.urls")),
     path("", include("apps.config_center.urls")),
     path("manifest.webmanifest", pwa_manifest, name="pwa-manifest"),

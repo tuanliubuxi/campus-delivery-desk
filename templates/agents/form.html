@@ -1,0 +1,18 @@
+{# Shared form page for creating an agent profile or a new proxy batch. #}
+{% extends "layouts/base.html" %}
+{% block title %}{{ title }} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-4" style="max-width: 760px">
+  <h1 class="h3">{{ title }}</h1>
+  <section class="cdd-card p-3">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary cdd-touch">保存</button>
+        <a class="btn btn-link cdd-touch" href="{% url 'agents:workspace' %}">取消</a>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}
