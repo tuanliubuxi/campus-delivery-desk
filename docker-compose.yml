@@ -1,3 +1,4 @@
+# Single-host V1 production topology: Django web, scheduler, and Caddy proxy.
 services:
   web:
     build: .
@@ -9,6 +10,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod
     volumes:
+      # Business data stays on the host; collected static files are shared read-only with Caddy.
       - ./data:/data
       - static_data:/app/staticfiles
     healthcheck:
@@ -19,6 +21,7 @@ services:
     restart: unless-stopped
 
   scheduler:
+    # Scheduler is a separate process but calls the same Django service layer as web requests.
     build: .
     command: >
       sh -c "mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
@@ -31,6 +34,7 @@ services:
     restart: unless-stopped
 
   caddy:
+    # Caddy is the only service exposed to the host and terminates HTTPS.
     image: caddy:2
     ports:
       - "80:80"

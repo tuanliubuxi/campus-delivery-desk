@@ -1,3 +1,4 @@
+/* Application shell and reusable component styles for desktop and mobile views. */
 body {
   min-height: 100vh;
   background: var(--cdd-bg);

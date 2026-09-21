@@ -1,3 +1,4 @@
+# Keep local state, secrets, caches, and development-only material out of images.
 .git
 .venv
 data

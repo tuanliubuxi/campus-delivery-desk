@@ -1,3 +1,5 @@
+"""Django application metadata for fees, settlements, and payroll."""
+
 from django.apps import AppConfig
 
 

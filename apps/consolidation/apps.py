@@ -1,3 +1,5 @@
+"""Django application metadata for package consolidation workflows."""
+
 from django.apps import AppConfig
 
 

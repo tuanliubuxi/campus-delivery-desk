@@ -1,3 +1,5 @@
+"""Django application metadata for delivery-agent domain features."""
+
 from django.apps import AppConfig
 
 

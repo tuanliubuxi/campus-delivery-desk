@@ -36,6 +36,12 @@
 
 本地验证：24 项 pytest 测试通过；Ruff、Django check、migration drift check 通过。Docker Compose 完成新镜像构建和容器内迁移；Web healthy，HTTPS `/health/ready` 与 `/login/` 均返回 200，初始化数据核对为 6 种业务、18 栋楼、KFC 开放日为星期四。默认配送员分成比例未在规格中给出，未自行猜测，配置行以“未配置”初始化并记录在 `docs/IMPLEMENTATION_QUESTIONS.md`。
 
+## Phase 2 前工程准备（已完成）
+
+- [x] 本机 Docker Desktop 配置 DaoCloud 国内 registry mirror，保留原配置备份并完成实际拉取验证
+- [x] 全部代码与可注释配置文件补充文件职责说明，并在账号租约、配置快照、SQLite WAL、容器边界等关键位置补充维护性注释（严格 JSON 配置保持标准格式）
+- [x] 根目录新增 `run-dev.bat` 与 `run-prod.bat`，两者的 `--check` 模式均通过
+
 ## 后续阶段
 
 - [ ] Phase 2：代理人体系（基础模型；原子整批取消留到 Phase 5）

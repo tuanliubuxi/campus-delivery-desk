@@ -1,3 +1,5 @@
+"""Shared enum primitives used by domain model choices."""
+
 from django.db import models
 
 

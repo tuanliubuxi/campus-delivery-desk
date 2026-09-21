@@ -1,3 +1,5 @@
+"""Django application metadata for customer records."""
+
 from django.apps import AppConfig
 
 

@@ -1,3 +1,5 @@
+"""Integration tests for health checks and production safety settings."""
+
 from unittest.mock import patch
 
 from django.urls import reverse

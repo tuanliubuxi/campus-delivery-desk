@@ -1,3 +1,4 @@
+/* Design tokens shared by light and dark themes; components consume these variables. */
 :root,
 [data-theme="light"] {
   color-scheme: light;

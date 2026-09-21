@@ -1,3 +1,5 @@
+"""Django application metadata for append-only business auditing."""
+
 from django.apps import AppConfig
 
 

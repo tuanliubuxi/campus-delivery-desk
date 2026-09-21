@@ -1,3 +1,5 @@
+"""Integration tests for the shared application shell and PWA metadata."""
+
 from django.urls import reverse
 
 

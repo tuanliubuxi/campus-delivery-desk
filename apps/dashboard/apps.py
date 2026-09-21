@@ -1,3 +1,5 @@
+"""Django application metadata for role-specific dashboards."""
+
 from django.apps import AppConfig
 
 

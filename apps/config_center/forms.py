@@ -1,3 +1,5 @@
+"""Validated administrator forms for mutable business configuration."""
+
 from django import forms
 
 from apps.common.forms import BootstrapFormMixin

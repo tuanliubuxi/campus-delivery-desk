@@ -1,3 +1,5 @@
+"""Transactional customer mutations and immutable snapshot creation."""
+
 from dataclasses import dataclass
 
 from django.db import transaction
@@ -8,6 +10,8 @@ from apps.customers.models import Customer
 
 @dataclass(frozen=True)
 class CustomerSnapshot:
+    """Value copied into future orders so customer profile edits cannot rewrite history."""
+
     customer_id: int
     wechat_nickname: str
     recipient_names: str
@@ -20,6 +24,7 @@ class CustomerSnapshot:
 
 
 def snapshot_customer(customer):
+    # Copy display values rather than retaining model references that could later change.
     building = customer.building
     return CustomerSnapshot(
         customer_id=customer.pk,

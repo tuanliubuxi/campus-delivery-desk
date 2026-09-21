@@ -1,3 +1,5 @@
+"""Forms that normalize and validate administrator customer input."""
+
 from django import forms
 
 from apps.common.forms import BootstrapFormMixin

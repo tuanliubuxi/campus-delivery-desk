@@ -1,3 +1,5 @@
+"""URL routes for customer search and maintenance."""
+
 from django.urls import path
 
 from apps.customers import views

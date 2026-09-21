@@ -1,3 +1,5 @@
+"""Persistent audit events for sensitive business actions."""
+
 from django.conf import settings
 from django.db import models
 

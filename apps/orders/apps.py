@@ -1,3 +1,5 @@
+"""Django application metadata for ordinary and proxy delivery orders."""
+
 from django.apps import AppConfig
 
 

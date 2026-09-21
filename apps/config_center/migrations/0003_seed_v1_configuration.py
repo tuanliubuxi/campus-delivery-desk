@@ -1,3 +1,5 @@
+"""Seed the required V1 business types and singleton configuration rows."""
+
 from django.db import migrations
 
 BUSINESSES = [

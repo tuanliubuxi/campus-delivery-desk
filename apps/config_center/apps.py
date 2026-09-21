@@ -1,3 +1,5 @@
+"""Django application metadata for site and pricing configuration."""
+
 from django.apps import AppConfig
 
 

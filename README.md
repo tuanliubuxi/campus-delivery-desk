@@ -26,6 +26,14 @@ Python 3.12+、Django 5.2 LTS、Templates + HTMX + Alpine.js + Bootstrap、SQLit
 
 健康接口 /health/live 只检查进程响应；/health/ready 检查 SQLite 文件可取得写锁且数据目录可写。SQLite 数据库默认在 data/db/app.sqlite3，迁移后自动启用 WAL。data/、本地环境文件和历史规格归档不会进入 Git。
 
+## Windows 快捷脚本
+
+- `run-dev.bat`：检查虚拟环境、创建本地数据目录、执行迁移并启动 Django 开发服务器；运行地址为 `http://127.0.0.1:8000/`。
+- `run-prod.bat`：校验 Docker 与 `.env`，构建镜像、执行容器内迁移，然后启动 Web、scheduler 和 Caddy。生产模式使用 `docker-compose.yml` 中的 80/443 端口。
+- 两个脚本都支持 `--check`，只检查环境而不启动长期服务：`run-dev.bat --check`、`run-prod.bat --check`。
+
+脚本遇到缺少虚拟环境、Docker 未启动、Compose 配置错误或示例生产密钥时会立即停止，不会绕过安全校验。
+
 ## Docker Compose
 
 安装 Docker Engine/Desktop 与 Compose 插件后：
@@ -39,6 +47,18 @@ Python 3.12+、Django 5.2 LTS、Templates + HTMX + Alpine.js + Bootstrap、SQLit
     docker compose up -d
 
 Compose 包含 web、独立 scheduler 和 caddy。共享的 ./data 保存数据库与媒体；收集后的静态资源存放在 Web/Caddy 共享 volume。Caddy 只公开静态资源，不匿名公开 media。当前 scheduler 仅启动进程骨架，定时业务任务属于 Phase 10。迁移会初始化固定六种业务、1～18 号楼、默认价格/KFC 开放日等 V1 配置；管理员账号仍通过 `createsuperuser` 显式创建，不内置默认口令。
+
+### Docker Desktop 国内镜像
+
+国内网络可在 `%USERPROFILE%\.docker\daemon.json` 保留原配置并加入：
+
+```json
+"registry-mirrors": [
+  "https://docker.m.daocloud.io"
+]
+```
+
+保存后重启 Docker Desktop，通过 `docker info` 确认 Registry Mirrors，再用普通的 `docker pull` 命令验证。镜像加速服务属于第三方下载链路；如服务策略或可用性变化，应移除该项并回退 Docker Hub 或改用团队自建镜像仓库。
 
 ## 环境与安全
 

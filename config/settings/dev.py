@@ -1,3 +1,5 @@
+"""Developer-friendly settings for the local SQLite workflow."""
+
 from .base import *  # noqa: F403
 
 DEBUG = True

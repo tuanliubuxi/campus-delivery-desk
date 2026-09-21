@@ -1,3 +1,5 @@
+"""Acceptance coverage for customer validation, search, and deletion."""
+
 import pytest
 from django.core.exceptions import ValidationError
 

@@ -1,3 +1,4 @@
+{# Shared login form; copy and route vary between staff and administrator entry points. #}
 {% extends "layouts/base.html" %}
 {% block title %}{% if admin_login %}管理员登录{% else %}登录{% endif %} · 校驿{% endblock %}
 {% block content %}

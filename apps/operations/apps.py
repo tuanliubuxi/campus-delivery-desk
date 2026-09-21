@@ -1,3 +1,5 @@
+"""Django application metadata for health and operational tooling."""
+
 from django.apps import AppConfig
 
 

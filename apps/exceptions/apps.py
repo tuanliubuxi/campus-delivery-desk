@@ -1,3 +1,5 @@
+"""Django application metadata for exception-case handling."""
+
 from django.apps import AppConfig
 
 

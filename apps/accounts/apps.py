@@ -1,3 +1,5 @@
+"""Django application metadata for authentication and user accounts."""
+
 from django.apps import AppConfig
 
 

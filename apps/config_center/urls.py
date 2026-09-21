@@ -1,3 +1,5 @@
+"""URL routes for the administrator configuration center."""
+
 from django.urls import path
 
 from apps.config_center import views

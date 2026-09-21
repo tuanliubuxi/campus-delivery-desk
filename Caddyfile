@@ -1,12 +1,15 @@
+# Terminate HTTP(S), compress responses, and proxy application traffic to Django.
 {$APP_DOMAIN:localhost} {
   encode zstd gzip
 
+  # Static assets are public; media files deliberately remain behind Django permission checks.
   handle_path /static/* {
     root * /srv/static
     file_server
   }
 
   handle {
+    # Preserve a single application origin for HTML, API-like endpoints and the PWA.
     reverse_proxy web:8000
   }
 }

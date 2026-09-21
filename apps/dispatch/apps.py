@@ -1,3 +1,5 @@
+"""Django application metadata for assignment and express rounds."""
+
 from django.apps import AppConfig
 
 

@@ -1,3 +1,5 @@
+"""Transactional configuration mutations with audit snapshots."""
+
 from django.db import transaction
 from django.forms.models import model_to_dict
 

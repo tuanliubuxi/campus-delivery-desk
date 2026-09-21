@@ -1,3 +1,5 @@
+"""Administrator views for customer search, creation, and editing."""
+
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models.deletion import ProtectedError

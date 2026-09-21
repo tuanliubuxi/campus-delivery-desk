@@ -1,9 +1,12 @@
+"""Settings shared by every Campus Delivery Desk environment."""
+
 import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_ROOT = Path(os.environ.get("DATA_ROOT", BASE_DIR / "data"))
 
+# Security-sensitive values may be relaxed only by the explicit development module.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "development-only-change-before-deploying")
 DEBUG = False
 ALLOWED_HOSTS = [
@@ -71,10 +74,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 AUTH_USER_MODEL = "accounts.User"
 
+# V1 deliberately uses one SQLite database stored below the configurable data root.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.environ.get("DB_PATH", DATA_ROOT / "db" / "app.sqlite3"),
+        # WAL is required by the V1 concurrency model; timeout only bounds short lock waits.
         "OPTIONS": {"timeout": 5, "init_command": "PRAGMA journal_mode=WAL;"},
     }
 }
@@ -104,6 +109,7 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
 SESSION_COOKIE_SAMESITE = "Lax"
 LOGIN_URL = "/login/"
 
+# Production logs to stdout for Docker collection; development uses the same format.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

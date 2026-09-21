@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+"""Django command-line entry point for local and administrative tasks."""
+
 import os
 import sys
 

@@ -1,3 +1,5 @@
+"""Customer search and possible-duplicate detection queries."""
+
 import re
 
 from django.db.models import Q
@@ -15,6 +17,7 @@ def search_customers(query=""):
     if not tokens:
         return customers
     condition = Q()
+    # Slash-separated input is an OR search: any known name or phone suffix can identify a customer.
     for token in tokens:
         condition |= (
             Q(wechat_nickname__icontains=token)

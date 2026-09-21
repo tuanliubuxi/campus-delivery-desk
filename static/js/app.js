@@ -1,3 +1,4 @@
+// Shared progressive enhancement for theme persistence and shell interactions.
 const serverTheme = document.documentElement.dataset.theme || "light";
 document.documentElement.dataset.theme = document.body?.dataset.authenticated === "true"
   ? serverTheme

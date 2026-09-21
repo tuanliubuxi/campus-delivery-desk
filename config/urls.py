@@ -1,3 +1,5 @@
+"""Root URL routing and lightweight infrastructure endpoints."""
+
 from django.contrib import admin
 from django.http import HttpResponse
 from django.shortcuts import redirect

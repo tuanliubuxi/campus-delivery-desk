@@ -1,3 +1,5 @@
+"""Central write path for immutable audit-event records."""
+
 from apps.audit.models import AuditEvent
 
 

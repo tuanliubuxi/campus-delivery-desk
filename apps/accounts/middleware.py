@@ -1,3 +1,5 @@
+"""Request middleware that enforces single-session login leases."""
+
 from django.contrib.auth import logout
 
 from apps.accounts.services.leases import InvalidLease, validate_request_lease

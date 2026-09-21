@@ -1,3 +1,4 @@
+<!-- Installable PWA icon: a simple parcel mark that remains legible when masked. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="96" fill="#2456a6"/>
   <path d="M112 150h288v214H112z" fill="#fff"/>

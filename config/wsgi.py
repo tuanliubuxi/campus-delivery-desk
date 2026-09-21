@@ -1,3 +1,5 @@
+"""WSGI entry point used by the production Gunicorn process."""
+
 import os
 
 from django.core.wsgi import get_wsgi_application

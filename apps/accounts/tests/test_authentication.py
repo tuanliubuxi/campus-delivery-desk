@@ -1,3 +1,5 @@
+"""Acceptance coverage for roles, logins, leases, and account management."""
+
 from datetime import timedelta
 
 import pytest

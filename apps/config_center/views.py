@@ -1,3 +1,5 @@
+"""Administrator views for inspecting and changing configuration."""
+
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 

@@ -1,3 +1,5 @@
+"""Read models used to render configuration-center pages."""
+
 from apps.config_center.models import BusinessTypeConfig, CommissionConfig, SiteConfiguration
 
 

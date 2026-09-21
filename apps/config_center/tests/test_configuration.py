@@ -1,3 +1,5 @@
+"""Acceptance coverage for configuration validation, history, and audit."""
+
 from decimal import Decimal
 
 import pytest

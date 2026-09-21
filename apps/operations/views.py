@@ -1,3 +1,5 @@
+"""Operational endpoints for health checks and SQLite backup downloads."""
+
 import sqlite3
 import tempfile
 from pathlib import Path

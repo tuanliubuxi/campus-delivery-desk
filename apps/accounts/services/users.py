@@ -1,3 +1,5 @@
+"""Administrator-facing user creation and credential reset operations."""
+
 import secrets
 import string
 

@@ -1,3 +1,5 @@
+"""Atomic lifecycle operations for the one-account-one-session rule."""
+
 import hashlib
 import secrets
 from datetime import timedelta
@@ -25,10 +27,12 @@ class InvalidLease(LoginLeaseError):
 
 
 def _token_hash(token):
+    # Only the browser session keeps the bearer token; a database leak reveals hashes only.
     return hashlib.sha256(token.encode()).hexdigest()
 
 
 def _revoke(lease, *, actor, reason, now=None):
+    """Revoke the lease and delete its server-side Django Session in the same workflow."""
     if lease.revoked_at is not None:
         return lease
     now = now or timezone.now()
@@ -42,6 +46,7 @@ def _revoke(lease, *, actor, reason, now=None):
 
 @transaction.atomic
 def login_user_with_lease(*, request, user):
+    """Create the sole fresh lease, replacing stale leases but rejecting active ones."""
     config = SiteConfiguration.load()
     now = timezone.now()
     existing = ActiveLoginLease.objects.filter(user=user, revoked_at__isnull=True).first()
@@ -54,6 +59,7 @@ def login_user_with_lease(*, request, user):
     request.session.save()
     token = secrets.token_urlsafe(32)
     try:
+        # The nested savepoint lets us translate a concurrent UNIQUE collision cleanly.
         with transaction.atomic():
             lease = ActiveLoginLease.objects.create(
                 user=user,
@@ -73,6 +79,7 @@ def login_user_with_lease(*, request, user):
 
 
 def get_request_lease(request):
+    """Verify that this Session owns the lease token stored for the authenticated user."""
     if not request.user.is_authenticated:
         raise InvalidLease("用户未登录")
     lease_id = request.session.get("login_lease_id")
@@ -91,6 +98,7 @@ def get_request_lease(request):
 
 
 def validate_request_lease(request):
+    """Reject stale sessions on every authenticated request, not only on heartbeat."""
     lease = get_request_lease(request)
     config = SiteConfiguration.load()
     now = timezone.now()
@@ -102,6 +110,7 @@ def validate_request_lease(request):
 
 
 def heartbeat(*, request):
+    """Refresh only the current valid lease; it never creates or replaces a lease."""
     lease = get_request_lease(request)
     config = SiteConfiguration.load()
     now = timezone.now()

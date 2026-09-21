@@ -1,3 +1,5 @@
+"""Django application metadata for protected evidence files."""
+
 from django.apps import AppConfig
 
 

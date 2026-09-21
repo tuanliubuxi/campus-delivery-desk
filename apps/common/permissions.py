@@ -1,3 +1,5 @@
+"""View-level role checks shared across Django applications."""
+
 from functools import wraps
 
 from django.contrib.auth.views import redirect_to_login

@@ -1,3 +1,5 @@
+"""Run the dedicated APScheduler process used by production Compose."""
+
 import logging
 
 from apscheduler.schedulers.blocking import BlockingScheduler

@@ -1,3 +1,5 @@
+"""Versioned site, commission, and business-type configuration models."""
+
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -27,6 +29,8 @@ class Building(models.Model):
 
 
 class BusinessTypeConfig(models.Model):
+    """Presentation and pricing switches for one of the six fixed V1 business types."""
+
     business_type = models.CharField(max_length=24, choices=BusinessType.choices, unique=True)
     enabled = models.BooleanField(default=True)
     display_name = models.CharField(max_length=40)
@@ -62,6 +66,7 @@ class EarningSource(models.TextChoices):
 
 
 class CommissionConfig(models.Model):
+    # A null rate means "administrator has not configured it"; later earning services must reject it.
     business_type = models.CharField(max_length=24, choices=BusinessType.choices)
     earning_source = models.CharField(max_length=24, choices=EarningSource.choices)
     commission_rate = models.DecimalField(
@@ -83,7 +88,7 @@ class CommissionConfig(models.Model):
 
 
 class SiteConfiguration(models.Model):
-    """Singleton for typed global settings; the only valid primary key is 1."""
+    """Typed singleton configuration; core business values are intentionally not JSON."""
 
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     express_small_price = models.DecimalField(
@@ -148,6 +153,7 @@ class SiteConfiguration(models.Model):
             raise ValidationError({"lease_stale_seconds": "租约超时必须大于心跳间隔"})
 
     def save(self, *args, **kwargs):
+        # Pinning pk=1 prevents application services from accidentally creating competing configs.
         self.pk = 1
         self.full_clean()
         return super().save(*args, **kwargs)

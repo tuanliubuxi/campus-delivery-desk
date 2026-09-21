@@ -1,3 +1,5 @@
+"""Server-rendered authentication and account-management views."""
+
 from django.contrib import messages
 from django.contrib.auth import logout as django_logout
 from django.http import JsonResponse

@@ -1,3 +1,5 @@
+"""Forms for login and administrator-managed user accounts."""
+
 from django import forms
 
 from apps.accounts.models import User

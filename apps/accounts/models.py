@@ -1,3 +1,5 @@
+"""User identity, role, and active-login lease persistence models."""
+
 from datetime import timedelta
 
 from django.conf import settings
@@ -18,6 +20,8 @@ class UserManager(DjangoUserManager):
 
 
 class User(AbstractUser):
+    """Application identity; role fields are authoritative, not the login-page selection."""
+
     display_name = models.CharField(max_length=80, default="")
     role = models.CharField(max_length=16, choices=UserRole.choices, default=UserRole.COURIER)
     emoji_avatar = models.CharField(max_length=16, blank=True, default="📦")
@@ -33,6 +37,7 @@ class User(AbstractUser):
 
     class Meta:
         constraints = [
+            # Recorder/admin accounts must never leak into courier availability selectors.
             models.CheckConstraint(
                 condition=(
                     Q(role=UserRole.COURIER)
@@ -59,6 +64,8 @@ class User(AbstractUser):
 
 
 class ActiveLoginLease(models.Model):
+    """Auditable session lease; revoked rows are retained as login history."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_leases")
     session_key = models.CharField(max_length=40, db_index=True)
     lease_token_hash = models.CharField(max_length=64)
@@ -77,6 +84,7 @@ class ActiveLoginLease(models.Model):
 
     class Meta:
         constraints = [
+            # Stale rows are explicitly revoked before replacement, keeping this SQLite-safe.
             models.UniqueConstraint(
                 fields=["user"],
                 condition=Q(revoked_at__isnull=True),
