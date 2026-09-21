@@ -17,9 +17,27 @@
 
 本地验证：Python 3.12.5；Django 5.2.17；初始自定义 User 迁移成功；SQLite journal_mode=wal；Django dev/prod check、collectstatic、健康接口及 5 项 pytest 测试通过。Docker Compose 已完成镜像构建、迁移和三服务启动验证；经 Caddy 访问 `/health/live`、`/health/ready` 均返回 200，HTTP 自动跳转 HTTPS，scheduler 正常常驻。因本机 Windows 保留 80 端口，容器验收临时使用宿主机 8080/8443 映射，正式 Compose 配置仍保持 80/443。
 
+## Phase 1：账号、会话、客户、配置（已完成）
+
+- [x] Custom User + ADMIN / RECORDER / COURIER 三角色
+- [x] 角色与人员下拉登录、独立管理员入口
+- [x] ActiveLoginLease、30 秒心跳、150 秒 stale 判定
+- [x] fresh lease 拒绝、stale lease 替换、旧 Session 失效
+- [x] 管理员强制下线、停用账号/重置口令同步失效会话
+- [x] 配送员接单开关、当前业务类型、后端角色校验
+- [x] Customer CRUD、历史值快照 DTO、疑似重复提醒
+- [x] 客户多名称/手机尾号 `/` token 搜索
+- [x] Building / Zone / 路线顺序及 1～18 号楼默认数据
+- [x] 固定六业务、价格、加急、快递附加费、上楼费率、天气、多件优惠配置
+- [x] 配送员按业务/收益来源分成配置、四主题默认值与用户覆盖
+- [x] KFC 默认开放日（ISO 星期四）与租约/媒体保留配置
+- [x] 关键写操作显式 service、后端权限校验与 AuditEvent
+- [x] 页面、迁移、测试、Docker Compose 回归、diff 审查、提交与推送
+
+本地验证：24 项 pytest 测试通过；Ruff、Django check、migration drift check 通过。Docker Compose 完成新镜像构建和容器内迁移；Web healthy，HTTPS `/health/ready` 与 `/login/` 均返回 200，初始化数据核对为 6 种业务、18 栋楼、KFC 开放日为星期四。默认配送员分成比例未在规格中给出，未自行猜测，配置行以“未配置”初始化并记录在 `docs/IMPLEMENTATION_QUESTIONS.md`。
+
 ## 后续阶段
 
-- [ ] Phase 1：账号、会话、客户、配置（全部 TODO 见实施计划）
 - [ ] Phase 2：代理人体系（基础模型；原子整批取消留到 Phase 5）
 - [ ] Phase 3：订单、费用与结算基础模型
 - [ ] Phase 4：简单配送业务
