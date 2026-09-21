@@ -2,10 +2,10 @@
 
 权威 TODO 与验收范围见 [V1 实施计划](spec/11_IMPLEMENTATION_PLAN.md)。本文件记录各阶段进展，不替代需求规格。
 
-## Phase 0：工程骨架（进行中）
+## Phase 0：工程骨架（已完成）
 
 - [x] Django 工程、dev/prod settings
-- [ ] Dockerfile / Compose / Caddy（文件已建立；本机缺 Docker CLI，尚未完成容器启动验收）
+- [x] Dockerfile / Compose / Caddy
 - [x] SQLite WAL
 - [x] pytest / pytest-django / Ruff
 - [x] health endpoints
@@ -13,9 +13,9 @@
 - [x] PWA manifest/service worker 基础
 - [x] 四套主题 CSS Variables
 - [x] README 安装说明
-- [ ] 当前阶段测试、diff 审查、提交与推送
+- [x] 当前阶段测试、diff 审查、提交与推送
 
-本地验证：Python 3.12.5；Django 5.2.17；初始自定义 User 迁移成功；SQLite journal_mode=wal；Django dev/prod check、collectstatic、健康接口及 5 项 pytest 测试通过。Docker Compose 运行验证待安装 Docker 后完成；不会因此提前进入 Phase 1。
+本地验证：Python 3.12.5；Django 5.2.17；初始自定义 User 迁移成功；SQLite journal_mode=wal；Django dev/prod check、collectstatic、健康接口及 5 项 pytest 测试通过。Docker Compose 已完成镜像构建、迁移和三服务启动验证；经 Caddy 访问 `/health/live`、`/health/ready` 均返回 200，HTTP 自动跳转 HTTPS，scheduler 正常常驻。因本机 Windows 保留 80 端口，容器验收临时使用宿主机 8080/8443 映射，正式 Compose 配置仍保持 80/443。
 
 ## 后续阶段
 

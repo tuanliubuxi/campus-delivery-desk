@@ -100,6 +100,9 @@ __marimo__/
 # Historical specification archives (kept locally, not versioned)
 docs/spec/spec-backup/
 
+# Local coding prompts and their archives
+docs/prompts/
+
 # Editors and operating systems
 .idea/
 .vscode/
