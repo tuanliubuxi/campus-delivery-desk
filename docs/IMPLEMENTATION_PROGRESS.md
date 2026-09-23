@@ -56,9 +56,29 @@
 
 本阶段新增 `agents.0001_initial`，建立 Agent、ProxyBatch、ProxyRecipient 及批次编号、临时名称数据库约束。全量 36 项 pytest 测试通过；Ruff、Django check、migration drift check 通过；生产镜像构建成功，容器内迁移无遗漏，Web healthy 且 `/health/ready` 返回 200，scheduler 正常常驻。按阶段依赖，涉及 Order/Assignment/ExpressRound 的 `cancel_proxy_batch()` 保留到 Phase 5，READY 自动判定、显式 reopen 与凭证失效保留到 Phase 6。
 
+## Phase 3：订单、费用与结算基础模型（已完成）
+
+- [x] Order 公共模型、独立 `requires_upstairs` 与六类强类型 Detail
+- [x] 固定/动态订单编号、两种格式统一解析与订单历史搜索
+- [x] 快递统一 pickup identifier 原值/规范化值、重复强提醒与明确确认继续
+- [x] EXPRESS service_date 默认/必填、显式 ExpressRound 与同收件归属归轮
+- [x] UNKNOWN 大小及创建时四档价格快照；已知大小立即生成基础费用
+- [x] 校外取件、校内送校外、加急与上楼等初始费用拆项
+- [x] 六类明确 creator/form、普通录单、客户连续录入和代理临时收件人连续录入
+- [x] 楼栋/校外地址、条件地点、上楼地址、行李数量/禁加急等前后端校验
+- [x] ChargeItem ACTIVE/VOIDED、禁止物理删除、定价/逻辑作废 service
+- [x] Settlement、SettlementOrder、仅供 freeze 创建的不可变 SettlementLine 基础模型
+- [x] append-only FinancialAdjustment 基础模型
+- [x] CourierEarning 按来源拆行字段、确定性 earning_key、可空 settlement 与幂等基础 service
+- [x] NEW 修改、NEW/ASSIGNED 未取取消、费用历史保留及 AuditEvent
+- [x] 响应式录单选择/表单/历史/详情/取消页面与角色后端权限
+- [x] migration、专项/全量测试、静态检查与 migration drift 检查
+
+本阶段新增 `orders.0001_initial`，建立 Order、ExpressRound 和六类 Detail 及收件归属、轮次、编号、目的地等数据库约束；新增 `settlements.0001_initial`，建立 ChargeItem、Settlement、SettlementOrder、SettlementLine、FinancialAdjustment、CourierEarning 及费用作用域、作废元数据、受益归属和冻结行唯一约束。全量 49 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。快递重复提醒的“时间窗口”长度未由规格给出，当前按同一 `service_date` 处理并记录于 `docs/IMPLEMENTATION_QUESTIONS.md`。按阶段边界，配送状态推进、UNKNOWN 大小确认、ExpressRound 关闭、代理批次整批取消、结算 build/freeze/confirm 均未提前实现。
+
 ## 后续阶段
 
-- [ ] Phase 3：订单、费用与结算基础模型
+- [x] Phase 3：订单、费用与结算基础模型
 - [ ] Phase 4：简单配送业务
 - [ ] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
 - [ ] Phase 6：归拢、多件轮次关闭、结算构建与凭证
