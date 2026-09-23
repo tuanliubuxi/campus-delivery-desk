@@ -94,11 +94,29 @@
 
 本阶段新增 `dispatch.0001_initial`，建立 DeliveryTask、Assignment、TransferRequest/Item、DeliveryDrop/Item 及有效责任、完成唯一性和收件归属约束；新增 `mediafiles.0001_initial`，建立 MediaFile 与 DeliveryEvidence；新增 `exceptions.0001_initial`、`exceptions.0002_initial`，建立异常、附件和证据关联，其中拆分迁移用于安全解决跨 App 外键依赖。同步修复 ASSIGNED 订单取消时释放未取件责任、活动任务期间禁止切换业务类型。Phase 4 专项 12 项、全量 61 项 pytest 测试通过；Ruff、Django check、migration drift check、`git diff --check` 均通过。Docker 生产镜像构建成功，一次性容器内 Django check 与 migrate check 通过，未遗留运行容器。未实现快递 RouteBatch、ExpressRound 关闭、代理批次原子取消或归拢逻辑，下一 Phase 尚未开始。
 
+## Phase 5：快递复杂配送（已完成）
+
+- [x] 南区、北区、校外路线池及取件区域/目的区域筛选
+- [x] 校外路线逐件展示具体取件地点，校内送校外突出详细地址
+- [x] SQLite 条件更新、唯一约束、短重试与冲突回查实现动态批量接单和部分成功
+- [x] 同一 Customer/ProxyRecipient 客户直送组批及加急优先展示
+- [x] 快递逐件取件、任务级仅启动已取物件、楼栋/收件归属配送排序
+- [x] UNKNOWN 大小在取到实物后确认，并按订单创建时四档价格快照生成基础费/上楼费
+- [x] 已取实物转单强制交接地点，接收人确认后才切换 Assignment
+- [x] 普通/代理快递 DeliveryDrop、最终配送员待付款收益归属及原图/标注证据复用
+- [x] ExpressRound 全取消/有效送达 0 件和单件送达关闭；多件分支保持 OPEN 等待 Phase 6
+- [x] 空 OPEN ProxyBatch 显式取消、非空批次 NEW/ASSIGNED 原子取消、责任释放与轮次联动
+- [x] 已有 PICKED/DELIVERING/DELIVERED 时整批取消整体拒绝；逐单全取消自动 CANCELED
+- [x] 配送员路线/直送/任务/大小确认移动页面与录单员代理批次取消交互
+- [x] migration、专项/联合/全量测试、静态检查及 Docker 生产容器回归
+
+本阶段新增 `dispatch.0002_routebatch`，为快递路线任务建立 RouteBatch 的取件区域与目的区域元数据；其余状态变化复用 Phase 3/4 已建立的 Order、ExpressRound、DeliveryTask、Assignment、DeliveryDrop、ChargeItem 与 CourierEarning，不重复造表。Phase 5 专项 11 项、配送/订单/代理联合 45 项、全量 72 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 均通过。Docker 生产镜像构建成功，一次性容器内 Django check 与 migrate check 通过，未遗留运行容器。首次镜像构建曾因 Docker Hub 鉴权网络超时失败，使用本机已配置的 DaoCloud 镜像及缓存重试后成功。多件 ConsolidationRound 创建、等待与最终关闭判定未提前实现，保留到 Phase 6。
+
 ## 后续阶段
 
 - [x] Phase 3：订单、费用与结算基础模型
 - [x] Phase 4：简单配送业务
-- [ ] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
+- [x] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
 - [ ] Phase 6：归拢、多件轮次关闭、结算构建与凭证
 - [ ] Phase 7：结算确认、收益与工资
 - [ ] Phase 8：异常、人工处理、快速补录
