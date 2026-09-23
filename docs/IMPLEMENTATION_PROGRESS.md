@@ -76,10 +76,28 @@
 
 本阶段新增 `orders.0001_initial`，建立 Order、ExpressRound 和六类 Detail 及收件归属、轮次、编号、目的地等数据库约束；新增 `settlements.0001_initial`，建立 ChargeItem、Settlement、SettlementOrder、SettlementLine、FinancialAdjustment、CourierEarning 及费用作用域、作废元数据、受益归属和冻结行唯一约束。全量 49 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。快递重复提醒的“时间窗口”长度未由规格给出，当前按同一 `service_date` 处理并记录于 `docs/IMPLEMENTATION_QUESTIONS.md`。按阶段边界，配送状态推进、UNKNOWN 大小确认、ExpressRound 关闭、代理批次整批取消、结算 build/freeze/confirm 均未提前实现。
 
+## Phase 4：简单配送业务（已完成）
+
+- [x] 五类简单业务（外卖、KFC、商超、跑腿、行李上楼）的独立 DeliveryTask 与业务类型守卫
+- [x] 配送员任务池、接单、取到、开始配送、未取件退回及后端角色/归属校验
+- [x] 每单至多一个有效 Assignment、原子抢单和重复 operation_id 幂等检测
+- [x] DeliveryDrop、同客户/同业务/同目的地合并放置校验及每单唯一完成约束
+- [x] `requires_upstairs` 地址完整性与实际放置类型校验
+- [x] 近景/远景证据、远景标注派生图、原图关联与受控媒体下载
+- [x] Pillow 方向修正、最长边 1600 像素、JPEG 压缩、元数据剥离和原子文件发布
+- [x] 普通配送至少一张照片、行李上楼允许零照片
+- [x] 配送完成幂等创建 PENDING_PAYMENT CourierEarning，settlement 保持为空
+- [x] 转单申请/接受/拒绝，已取件或配送中强制记录实物交接地点
+- [x] 基础 ExceptionCase、附件/证据关联、显式结算/归拢阻断字段及处理审计
+- [x] 配送员移动端任务、完成、转单和异常页面及浏览器标注交互
+- [x] migration、专项/全量测试、静态检查、Docker 生产镜像和一次性容器回归
+
+本阶段新增 `dispatch.0001_initial`，建立 DeliveryTask、Assignment、TransferRequest/Item、DeliveryDrop/Item 及有效责任、完成唯一性和收件归属约束；新增 `mediafiles.0001_initial`，建立 MediaFile 与 DeliveryEvidence；新增 `exceptions.0001_initial`、`exceptions.0002_initial`，建立异常、附件和证据关联，其中拆分迁移用于安全解决跨 App 外键依赖。同步修复 ASSIGNED 订单取消时释放未取件责任、活动任务期间禁止切换业务类型。Phase 4 专项 12 项、全量 61 项 pytest 测试通过；Ruff、Django check、migration drift check、`git diff --check` 均通过。Docker 生产镜像构建成功，一次性容器内 Django check 与 migrate check 通过，未遗留运行容器。未实现快递 RouteBatch、ExpressRound 关闭、代理批次原子取消或归拢逻辑，下一 Phase 尚未开始。
+
 ## 后续阶段
 
 - [x] Phase 3：订单、费用与结算基础模型
-- [ ] Phase 4：简单配送业务
+- [x] Phase 4：简单配送业务
 - [ ] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
 - [ ] Phase 6：归拢、多件轮次关闭、结算构建与凭证
 - [ ] Phase 7：结算确认、收益与工资
