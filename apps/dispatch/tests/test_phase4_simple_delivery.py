@@ -298,7 +298,7 @@ def test_one_drop_rejects_orders_for_different_customers(recorder, customer, bui
     advance_to_delivering(first, courier)
     advance_to_delivering(second, courier)
 
-    with pytest.raises(ValidationError, match="同客户"):
+    with pytest.raises(ValidationError, match="同一收件归属"):
         complete_delivery_drop(
             order_ids=[first.pk, second.pk],
             courier=courier,

@@ -5,21 +5,41 @@ import uuid
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from apps.common.enums import BusinessType
 from apps.common.permissions import courier_required
 from apps.exceptions.models import ExceptionCase
 from apps.exceptions.services import create_exception_case
-from apps.orders.models import Order
+from apps.orders.models import DeliveryStatus, Order, PickupArea
 
-from .forms import CompleteDropForm, ExceptionReportForm, TransferRequestForm
+from .forms import (
+    CompleteDropForm,
+    ConfirmExpressSizeForm,
+    DirectClaimForm,
+    ExceptionReportForm,
+    RouteClaimForm,
+    TransferRequestForm,
+)
 from .models import Assignment, DeliveryTask, TransferRequest
-from .selectors import courier_task_detail, courier_tasks, simple_task_pool
+from .selectors import (
+    courier_task_detail,
+    courier_tasks,
+    express_direct_pool,
+    express_route_pool,
+    simple_task_pool,
+    sorted_task_assignments,
+)
 from .services import (
     accept_transfer,
+    claim_direct_orders,
+    claim_route_orders,
     claim_simple_task,
     complete_delivery_drop,
+    confirm_express_size,
     create_transfer_request,
+    mark_express_picked,
     mark_simple_picked,
     reject_transfer,
     return_simple_order_to_pool,
@@ -61,7 +81,101 @@ def task_detail(request, task_id):
         task = courier_task_detail(request.user, task_id)
     except DeliveryTask.DoesNotExist:
         task = get_object_or_404(DeliveryTask, pk=task_id, courier=request.user)
-    return render(request, "dispatch/task_detail.html", {"task": task})
+    return render(
+        request,
+        "dispatch/task_detail.html",
+        {"task": task, "assignments": sorted_task_assignments(task)},
+    )
+
+
+@courier_required
+def express_route_pool_view(request):
+    pickup_area = request.GET.get("pickup_area", PickupArea.SOUTH)
+    destination_zone = request.GET.get("destination_zone", "SOUTH")
+    orders = list(
+        express_route_pool(
+            pickup_area=pickup_area,
+            destination_zone=destination_zone,
+        )
+    )
+    form = RouteClaimForm(
+        orders=orders,
+        initial={"pickup_area": pickup_area, "destination_zone": destination_zone},
+    )
+    return render(
+        request,
+        "dispatch/express_route_pool.html",
+        {
+            "orders": orders,
+            "form": form,
+            "pickup_area": pickup_area,
+            "destination_zone": destination_zone,
+        },
+    )
+
+
+@require_POST
+@courier_required
+def express_route_claim(request):
+    pickup_area = request.POST.get("pickup_area", "")
+    destination_zone = request.POST.get("destination_zone", "")
+    orders = list(
+        express_route_pool(
+            pickup_area=pickup_area,
+            destination_zone=destination_zone,
+        )
+    )
+    form = RouteClaimForm(request.POST, orders=orders)
+    if form.is_valid():
+        try:
+            result = claim_route_orders(
+                order_ids=form.cleaned_data["order_ids"],
+                courier=request.user,
+                pickup_area=form.cleaned_data["pickup_area"],
+                destination_zone=form.cleaned_data["destination_zone"],
+                operation_id=form.cleaned_data["operation_id"],
+            )
+        except (ValidationError, ValueError) as exc:
+            messages.error(request, str(exc))
+        else:
+            if result.unavailable_order_ids:
+                messages.warning(
+                    request,
+                    f"已接取 {len(result.claimed_order_ids)} 件；"
+                    f"另有 {len(result.unavailable_order_ids)} 件已被接取或状态变化。",
+                )
+            else:
+                messages.success(request, f"已接取 {len(result.claimed_order_ids)} 件快递")
+            return redirect("dispatch:task-detail", task_id=result.task.pk)
+    else:
+        messages.error(request, "接单参数已变化，请重新选择")
+    return redirect(
+        f"{reverse('dispatch:express-route-pool')}?pickup_area={pickup_area}"
+        f"&destination_zone={destination_zone}"
+    )
+
+
+@courier_required
+def express_direct_pool_view(request):
+    orders = list(express_direct_pool())
+    form = DirectClaimForm(request.POST or None, orders=orders)
+    if request.method == "POST" and form.is_valid():
+        try:
+            result = claim_direct_orders(
+                order_ids=form.cleaned_data["order_ids"],
+                courier=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+            )
+        except (ValidationError, ValueError) as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(request, f"已接取 {len(result.claimed_order_ids)} 件客户直送快递")
+            return redirect("dispatch:task-detail", task_id=result.task.pk)
+    return render(
+        request,
+        "dispatch/express_direct_pool.html",
+        {"orders": orders, "form": form},
+    )
 
 
 @require_POST
@@ -69,7 +183,10 @@ def task_detail(request, task_id):
 def order_picked(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
     try:
-        mark_simple_picked(order=order, courier=request.user)
+        if order.business_type == BusinessType.EXPRESS:
+            mark_express_picked(order=order, courier=request.user)
+        else:
+            mark_simple_picked(order=order, courier=request.user)
     except ValidationError as exc:
         messages.error(request, str(exc))
     else:
@@ -107,7 +224,10 @@ def order_return(request, order_id):
 def complete_task(request, task_id):
     task = get_object_or_404(DeliveryTask, pk=task_id, courier=request.user)
     assignments = list(
-        task.assignments.filter(is_active=True).select_related("order", "order__customer")
+        task.assignments.filter(
+            is_active=True,
+            order__delivery_status=DeliveryStatus.DELIVERING,
+        ).select_related("order", "order__customer", "order__proxy_recipient")
     )
     form = CompleteDropForm(
         request.POST or None,
@@ -132,6 +252,30 @@ def complete_task(request, task_id):
             messages.success(request, f"配送记录 #{drop.pk} 已完成")
             return redirect("dispatch:task-list")
     return render(request, "dispatch/complete.html", {"task": task, "form": form})
+
+
+@require_POST
+@courier_required
+def express_confirm_size(request, order_id):
+    order = get_object_or_404(Order, pk=order_id)
+    form = ConfirmExpressSizeForm(request.POST)
+    if form.is_valid():
+        try:
+            confirm_express_size(
+                order=order,
+                courier=request.user,
+                size_class=form.cleaned_data["size_class"],
+            )
+        except ValidationError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "快递大小已按录单时价格快照确认")
+    else:
+        messages.error(request, "请选择有效的快递大小")
+    assignment = order.assignments.filter(courier=request.user).order_by("-id").first()
+    if assignment:
+        return redirect("dispatch:task-detail", task_id=assignment.task_id)
+    return redirect("dispatch:task-list")
 
 
 @courier_required

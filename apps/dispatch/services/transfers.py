@@ -5,8 +5,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.audit.services import record_event
-from apps.common.enums import UserRole
-from apps.orders.models import DeliveryStatus
+from apps.common.enums import BusinessType, UserRole
+from apps.orders.models import DeliveryStatus, Order
 
 from ..models import (
     Assignment,
@@ -39,23 +39,24 @@ def create_transfer_request(
     _require_courier(from_courier)
     if to_courier.role != UserRole.COURIER or to_courier == from_courier:
         raise ValidationError("必须选择另一名配送员")
+    requested_ids = {order.pk for order in orders}
     existing = TransferRequest.objects.filter(operation_id=operation_id).first()
     if existing:
         if existing.from_courier_id != from_courier.pk:
             raise ValidationError("operation_id 已被其他操作使用")
-        requested_ids = {order.pk for order in orders}
         if (
             existing.to_courier_id != to_courier.pk
             or set(existing.items.values_list("order_id", flat=True)) != requested_ids
         ):
             raise ValidationError("operation_id 对应另一笔转单操作")
         return existing
-    orders = list(orders)
-    if not orders or not reason_text.strip():
+    orders = list(Order.objects.filter(pk__in=requested_ids).order_by("pk"))
+    if len(orders) != len(requested_ids) or not orders or not reason_text.strip():
         raise ValidationError("请选择订单并填写转单原因")
     business_types = {order.business_type for order in orders}
-    if len(business_types) != 1 or not business_types.issubset(SIMPLE_BUSINESSES):
-        raise ValidationError("一次转单只能包含同一种简单业务")
+    transferable_businesses = SIMPLE_BUSINESSES | {BusinessType.EXPRESS}
+    if len(business_types) != 1 or not business_types.issubset(transferable_businesses):
+        raise ValidationError("一次转单只能包含同一种可配送业务")
     handoff_required = False
     for order in orders:
         if order.delivery_status == DeliveryStatus.DELIVERED:
@@ -122,7 +123,9 @@ def accept_transfer(*, transfer, courier):
         raise ValidationError("接收人当前业务类型不匹配；请在无活跃任务时先切换")
     now = timezone.now()
     task = DeliveryTask.objects.create(
-        task_type=TaskType.SIMPLE,
+        task_type=(
+            TaskType.CUSTOMER_DIRECT if business_type == BusinessType.EXPRESS else TaskType.SIMPLE
+        ),
         business_type=business_type,
         courier=courier,
         operation_id=transfer.operation_id,

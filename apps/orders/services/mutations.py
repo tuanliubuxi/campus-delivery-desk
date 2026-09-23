@@ -178,4 +178,17 @@ def cancel_order(*, order, actor, reason):
         entity=order,
         metadata={"before": before, "reason": reason},
     )
+    if order.business_type == BusinessType.EXPRESS:
+        from apps.agents.services import evaluate_proxy_batch_after_cancellation
+        from apps.orders.services.rounds import evaluate_express_round
+
+        evaluate_express_round(
+            express_round=order.express_detail.express_round,
+            actor=actor,
+        )
+        if order.proxy_batch_id:
+            evaluate_proxy_batch_after_cancellation(
+                proxy_batch=order.proxy_batch,
+                actor=actor,
+            )
     return order

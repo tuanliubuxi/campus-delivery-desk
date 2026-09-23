@@ -13,6 +13,11 @@ urlpatterns = [
     path("recorder/proxy/batches/new/", views.batch_create, name="batch-create"),
     path("recorder/proxy/batches/<int:batch_id>/", views.batch_detail, name="batch-detail"),
     path(
+        "recorder/proxy/batches/<int:batch_id>/cancel/",
+        views.batch_cancel,
+        name="batch-cancel",
+    ),
+    path(
         "recorder/proxy/batches/<int:batch_id>/recipients/new/",
         views.recipient_create,
         name="recipient-create",

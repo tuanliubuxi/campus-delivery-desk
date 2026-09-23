@@ -17,7 +17,7 @@
   </section>
   <section class="d-grid gap-2">
     <a class="btn btn-primary w-100 cdd-touch" href="{% url 'dispatch:task-list' %}">我的任务</a>
-    <a class="btn btn-outline-primary w-100 cdd-touch" href="{% url 'dispatch:new-tasks' %}">接新任务</a>
+    {% if user.accepting_business == 'EXPRESS' %}<a class="btn btn-outline-primary w-100 cdd-touch" href="{% url 'dispatch:express-route-pool' %}">快递路线接单</a><a class="btn btn-outline-danger w-100 cdd-touch" href="{% url 'dispatch:express-direct-pool' %}">客户直送</a>{% else %}<a class="btn btn-outline-primary w-100 cdd-touch" href="{% url 'dispatch:new-tasks' %}">接新任务</a>{% endif %}
     {% if user.accepting_orders %}
       <form method="post" action="{% url 'accounts:accepting-stop' %}">{% csrf_token %}<button class="btn btn-danger w-100 cdd-touch">停止接单</button></form>
     {% else %}

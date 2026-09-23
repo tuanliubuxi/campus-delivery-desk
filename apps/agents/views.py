@@ -4,11 +4,13 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.agents.forms import AgentEditForm, AgentForm, ProxyBatchForm, ProxyRecipientForm
 from apps.agents.models import Agent, ProxyBatch, ProxyRecipient
 from apps.agents.selectors import proxy_batch_detail, search_agents, search_proxy_batches
 from apps.agents.services import (
+    cancel_proxy_batch,
     create_agent,
     create_proxy_batch,
     create_proxy_recipient,
@@ -77,6 +79,23 @@ def batch_detail(request, batch_id):
     except ProxyBatch.DoesNotExist:
         batch = get_object_or_404(ProxyBatch, pk=batch_id)
     return render(request, "agents/batch_detail.html", {"batch": batch})
+
+
+@require_POST
+@recorder_or_admin_required
+def batch_cancel(request, batch_id):
+    batch = get_object_or_404(ProxyBatch, pk=batch_id)
+    try:
+        cancel_proxy_batch(
+            proxy_batch=batch,
+            operator=request.user,
+            reason=request.POST.get("reason", ""),
+        )
+    except (ValidationError, ValueError) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "代理批次及其中所有可取消快递已原子取消")
+    return redirect("agents:batch-detail", batch_id=batch.pk)
 
 
 @recorder_or_admin_required

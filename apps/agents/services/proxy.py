@@ -249,3 +249,76 @@ def update_proxy_recipient(
         metadata={"before": before, "after": after},
     )
     return recipient
+
+
+@transaction.atomic
+def evaluate_proxy_batch_after_cancellation(*, proxy_batch, actor=None):
+    """Handle only the all-individually-canceled boundary available before Phase 6."""
+    from apps.orders.models import DeliveryStatus, Order
+
+    batch = ProxyBatch.objects.get(pk=proxy_batch.pk)
+    if batch.status != ProxyBatchStatus.OPEN:
+        return batch
+    history = Order.objects.filter(proxy_batch=batch)
+    if not history.exists() or history.exclude(delivery_status=DeliveryStatus.CANCELED).exists():
+        return batch
+    batch.status = ProxyBatchStatus.CANCELED
+    batch.save(update_fields=["status"])
+    record_event(
+        actor=actor,
+        event_type="PROXY_BATCH_AUTO_CANCELED",
+        entity=batch,
+        metadata={"reason": "ALL_ORDERS_INDIVIDUALLY_CANCELED"},
+    )
+    return batch
+
+
+@transaction.atomic
+def cancel_proxy_batch(*, proxy_batch, operator, reason):
+    """Atomically cancel an OPEN batch without any physically picked valid parcel."""
+    from apps.orders.models import DeliveryStatus, Order
+    from apps.orders.services.mutations import cancel_order
+    from apps.orders.services.rounds import evaluate_express_round
+
+    _require_operator(operator)
+    reason = reason.strip()
+    if not reason:
+        raise ValidationError("取消代理批次必须填写原因")
+    batch = ProxyBatch.objects.get(pk=proxy_batch.pk)
+    if batch.status != ProxyBatchStatus.OPEN:
+        raise ValidationError("只有 OPEN 代理批次可以整批取消")
+    history = list(
+        Order.objects.filter(proxy_batch=batch)
+        .select_related("express_detail__express_round")
+        .order_by("pk")
+    )
+    forbidden_states = {
+        DeliveryStatus.PICKED,
+        DeliveryStatus.DELIVERING,
+        DeliveryStatus.DELIVERED,
+    }
+    if any(order.delivery_status in forbidden_states for order in history):
+        raise ValidationError("批次已有取件、配送中或已送达快递，不能整批取消")
+    affected_rounds = {
+        order.express_detail.express_round_id: order.express_detail.express_round
+        for order in history
+    }
+    canceled_ids = []
+    for order in history:
+        if order.delivery_status in {DeliveryStatus.NEW, DeliveryStatus.ASSIGNED}:
+            cancel_order(order=order, actor=operator, reason=f"代理批次取消：{reason}")
+            canceled_ids.append(order.pk)
+    for express_round in affected_rounds.values():
+        evaluate_express_round(express_round=express_round, actor=operator)
+    # The per-order hook may already have reached this state after the last cancellation.
+    batch.refresh_from_db()
+    if batch.status == ProxyBatchStatus.OPEN:
+        batch.status = ProxyBatchStatus.CANCELED
+        batch.save(update_fields=["status"])
+    record_event(
+        actor=operator,
+        event_type="PROXY_BATCH_CANCELED",
+        entity=batch,
+        metadata={"reason": reason, "canceled_order_ids": canceled_ids},
+    )
+    return batch

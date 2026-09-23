@@ -1,0 +1,14 @@
+{# Same-recipient customer-direct express selection; server revalidates ownership grouping. #}
+{% extends "layouts/base.html" %}
+{% block title %}客户直送 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3 cdd-mobile-shell">
+  <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">客户直送</h1><a href="{% url 'dispatch:task-list' %}">我的任务</a></div>
+  <div class="alert alert-info">一次请选择同一客户或同一代理临时收件人的快递；加急件优先显示。</div>
+  <form method="post" action="{% url 'dispatch:express-direct-claim' %}">{% csrf_token %}{{ form.operation_id }}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="d-grid gap-3">{% for order in orders %}<label class="cdd-card p-3"><div class="d-flex gap-2"><input class="form-check-input mt-1" type="checkbox" name="order_ids" value="{{ order.pk }}"><div><strong>{{ order.display_id }}</strong>{% if order.is_urgent %} <span class="badge text-bg-danger">加急</span>{% endif %}<div>{{ order.recipient_name_snapshot }} · {{ order.building_snapshot|default:order.off_campus_address }}</div><div class="small cdd-muted">{{ order.express_detail.get_pickup_area_display }} · {{ order.express_detail.pickup_identifier }}</div></div></div></label>{% empty %}<div class="cdd-card p-4 text-center cdd-muted">暂无待接客户直送快递。</div>{% endfor %}</div>
+    {% if orders %}<button class="btn btn-primary w-100 cdd-touch mt-3" data-disable-on-submit>接取客户直送</button>{% endif %}
+  </form>
+</main>
+{% endblock %}

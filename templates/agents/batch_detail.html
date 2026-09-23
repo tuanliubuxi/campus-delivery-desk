@@ -17,6 +17,9 @@
   </div>
 
   {% if batch.note %}<div class="alert alert-light border">批次备注：{{ batch.note }}</div>{% endif %}
+  {% if batch.status == 'OPEN' %}
+    {% if batch.blocking_cancel_count %}<div class="alert alert-warning">已有取件、配送中或已送达快递，不能整批取消；仍可逐单处理未取件订单。</div>{% else %}<form method="post" action="{% url 'agents:batch-cancel' batch.pk %}" class="cdd-card p-3 mb-3" onsubmit="return confirm('确认原子取消整个代理批次及所有未取件订单？');">{% csrf_token %}<label class="form-label" for="cancel-reason">整批取消原因</label><div class="input-group"><input id="cancel-reason" class="form-control" name="reason" maxlength="255" required><button class="btn btn-outline-danger">取消整批</button></div><div class="form-text">空批次也允许显式取消；执行失败不会留下部分取消状态。</div></form>{% endif %}
+  {% endif %}
   <div class="row g-3">
     {% for recipient in batch.recipients.all %}
     <div class="col-12 col-md-6 col-xl-4">

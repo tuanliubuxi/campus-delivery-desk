@@ -2,8 +2,15 @@
 
 from django.db import IntegrityError, transaction
 from django.db.models import Max
+from django.utils import timezone
 
-from apps.orders.models import ExpressRound, ExpressRoundStatus, RecipientKind
+from apps.audit.services import record_event
+from apps.orders.models import (
+    DeliveryStatus,
+    ExpressRound,
+    ExpressRoundStatus,
+    RecipientKind,
+)
 
 
 @transaction.atomic
@@ -37,3 +44,36 @@ def get_or_create_express_round(*, customer=None, proxy_recipient=None, service_
         if winner:
             return winner
         raise
+
+
+@transaction.atomic
+def evaluate_express_round(*, express_round, actor=None):
+    """Apply only Phase 5 close branches; multi-item consolidation remains Phase 6."""
+    express_round = ExpressRound.objects.get(pk=express_round.pk)
+    if express_round.status == ExpressRoundStatus.CLOSED:
+        return express_round
+    orders = express_round.express_details.values("order__delivery_status")
+    if not orders.exists():
+        return express_round
+    active_states = {
+        DeliveryStatus.NEW,
+        DeliveryStatus.ASSIGNED,
+        DeliveryStatus.PICKED,
+        DeliveryStatus.DELIVERING,
+    }
+    if orders.filter(order__delivery_status__in=active_states).exists():
+        return express_round
+    delivered_count = orders.filter(order__delivery_status=DeliveryStatus.DELIVERED).count()
+    if delivered_count >= 2:
+        # Phase 6 will create/wait for ConsolidationRound before this branch may close.
+        return express_round
+    express_round.status = ExpressRoundStatus.CLOSED
+    express_round.closed_at = timezone.now()
+    express_round.save(update_fields=["status", "closed_at"])
+    record_event(
+        actor=actor,
+        event_type="EXPRESS_ROUND_CLOSED",
+        entity=express_round,
+        metadata={"delivered_count": delivered_count, "phase": 5},
+    )
+    return express_round

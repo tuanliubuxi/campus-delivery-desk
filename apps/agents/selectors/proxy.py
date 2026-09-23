@@ -3,6 +3,7 @@
 from django.db.models import Count, Prefetch, Q
 
 from apps.agents.models import Agent, ProxyBatch, ProxyRecipient
+from apps.orders.models import DeliveryStatus
 
 
 def search_agents(query=""):
@@ -21,9 +22,11 @@ def search_agents(query=""):
 
 
 def search_proxy_batches(query=""):
-    queryset = ProxyBatch.objects.select_related("agent", "created_by").annotate(
-        recipient_count=Count("recipients", distinct=True)
-    ).order_by("-batch_date", "-sequence", "-id")
+    queryset = (
+        ProxyBatch.objects.select_related("agent", "created_by")
+        .annotate(recipient_count=Count("recipients", distinct=True))
+        .order_by("-batch_date", "-sequence", "-id")
+    )
     query = query.strip()
     if query:
         condition = (
@@ -45,6 +48,20 @@ def proxy_batch_detail(batch_id):
     recipients = ProxyRecipient.objects.select_related("building").order_by("created_at", "id")
     return (
         ProxyBatch.objects.select_related("agent", "created_by")
+        .annotate(
+            order_count=Count("orders", distinct=True),
+            blocking_cancel_count=Count(
+                "orders",
+                filter=Q(
+                    orders__delivery_status__in=[
+                        DeliveryStatus.PICKED,
+                        DeliveryStatus.DELIVERING,
+                        DeliveryStatus.DELIVERED,
+                    ]
+                ),
+                distinct=True,
+            ),
+        )
         .prefetch_related(Prefetch("recipients", queryset=recipients))
         .get(pk=batch_id)
     )

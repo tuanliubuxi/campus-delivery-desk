@@ -39,7 +39,7 @@
           <a class="btn btn-sm btn-outline-primary" href="{% url 'agents:workspace' %}">代理</a>
         {% elif user.is_courier %}
           <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:task-list' %}">任务</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:new-tasks' %}">接单</a>
+          {% if user.accepting_business == 'EXPRESS' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:express-route-pool' %}">快递接单</a>{% else %}<a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:new-tasks' %}">接单</a>{% endif %}
           <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:transfers' %}">转单</a>
         {% endif %}
         <select class="form-select form-select-sm cdd-theme-select" aria-label="主题"

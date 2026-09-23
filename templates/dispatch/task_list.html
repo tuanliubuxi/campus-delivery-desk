@@ -3,7 +3,8 @@
 {% block title %}我的任务 · 校驿{% endblock %}
 {% block content %}
 <main class="container py-3 cdd-mobile-shell">
-  <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">我的任务</h1><a class="btn btn-primary" href="{% url 'dispatch:new-tasks' %}">接新任务</a></div>
+  <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">我的任务</h1><a class="btn btn-primary" href="{% url 'dispatch:new-tasks' %}">简单业务接单</a></div>
+  <div class="d-flex gap-2 mb-3"><a class="btn btn-outline-primary flex-fill" href="{% url 'dispatch:express-route-pool' %}">快递路线</a><a class="btn btn-outline-danger flex-fill" href="{% url 'dispatch:express-direct-pool' %}">客户直送</a></div>
   <div class="d-grid gap-3">{% for task in tasks %}<a class="cdd-card p-3 cdd-dashboard-link" href="{% url 'dispatch:task-detail' task.pk %}"><div class="d-flex justify-content-between"><strong>{{ task.get_business_type_display }}</strong><span class="badge text-bg-primary">{{ task.get_status_display }}</span></div><div class="small cdd-muted mt-2">任务 #{{ task.pk }} · {{ task.accepted_at }}</div>{% for assignment in task.assignments.all %}<div class="mt-2">{{ assignment.order.display_id }} · {{ assignment.order.get_delivery_status_display }}</div>{% endfor %}</a>{% empty %}<div class="cdd-card p-4 text-center cdd-muted">暂无活跃任务。</div>{% endfor %}</div>
 </main>
 {% endblock %}

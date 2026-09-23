@@ -8,12 +8,52 @@ from apps.accounts.models import User
 from apps.common.enums import UserRole
 from apps.common.forms import BootstrapFormMixin
 from apps.config_center.models import QuickLocationPhrase
+from apps.orders.models import PickupArea, SizeClass
 
-from .models import LocationType
+from .models import DestinationZone, LocationType
 
 
 class OperationFormMixin:
     operation_id = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4)
+
+
+def _claim_choices(form, orders):
+    """Keep IDs selected before a concurrent claim valid so service can report partial success."""
+    choices = [(str(order.pk), order.display_id) for order in orders]
+    known = {value for value, _label in choices}
+    if form.is_bound:
+        choices.extend(
+            (value, value) for value in form.data.getlist("order_ids") if value not in known
+        )
+    return choices
+
+
+class RouteClaimForm(OperationFormMixin, forms.Form):
+    order_ids = forms.MultipleChoiceField(choices=(), widget=forms.CheckboxSelectMultiple)
+    pickup_area = forms.ChoiceField(choices=PickupArea.choices, widget=forms.HiddenInput)
+    destination_zone = forms.ChoiceField(
+        choices=DestinationZone.choices,
+        widget=forms.HiddenInput,
+    )
+
+    def __init__(self, *args, orders, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["order_ids"].choices = _claim_choices(self, orders)
+
+
+class DirectClaimForm(OperationFormMixin, forms.Form):
+    order_ids = forms.MultipleChoiceField(choices=(), widget=forms.CheckboxSelectMultiple)
+
+    def __init__(self, *args, orders, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["order_ids"].choices = _claim_choices(self, orders)
+
+
+class ConfirmExpressSizeForm(forms.Form):
+    size_class = forms.ChoiceField(
+        label="实际大小",
+        choices=[choice for choice in SizeClass.choices if choice[0] != SizeClass.UNKNOWN],
+    )
 
 
 class CompleteDropForm(OperationFormMixin, BootstrapFormMixin, forms.Form):

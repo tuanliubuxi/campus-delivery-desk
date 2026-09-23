@@ -7,7 +7,7 @@ from django.db.models import Q
 from apps.agents.models import ProxyRecipient
 from apps.common.enums import BusinessType
 from apps.customers.models import Customer
-from apps.orders.models import Order, RecipientKind
+from apps.orders.models import Order, PickupArea, RecipientKind
 
 
 class TaskType(models.TextChoices):
@@ -43,6 +43,13 @@ class LocationType(models.TextChoices):
     OTHER = "OTHER", "其他"
 
 
+class DestinationZone(models.TextChoices):
+    SOUTH = "SOUTH", "南区"
+    NORTH = "NORTH", "北区"
+    OUTSIDE = "OUTSIDE", "校外"
+    MIXED = "MIXED", "混合"
+
+
 class DeliveryTask(models.Model):
     task_type = models.CharField(max_length=20, choices=TaskType.choices)
     business_type = models.CharField(max_length=24, choices=BusinessType.choices, db_index=True)
@@ -64,6 +71,18 @@ class DeliveryTask(models.Model):
 
     class Meta:
         ordering = ["-accepted_at", "-id"]
+
+
+class RouteBatch(models.Model):
+    """Pickup-area route metadata kept separate from the generic delivery task."""
+
+    task = models.OneToOneField(
+        DeliveryTask,
+        on_delete=models.PROTECT,
+        related_name="route_batch",
+    )
+    pickup_area = models.CharField(max_length=12, choices=PickupArea.choices)
+    destination_zone = models.CharField(max_length=12, choices=DestinationZone.choices)
 
 
 class Assignment(models.Model):

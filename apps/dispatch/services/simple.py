@@ -31,6 +31,7 @@ SIMPLE_BUSINESSES = {
     BusinessType.ERRAND,
     BusinessType.LUGGAGE_UPSTAIRS,
 }
+DELIVERY_BUSINESSES = SIMPLE_BUSINESSES | {BusinessType.EXPRESS}
 
 
 def _require_courier(courier):
@@ -160,11 +161,15 @@ def _validate_drop_orders(*, orders, courier, location_type, final_location_text
     if not final_location_text.strip():
         raise ValidationError("最终位置必填")
     first = orders[0]
-    if first.business_type not in SIMPLE_BUSINESSES:
-        raise ValidationError("Phase 4 完成入口只处理简单配送业务")
+    if first.business_type not in DELIVERY_BUSINESSES:
+        raise ValidationError("该业务不能通过配送完成入口处理")
     for order in orders:
-        if order.business_type != first.business_type or order.customer_id != first.customer_id:
-            raise ValidationError("同一放置动作只能包含同客户、同业务订单")
+        if (
+            order.business_type != first.business_type
+            or order.customer_id != first.customer_id
+            or order.proxy_recipient_id != first.proxy_recipient_id
+        ):
+            raise ValidationError("同一放置动作只能包含同一收件归属、同业务订单")
         if (
             order.destination_type != first.destination_type
             or order.building_snapshot != first.building_snapshot
@@ -244,10 +249,16 @@ def complete_delivery_drop(
             if annotated_media:
                 created_media.append(annotated_media)
             now = timezone.now()
+            recipient_kind = (
+                RecipientKind.PROXY_RECIPIENT
+                if first.proxy_recipient_id
+                else RecipientKind.CUSTOMER
+            )
             drop = DeliveryDrop.objects.create(
                 courier=courier,
-                recipient_kind=RecipientKind.CUSTOMER,
+                recipient_kind=recipient_kind,
                 customer=first.customer,
+                proxy_recipient=first.proxy_recipient,
                 business_type=first.business_type,
                 building_snapshot=first.building_snapshot,
                 location_type=location_type,
@@ -255,6 +266,7 @@ def complete_delivery_drop(
                 operation_id=operation_id,
                 delivered_at=now,
             )
+            express_rounds = {}
             for order in orders:
                 DeliveryDropItem.objects.create(drop=drop, order=order)
                 assignment = Assignment.objects.get(
@@ -272,6 +284,10 @@ def complete_delivery_drop(
                 )
                 record_pending_earning(courier=courier, order=order)
                 _finish_task_if_empty(assignment.task, completed=True)
+                if order.business_type == BusinessType.EXPRESS:
+                    express_rounds[order.express_detail.express_round_id] = (
+                        order.express_detail.express_round
+                    )
             if near_media:
                 DeliveryEvidence.objects.create(
                     drop=drop,
@@ -291,6 +307,11 @@ def complete_delivery_drop(
                 entity=drop,
                 metadata={"order_ids": [order.pk for order in orders]},
             )
+            if express_rounds:
+                from apps.orders.services.rounds import evaluate_express_round
+
+                for express_round in express_rounds.values():
+                    evaluate_express_round(express_round=express_round, actor=courier)
             return drop
     except Exception:
         # Database rollback cannot roll back filesystem publication; remove only this attempt's files.
