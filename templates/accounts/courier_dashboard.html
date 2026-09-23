@@ -16,6 +16,8 @@
     </form>
   </section>
   <section class="d-grid gap-2">
+    <a class="btn btn-primary w-100 cdd-touch" href="{% url 'dispatch:task-list' %}">我的任务</a>
+    <a class="btn btn-outline-primary w-100 cdd-touch" href="{% url 'dispatch:new-tasks' %}">接新任务</a>
     {% if user.accepting_orders %}
       <form method="post" action="{% url 'accounts:accepting-stop' %}">{% csrf_token %}<button class="btn btn-danger w-100 cdd-touch">停止接单</button></form>
     {% else %}

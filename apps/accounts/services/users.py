@@ -21,7 +21,11 @@ def generate_password(length=16):
     alphabet = string.ascii_letters + string.digits + "!@#$%"
     while True:
         password = "".join(secrets.choice(alphabet) for _ in range(length))
-        if any(c.islower() for c in password) and any(c.isupper() for c in password) and any(c.isdigit() for c in password):
+        if (
+            any(c.islower() for c in password)
+            and any(c.isupper() for c in password)
+            and any(c.isdigit() for c in password)
+        ):
             return password
 
 
@@ -95,6 +99,16 @@ def select_accepting_business(*, courier, business_type):
         raise ValueError("未知业务类型")
     if not BusinessTypeConfig.objects.filter(business_type=business_type, enabled=True).exists():
         raise ValueError("该业务当前未启用")
+    # Dispatch owns assignment state; the local import avoids an app import cycle.
+    from apps.dispatch.models import Assignment
+
+    active_businesses = set(
+        Assignment.objects.filter(courier=courier, is_active=True)
+        .values_list("order__business_type", flat=True)
+        .distinct()
+    )
+    if active_businesses and active_businesses != {business_type}:
+        raise ValueError("存在其他业务的活跃任务，完成或转出后才能切换")
     courier.accepting_business = business_type
     courier.save(update_fields=["accepting_business"])
     record_event(

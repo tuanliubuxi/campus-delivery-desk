@@ -1,0 +1,8 @@
+{# Delivery evidence form with an optional client-side far-photo annotation canvas. #}
+{% extends "layouts/base.html" %}{% load static %}
+{% block title %}完成配送 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3 cdd-mobile-shell"><h1 class="h4">完成任务 #{{ task.pk }}</h1><div class="alert alert-info">普通业务至少上传一张照片；行李搬上楼可无照片，但最终位置仍必填。</div>
+  <form method="post" enctype="multipart/form-data" class="cdd-card p-3" id="drop-form">{% csrf_token %}{{ form.as_p }}<section id="annotation-tools" class="border rounded p-2 mb-3" hidden><div class="small mb-2">点击远景图可画红圈；保存后作为派生图上传，原图不会被覆盖。</div><canvas id="annotation-canvas" class="w-100 border"></canvas><div class="d-flex gap-2 mt-2"><button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-clear">清空</button><button type="button" class="btn btn-sm btn-outline-primary" id="annotation-save">保存标注</button></div></section><button class="btn btn-success w-100 cdd-touch">确认完成配送</button></form>
+</main><script defer src="{% static 'js/annotation.js' %}"></script>
+{% endblock %}

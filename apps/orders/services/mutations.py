@@ -147,6 +147,11 @@ def cancel_order(*, order, actor, reason):
     if not reason:
         raise ValidationError("取消订单必须填写原因")
     before = _snapshot(order)
+    if order.delivery_status == DeliveryStatus.ASSIGNED:
+        # Dispatch is introduced after orders; the local import avoids an app import cycle.
+        from apps.dispatch.services.simple import release_assignment_for_cancellation
+
+        release_assignment_for_cancellation(order=order)
     for item in order.charge_items.filter(
         scope_type=ChargeScope.ORDER,
         status=ChargeStatus.ACTIVE,

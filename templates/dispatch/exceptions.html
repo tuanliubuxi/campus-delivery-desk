@@ -1,0 +1,4 @@
+{# Basic courier exception reporting; blockers remain explicit model fields. #}
+{% extends "layouts/base.html" %}
+{% block title %}异常 · 校驿{% endblock %}
+{% block content %}<main class="container py-3 cdd-mobile-shell"><h1 class="h4">异常记录</h1>{% if selected_order %}<form method="post" class="cdd-card p-3 mb-3">{% csrf_token %}<input type="hidden" name="order_id" value="{{ selected_order.pk }}"><h2 class="h6">报告 {{ selected_order.display_id }}</h2>{{ form.as_p }}<button class="btn btn-danger w-100">提交异常</button></form>{% endif %}{% for case in cases %}<article class="cdd-card p-3 mb-2"><div class="d-flex justify-content-between"><strong>#{{ case.pk }} {{ case.reason_code }}</strong><span>{{ case.get_status_display }}</span></div><div>{{ case.reason_text }}</div>{% if case.blocks_settlement %}<span class="badge text-bg-warning">阻塞结算</span>{% endif %}</article>{% empty %}<p class="cdd-muted">暂无异常。</p>{% endfor %}</main>{% endblock %}

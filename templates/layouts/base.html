@@ -37,6 +37,10 @@
           <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:history' %}">订单</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'agents:workspace' %}">代理</a>
+        {% elif user.is_courier %}
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:task-list' %}">任务</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:new-tasks' %}">接单</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:transfers' %}">转单</a>
         {% endif %}
         <select class="form-select form-select-sm cdd-theme-select" aria-label="主题"
                 onchange="cddSetTheme(this.value)">
