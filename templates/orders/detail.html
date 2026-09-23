@@ -1,0 +1,10 @@
+{# Recorder-facing order details and active/voided charge history. #}
+{% extends "layouts/base.html" %}
+{% block title %}{{ order.fixed_id }} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3" style="max-width: 960px">
+  <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><div><h1 class="h3 mb-1">{{ order.display_id }}</h1><div class="text-muted">固定编号 {{ order.fixed_id }}</div></div><div class="d-flex gap-2">{% if order.delivery_status == 'NEW' %}<a class="btn btn-outline-primary" href="{% url 'orders:edit' order.pk %}">修改</a>{% endif %}{% if order.delivery_status == 'NEW' or order.delivery_status == 'ASSIGNED' %}<a class="btn btn-outline-danger" href="{% url 'orders:cancel' order.pk %}">取消</a>{% endif %}</div></div>
+  <section class="card card-body mb-3"><dl class="row mb-0"><dt class="col-sm-3">业务</dt><dd class="col-sm-9">{{ order.get_business_type_display }}</dd><dt class="col-sm-3">收件归属</dt><dd class="col-sm-9">{{ order.recipient_name_snapshot }} {{ order.recipient_phone_snapshot }}</dd><dt class="col-sm-3">目的地</dt><dd class="col-sm-9">{% if order.destination_type == 'CAMPUS_BUILDING' %}{{ order.building_snapshot }} {{ order.floor_snapshot }} {{ order.room_snapshot }}{% else %}{{ order.off_campus_address }}{% endif %}</dd><dt class="col-sm-3">状态</dt><dd class="col-sm-9">{{ order.get_delivery_status_display }} / {{ order.get_settlement_status_display }}</dd><dt class="col-sm-3">上楼 / 加急</dt><dd class="col-sm-9">{{ order.requires_upstairs|yesno:"是,否" }} / {{ order.is_urgent|yesno:"是,否" }}</dd><dt class="col-sm-3">备注</dt><dd class="col-sm-9">{{ order.order_note|default:"—" }}</dd></dl></section>
+  <section class="card card-body"><h2 class="h5">费用项</h2><div class="table-responsive"><table class="table mb-0"><thead><tr><th>项目</th><th>金额</th><th>状态</th></tr></thead><tbody>{% for item in order.charge_items.all %}<tr><td>{{ item.label }}</td><td>¥{{ item.amount }}</td><td>{{ item.get_status_display }}</td></tr>{% empty %}<tr><td colspan="3" class="text-muted">暂无费用项（未知大小快递会在确认大小后生成基础费）。</td></tr>{% endfor %}</tbody></table></div></section>
+</main>
+{% endblock %}

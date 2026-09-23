@@ -1,0 +1,13 @@
+{# Paginated recorder order history with fixed/dynamic identifier search. #}
+{% extends "layouts/base.html" %}
+{% block title %}订单历史 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3">
+  <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h3 mb-0">订单历史</h1><a class="btn btn-primary" href="{% url 'orders:new' %}">新建订单</a></div>
+  <form method="get" class="input-group mb-3"><input class="form-control" name="q" value="{{ query }}" placeholder="订单号、客户、尾号或取件标识"><button class="btn btn-outline-primary">搜索</button></form>
+  <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>订单号</th><th>业务</th><th>收件归属</th><th>状态</th><th>服务日期</th><th></th></tr></thead><tbody>
+  {% for order in page %}<tr><td><a href="{% url 'orders:detail' order.pk %}">{{ order.display_id }}</a><br><small class="text-muted">{{ order.fixed_id }}</small></td><td>{{ order.get_business_type_display }}</td><td>{{ order.recipient_name_snapshot }}</td><td>{{ order.get_delivery_status_display }}</td><td>{{ order.service_date|default:"—" }}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'orders:detail' order.pk %}">查看</a></td></tr>{% empty %}<tr><td colspan="6" class="text-muted">暂无订单。</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if page.has_other_pages %}<nav><ul class="pagination">{% if page.has_previous %}<li class="page-item"><a class="page-link" href="?q={{ query|urlencode }}&page={{ page.previous_page_number }}">上一页</a></li>{% endif %}<li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>{% if page.has_next %}<li class="page-item"><a class="page-link" href="?q={{ query|urlencode }}&page={{ page.next_page_number }}">下一页</a></li>{% endif %}</ul></nav>{% endif %}
+</main>
+{% endblock %}

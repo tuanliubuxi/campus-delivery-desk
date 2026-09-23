@@ -33,7 +33,12 @@
           <dt class="col-4">房间</dt><dd class="col-8">{{ recipient.floor|default:"" }} {{ recipient.room|default:"—" }}</dd>
         </dl>
         {% if recipient.note %}<p class="small border-top pt-2 mb-0">{{ recipient.note }}</p>{% endif %}
-        {% if batch.accepts_new_members %}<a class="btn btn-sm btn-outline-secondary mt-3" href="{% url 'agents:recipient-edit' recipient.pk %}">编辑资料</a>{% endif %}
+        {% if batch.accepts_new_members %}
+        <div class="d-flex gap-2 mt-3">
+          <a class="btn btn-sm btn-primary" href="{% url 'orders:proxy-express-create' recipient.pk %}">录入快递</a>
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'agents:recipient-edit' recipient.pk %}">编辑资料</a>
+        </div>
+        {% endif %}
       </article>
     </div>
     {% empty %}

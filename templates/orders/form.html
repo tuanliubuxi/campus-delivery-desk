@@ -1,0 +1,14 @@
+{# Explicit business form; conditional requirements are enforced again by services. #}
+{% extends "layouts/base.html" %}
+{% block title %}{% if is_create %}新建订单{% else %}修改订单{% endif %} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3" style="max-width: 900px">
+  <h1 class="h3">{% if is_create %}新建 {{ business_type }} 订单{% else %}修改 {{ order.fixed_id }}{% endif %}</h1>
+  {% if proxy_recipient %}<div class="alert alert-info">代理临时收件人：{{ proxy_recipient }}</div>{% endif %}
+  <form method="post" class="card card-body" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-3">{% for field in form %}<div class="col-12 {% if field.field.widget.input_type != 'textarea' %}col-md-6{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}<div class="form-check mt-4">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>{% else %}<label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}</div>
+    <div class="d-flex flex-wrap gap-2 mt-4"><button class="btn btn-primary">{% if is_create %}创建订单{% else %}保存修改{% endif %}</button>{% if is_create %}<button class="btn btn-outline-primary" name="continue_entry" value="1">创建并继续录入</button>{% endif %}<a class="btn btn-outline-secondary" href="{% url 'orders:history' %}">返回</a></div>
+  </form>
+</main>
+{% endblock %}

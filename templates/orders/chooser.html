@@ -1,0 +1,16 @@
+{# Business chooser shared by normal and continuous recorder entry. #}
+{% extends "layouts/base.html" %}
+{% block title %}选择业务 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div><h1 class="h3 mb-1">选择录单业务</h1>{% if continuous_customer %}<p class="text-muted mb-0">连续录入：{{ continuous_customer }}</p>{% endif %}</div>
+    <a class="btn btn-outline-secondary" href="{% url 'orders:history' %}">订单历史</a>
+  </div>
+  <div class="row g-3">
+    {% for business in businesses %}
+    <div class="col-12 col-sm-6 col-lg-4"><a class="card h-100 text-decoration-none" style="border-color: {{ business.color }}" href="{% url 'orders:create' business.business_type %}{% if continuous_customer %}?customer={{ continuous_customer.pk }}{% endif %}"><div class="card-body"><div class="fs-2">{{ business.icon|default:"📦" }}</div><h2 class="h5 text-body">{{ business.display_name }}</h2></div></a></div>
+    {% empty %}<p class="text-muted">当前没有启用的业务。</p>{% endfor %}
+  </div>
+</main>
+{% endblock %}

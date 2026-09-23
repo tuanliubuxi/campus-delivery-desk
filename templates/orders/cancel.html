@@ -1,0 +1,6 @@
+{# Explicit confirmation screen for audited order cancellation. #}
+{% extends "layouts/base.html" %}
+{% block title %}取消 {{ order.fixed_id }} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3" style="max-width: 640px"><h1 class="h3">取消订单 {{ order.fixed_id }}</h1><div class="alert alert-warning">取消后，当前有效费用项会保留历史并标记为已作废。</div><form method="post" class="card card-body">{% csrf_token %}{{ form.as_p }}<div class="d-flex gap-2"><button class="btn btn-danger">确认取消</button><a class="btn btn-outline-secondary" href="{% url 'orders:detail' order.pk %}">返回</a></div></form></main>
+{% endblock %}
