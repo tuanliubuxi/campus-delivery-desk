@@ -1,0 +1,19 @@
+{% extends "layouts/base.html" %}
+{% block title %}人工归拢 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3">
+  <h1 class="h3">人工提前归拢</h1>
+  <p class="text-secondary">提交后成员立即冻结；不改变任何已送达订单的 Assignment。</p>
+  <form method="post" class="card card-body">{% csrf_token %}{{ form.as_p }}
+    <button class="btn btn-primary">建立归拢轮次</button>
+  </form>
+  <h2 class="h4 mt-4">待处理轮次与独立改派</h2>
+  {% for round in active_rounds %}<section class="card card-body mb-2">
+    <strong>#{{ round.id }} · {{ round.get_status_display }}</strong>
+    <span>当前负责人：{{ round.assigned_courier }}</span>
+    <form method="post" action="{% url 'consolidation:reassign' round.id %}" class="mt-2">{% csrf_token %}
+      {{ reassign_form.as_p }}<button class="btn btn-outline-warning">改派归拢负责人</button>
+    </form>
+  </section>{% empty %}<p class="text-secondary">暂无待处理归拢。</p>{% endfor %}
+</main>
+{% endblock %}

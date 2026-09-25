@@ -1,0 +1,41 @@
+{% extends "layouts/base.html" %}{% load static %}
+{% block title %}归拢清单 · 校驿{% endblock %}
+{% block content %}
+<main class="container cdd-courier-shell">
+  <h1 class="h4">找件清单</h1>
+  <p class="text-secondary">成员已冻结；逐件核对原位置和照片。</p>
+  {% for item in round.items.all %}
+  <section class="card card-body mb-3">
+    <strong>{{ item.order.display_id }}</strong>
+    <div>原位置：{% for di in item.order.delivery_drop_items.all %}{{ di.drop.final_location_text }}{% endfor %}</div>
+    <div class="d-flex gap-2 flex-wrap my-2">
+      {% for drop_item in item.order.delivery_drop_items.all %}{% for evidence in drop_item.drop.evidence.all %}
+        <a href="{% url 'mediafiles:download' evidence.media_id %}">查看{{ evidence.get_role_display }}</a>
+      {% endfor %}{% endfor %}
+    </div>
+    <div>当前：{{ item.get_found_status_display }}</div>
+    {% if item.found_status == 'PENDING' %}
+    <form method="post" action="{% url 'consolidation:mark-item' item.id %}" class="d-flex gap-2 mt-2">
+      {% csrf_token %}
+      <button class="btn btn-success" name="found_status" value="FOUND">找到</button>
+      <button class="btn btn-outline-secondary" name="found_status" value="CUSTOMER_TAKEN">客户已取</button>
+      <button class="btn btn-outline-warning" name="found_status" value="EXCEPTION">人工处置</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endfor %}
+  <section class="card card-body">
+    <h2 class="h5">最终放置凭证</h2>
+    <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}">
+      {% csrf_token %}{{ complete_form.as_p }}
+      <section id="annotation-tools" class="border rounded p-2 mb-3" hidden>
+        <div class="small mb-2">点击远景图可画红圈；保存后上传派生标注图，原图不会被覆盖。</div>
+        <canvas id="annotation-canvas" class="w-100 border"></canvas>
+        <div class="d-flex gap-2 mt-2"><button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-clear">清空</button><button type="button" class="btn btn-sm btn-outline-primary" id="annotation-save">保存标注</button></div>
+      </section>
+      <button class="btn btn-primary w-100">完成归拢</button>
+    </form>
+  </section>
+</main>
+<script defer src="{% static 'js/annotation.js' %}"></script>
+{% endblock %}

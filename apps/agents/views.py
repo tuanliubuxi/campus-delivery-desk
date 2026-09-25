@@ -14,10 +14,12 @@ from apps.agents.services import (
     create_agent,
     create_proxy_batch,
     create_proxy_recipient,
+    reopen_proxy_batch,
     update_agent,
     update_proxy_recipient,
 )
 from apps.common.permissions import recorder_or_admin_required
+from apps.settlements.services import generate_proxy_recipient_receipt
 
 
 @recorder_or_admin_required
@@ -96,6 +98,32 @@ def batch_cancel(request, batch_id):
     else:
         messages.success(request, "代理批次及其中所有可取消快递已原子取消")
     return redirect("agents:batch-detail", batch_id=batch.pk)
+
+
+@require_POST
+@recorder_or_admin_required
+def batch_reopen(request, batch_id):
+    batch = get_object_or_404(ProxyBatch, pk=batch_id)
+    try:
+        reopen_proxy_batch(proxy_batch=batch, operator=request.user)
+    except (ValidationError, ValueError) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "代理批次已重新打开，未结算凭证版本已失效")
+    return redirect("agents:batch-detail", batch_id=batch.pk)
+
+
+@require_POST
+@recorder_or_admin_required
+def recipient_generate_receipt(request, recipient_id):
+    recipient = get_object_or_404(ProxyRecipient, pk=recipient_id)
+    try:
+        generate_proxy_recipient_receipt(recipient=recipient, actor=request.user)
+    except (ValidationError, ValueError) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "临时收件人客户凭证已生成；批次状态未改变")
+    return redirect("agents:batch-detail", batch_id=recipient.proxy_batch_id)
 
 
 @recorder_or_admin_required

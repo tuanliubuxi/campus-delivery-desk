@@ -48,7 +48,7 @@ def get_or_create_express_round(*, customer=None, proxy_recipient=None, service_
 
 @transaction.atomic
 def evaluate_express_round(*, express_round, actor=None):
-    """Apply only Phase 5 close branches; multi-item consolidation remains Phase 6."""
+    """Close trivial rounds or create/wait for each necessary consolidation round."""
     express_round = ExpressRound.objects.get(pk=express_round.pk)
     if express_round.status == ExpressRoundStatus.CLOSED:
         return express_round
@@ -65,8 +65,20 @@ def evaluate_express_round(*, express_round, actor=None):
         return express_round
     delivered_count = orders.filter(order__delivery_status=DeliveryStatus.DELIVERED).count()
     if delivered_count >= 2:
-        # Phase 6 will create/wait for ConsolidationRound before this branch may close.
-        return express_round
+        # Local imports preserve the intended orders -> consolidation dependency at runtime.
+        from apps.consolidation.models import ConsolidationStatus
+        from apps.consolidation.selectors import eligible_orders_for_round
+        from apps.consolidation.services import create_consolidation_round
+
+        pending = express_round.consolidation_rounds.filter(
+            status__in=[ConsolidationStatus.PENDING, ConsolidationStatus.IN_PROGRESS]
+        )
+        if pending.exists():
+            return express_round
+        candidates = eligible_orders_for_round(express_round)
+        if candidates.count() >= 2:
+            create_consolidation_round(express_round=express_round, actor=actor)
+            return express_round
     express_round.status = ExpressRoundStatus.CLOSED
     express_round.closed_at = timezone.now()
     express_round.save(update_fields=["status", "closed_at"])
@@ -74,6 +86,6 @@ def evaluate_express_round(*, express_round, actor=None):
         actor=actor,
         event_type="EXPRESS_ROUND_CLOSED",
         entity=express_round,
-        metadata={"delivered_count": delivered_count, "phase": 5},
+        metadata={"delivered_count": delivered_count},
     )
     return express_round

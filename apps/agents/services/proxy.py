@@ -3,6 +3,7 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Max
+from django.utils import timezone
 
 from apps.agents.models import Agent, ProxyBatch, ProxyBatchStatus, ProxyRecipient
 from apps.audit.services import record_event
@@ -269,6 +270,83 @@ def evaluate_proxy_batch_after_cancellation(*, proxy_batch, actor=None):
         event_type="PROXY_BATCH_AUTO_CANCELED",
         entity=batch,
         metadata={"reason": "ALL_ORDERS_INDIVIDUALLY_CANCELED"},
+    )
+    return batch
+
+
+@transaction.atomic
+def evaluate_proxy_batch_ready(*, proxy_batch, actor=None):
+    """Advance an OPEN batch only after every physical and financial prerequisite is true."""
+    from apps.exceptions.models import ExceptionStatus
+    from apps.orders.models import DeliveryStatus, ExpressRoundStatus, Order, SizeClass
+    from apps.settlements.models import ChargeItem, ChargeStatus, ChargeType
+
+    batch = ProxyBatch.objects.get(pk=proxy_batch.pk)
+    if batch.status != ProxyBatchStatus.OPEN:
+        return batch
+    history = Order.objects.filter(proxy_batch=batch)
+    if not history.exists():
+        return batch
+    active = history.exclude(delivery_status=DeliveryStatus.CANCELED)
+    if not active.exists():
+        return evaluate_proxy_batch_after_cancellation(proxy_batch=batch, actor=actor)
+    if active.exclude(delivery_status=DeliveryStatus.DELIVERED).exists():
+        return batch
+    if active.filter(express_detail__size_class=SizeClass.UNKNOWN).exists():
+        return batch
+    if active.filter(
+        exception_cases__status=ExceptionStatus.OPEN,
+        exception_cases__blocks_settlement=True,
+    ).exists():
+        return batch
+    if active.exclude(express_detail__express_round__status=ExpressRoundStatus.CLOSED).exists():
+        return batch
+    priced_ids = ChargeItem.objects.filter(
+        order__in=active,
+        charge_type=ChargeType.BASE_SERVICE,
+        status=ChargeStatus.ACTIVE,
+    ).values_list("order_id", flat=True)
+    if active.exclude(pk__in=priced_ids).exists():
+        return batch
+    batch.status = ProxyBatchStatus.READY_TO_SETTLE
+    batch.ready_at = timezone.now()
+    batch.save(update_fields=["status", "ready_at"])
+    record_event(
+        actor=actor,
+        event_type="PROXY_BATCH_READY_TO_SETTLE",
+        entity=batch,
+        metadata={"order_ids": list(active.values_list("pk", flat=True))},
+    )
+    return batch
+
+
+@transaction.atomic
+def reopen_proxy_batch(*, proxy_batch, operator):
+    """Explicitly unfreeze a ready batch and invalidate all unfinalized receipt versions."""
+    _require_operator(operator)
+    batch = ProxyBatch.objects.get(pk=proxy_batch.pk)
+    if batch.status != ProxyBatchStatus.READY_TO_SETTLE:
+        raise ValidationError("只有 READY_TO_SETTLE 批次可以重新打开")
+    from apps.settlements.models import SettlementStatus
+
+    if batch.settlements.filter(
+        status__in=[SettlementStatus.DRAFT, SettlementStatus.WAITING_PAYMENT]
+    ).exists():
+        raise ValidationError("该批次存在有效结算草稿或待付款账单，请先废弃账单再重新打开")
+    batch.status = ProxyBatchStatus.OPEN
+    batch.ready_at = None
+    batch.save(update_fields=["status", "ready_at"])
+    from apps.settlements.models import ProxyRecipientReceipt, SettlementImageVersion
+
+    ProxyRecipientReceipt.objects.filter(proxy_batch=batch, is_active=True).update(is_active=False)
+    SettlementImageVersion.objects.filter(settlement__proxy_batch=batch, is_active=True).update(
+        is_active=False
+    )
+    record_event(
+        actor=operator,
+        event_type="PROXY_BATCH_REOPENED",
+        entity=batch,
+        metadata={"receipt_versions_invalidated": True},
     )
     return batch
 

@@ -39,6 +39,13 @@ class ExceptionCase(models.Model):
         on_delete=models.PROTECT,
         related_name="exception_cases",
     )
+    consolidation_round = models.ForeignKey(
+        "consolidation.ConsolidationRound",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="exception_cases",
+    )
     reason_code = models.CharField(max_length=40)
     reason_text = models.TextField()
     blocks_consolidation = models.BooleanField(default=False, db_index=True)

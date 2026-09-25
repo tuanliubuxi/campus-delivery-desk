@@ -28,18 +28,20 @@ def create_exception_case(
     order=None,
     task=None,
     drop=None,
+    consolidation_round=None,
     blocks_consolidation=False,
     blocks_settlement=False,
 ):
     _require_operator(actor)
     if not reason_code.strip() or not reason_text.strip():
         raise ValidationError("异常类型和说明必填")
-    if not any((order, task, drop)):
-        raise ValidationError("异常必须关联订单、任务或配送记录")
+    if not any((order, task, drop, consolidation_round)):
+        raise ValidationError("异常必须关联订单、任务、配送记录或归拢轮次")
     case = ExceptionCase.objects.create(
         order=order,
         task=task,
         drop=drop,
+        consolidation_round=consolidation_round,
         reason_code=reason_code.strip(),
         reason_text=reason_text.strip(),
         blocks_consolidation=blocks_consolidation,
@@ -53,6 +55,7 @@ def create_exception_case(
         metadata={
             "order_id": getattr(order, "pk", None),
             "task_id": getattr(task, "pk", None),
+            "consolidation_round_id": getattr(consolidation_round, "pk", None),
             "blocks_consolidation": blocks_consolidation,
             "blocks_settlement": blocks_settlement,
         },
@@ -81,4 +84,9 @@ def resolve_exception_case(*, case, actor, resolution_text):
         ]
     )
     record_event(actor=actor, event_type="EXCEPTION_CASE_RESOLVED", entity=case)
+    if case.order_id and case.order.proxy_batch_id:
+        # Resolving the last blocker can immediately make an Agent batch ready.
+        from apps.agents.services import evaluate_proxy_batch_ready
+
+        evaluate_proxy_batch_ready(proxy_batch=case.order.proxy_batch, actor=actor)
     return case

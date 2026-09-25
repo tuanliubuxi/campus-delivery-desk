@@ -44,6 +44,8 @@ urlpatterns = [
     path("", include("apps.customers.urls")),
     path("", include("apps.orders.urls")),
     path("", include("apps.dispatch.urls")),
+    path("", include("apps.consolidation.urls")),
+    path("", include("apps.settlements.urls")),
     path("", include("apps.mediafiles.urls")),
     path("", include("apps.config_center.urls")),
     path("manifest.webmanifest", pwa_manifest, name="pwa-manifest"),

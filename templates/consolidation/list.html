@@ -1,0 +1,13 @@
+{% extends "layouts/base.html" %}
+{% block title %}归拢任务 · 校驿{% endblock %}
+{% block content %}
+<main class="container cdd-courier-shell">
+  <h1 class="h4 mb-3">我的归拢</h1>
+  {% for round in rounds %}
+    <a class="card card-body mb-3 text-decoration-none" href="{% url 'consolidation:courier-detail' round.id %}">
+      <strong>{{ round.get_recipient_kind_display }} · 第 {{ round.round_no }} 轮</strong>
+      <span>{{ round.items.count }} 件 · {{ round.get_status_display }}</span>
+    </a>
+  {% empty %}<div class="alert alert-light">暂无待处理归拢。</div>{% endfor %}
+</main>
+{% endblock %}

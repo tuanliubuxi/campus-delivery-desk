@@ -13,6 +13,7 @@ from .enums import (
     BeneficiaryType,
     ChargeSource,
     ChargeType,
+    SettlementImageType,
     SettlementPartyType,
     SettlementStatus,
 )
@@ -90,6 +91,7 @@ class Settlement(models.Model):
         null=True,
         blank=True,
     )
+    build_operation_id = models.UUIDField(null=True, blank=True, unique=True)
 
     class Meta:
         constraints = [
@@ -214,3 +216,71 @@ class SettlementLine(models.Model):
 
     def delete(self, *args, **kwargs):
         raise TypeError("SettlementLine cannot be deleted")
+
+
+class SettlementImageVersion(models.Model):
+    """Version metadata remains even after the generated file is retained or invalidated."""
+
+    settlement = models.ForeignKey(
+        Settlement, on_delete=models.PROTECT, related_name="image_versions"
+    )
+    version_no = models.PositiveIntegerField()
+    media = models.ForeignKey(
+        "mediafiles.MediaFile",
+        on_delete=models.PROTECT,
+        related_name="settlement_image_versions",
+    )
+    image_type = models.CharField(max_length=24, choices=SettlementImageType.choices)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["settlement", "image_type", "version_no"],
+                name="settlements_unique_image_version",
+            ),
+            models.UniqueConstraint(
+                fields=["settlement", "image_type"],
+                condition=Q(is_active=True),
+                name="settlements_one_active_image_type",
+            ),
+        ]
+
+
+class ProxyRecipientReceipt(models.Model):
+    proxy_recipient = models.ForeignKey(
+        ProxyRecipient, on_delete=models.PROTECT, related_name="receipts"
+    )
+    proxy_batch = models.ForeignKey(
+        ProxyBatch, on_delete=models.PROTECT, related_name="recipient_receipts"
+    )
+    settlement = models.ForeignKey(
+        Settlement,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="proxy_recipient_receipts",
+    )
+    version_no = models.PositiveIntegerField()
+    show_price = models.BooleanField(default=True)
+    media = models.ForeignKey(
+        "mediafiles.MediaFile",
+        on_delete=models.PROTECT,
+        related_name="proxy_recipient_receipts",
+    )
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["proxy_recipient", "version_no"],
+                name="settlements_unique_proxy_receipt_version",
+            ),
+            models.UniqueConstraint(
+                fields=["proxy_recipient"],
+                condition=Q(is_active=True),
+                name="settlements_one_active_proxy_receipt",
+            ),
+        ]

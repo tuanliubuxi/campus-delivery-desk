@@ -11,10 +11,17 @@ from .enums import (
     ChargeType,
     EarningSourceType,
     EarningStatus,
+    SettlementImageType,
     SettlementPartyType,
     SettlementStatus,
 )
-from .settlement import Settlement, SettlementLine, SettlementOrder
+from .settlement import (
+    ProxyRecipientReceipt,
+    Settlement,
+    SettlementImageVersion,
+    SettlementLine,
+    SettlementOrder,
+)
 
 __all__ = [
     "AdjustmentType",
@@ -29,8 +36,11 @@ __all__ = [
     "EarningStatus",
     "FinancialAdjustment",
     "Settlement",
+    "SettlementImageType",
+    "SettlementImageVersion",
     "SettlementLine",
     "SettlementOrder",
     "SettlementPartyType",
     "SettlementStatus",
+    "ProxyRecipientReceipt",
 ]

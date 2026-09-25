@@ -1,0 +1,35 @@
+{% extends "layouts/base.html" %}
+{% block title %}结算 #{{ settlement.id }} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3">
+  <h1 class="h3">结算 #{{ settlement.id }} <span class="badge text-bg-secondary">{{ settlement.get_status_display }}</span></h1>
+  <p>{{ settlement.get_party_type_display }} · {{ settlement.settlement_orders.count }} 单</p>
+  <div class="row g-4"><section class="col-lg-7">
+    <div class="card card-body"><h2 class="h5">费用明细</h2>
+      {% for item in charges %}<div class="d-flex justify-content-between border-bottom py-2 gap-2">
+        <span>{{ item.label }}</span><strong>¥{{ item.amount }}</strong>
+        {% if settlement.status == 'DRAFT' and item.scope_type == 'SETTLEMENT' %}
+        <form method="post" action="{% url 'settlements:charge-void' settlement.id item.id %}">{% csrf_token %}
+          <input type="hidden" name="reason" value="录单员在草稿中更正费用"><button class="btn btn-sm btn-outline-danger">作废</button>
+        </form>{% endif %}
+      </div>{% empty %}<p class="text-secondary">暂无费用项。</p>{% endfor %}
+      <div class="d-flex justify-content-between fs-4 mt-3"><span>{% if settlement.status == 'DRAFT' %}实时预览{% else %}冻结应收{% endif %}</span>
+        <strong>¥{% if settlement.status == 'DRAFT' %}{{ preview_total }}{% else %}{{ settlement.amount_due_snapshot }}{% endif %}</strong></div>
+      {% if settlement.status == 'DRAFT' and preview_total < 0 %}<div class="alert alert-danger mt-3">预览金额为负，必须修正费用项后才能生成有效凭证。</div>{% endif %}
+    </div>
+    {% if settlement.status == 'DRAFT' %}<form method="post" action="{% url 'settlements:charge-add' settlement.id %}" class="card card-body mt-3">
+      {% csrf_token %}<h2 class="h5">添加结算级费用</h2>{{ charge_form.as_p }}<button class="btn btn-outline-primary">添加费用项</button>
+    </form>{% endif %}
+  </section><aside class="col-lg-5">
+    {% if settlement.status == 'DRAFT' %}<form method="post" action="{% url 'settlements:freeze' settlement.id %}" class="card card-body mb-3">{% csrf_token %}
+      <p>生成时重新校验 UNKNOWN、阻塞异常、订单占用及非负总额，并冻结为不可变 SettlementLine。</p><button class="btn btn-primary">生成有效结算凭证</button>
+    </form>{% endif %}
+    {% if settlement.status == 'DRAFT' or settlement.status == 'WAITING_PAYMENT' %}<form method="post" action="{% url 'settlements:void' settlement.id %}" class="card card-body mb-3">{% csrf_token %}
+      {{ reason_form.as_p }}<button class="btn btn-outline-danger">废弃账单</button></form>{% endif %}
+    <div class="card card-body"><h2 class="h5">凭证版本</h2>
+      {% for version in settlement.image_versions.all %}<a href="{% url 'mediafiles:download' version.media_id %}">{{ version.get_image_type_display }} v{{ version.version_no }}{% if not version.is_active %}（历史）{% endif %}</a>{% endfor %}
+      {% for receipt in settlement.proxy_recipient_receipts.all %}<a href="{% url 'mediafiles:download' receipt.media_id %}">{{ receipt.proxy_recipient.display_name }} 凭证 v{{ receipt.version_no }}{% if not receipt.show_price %}（无价格）{% endif %}</a>{% endfor %}
+    </div>
+  </aside></div>
+</main>
+{% endblock %}

@@ -1,7 +1,9 @@
 /* Minimal far-photo annotation tool: click to circle, clear, then export a derived JPEG. */
 document.addEventListener("DOMContentLoaded", () => {
   const farInput = document.getElementById("id_far_photo");
-  const annotatedInput = document.getElementById("id_annotated_photo");
+  // Delivery and consolidation forms use different field names but the same derived-image flow.
+  const annotatedInput = document.getElementById("id_annotated_photo")
+    || document.getElementById("id_far_annotation");
   const tools = document.getElementById("annotation-tools");
   const canvas = document.getElementById("annotation-canvas");
   if (!farInput || !annotatedInput || !tools || !canvas) return;

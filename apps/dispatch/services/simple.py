@@ -312,6 +312,16 @@ def complete_delivery_drop(
 
                 for express_round in express_rounds.values():
                     evaluate_express_round(express_round=express_round, actor=courier)
+                # Agent batches can become ready only after round evaluation has closed them.
+                from apps.agents.services import evaluate_proxy_batch_ready
+
+                proxy_batches = {
+                    order.proxy_batch_id: order.proxy_batch
+                    for order in orders
+                    if order.proxy_batch_id
+                }
+                for proxy_batch in proxy_batches.values():
+                    evaluate_proxy_batch_ready(proxy_batch=proxy_batch, actor=courier)
             return drop
     except Exception:
         # Database rollback cannot roll back filesystem publication; remove only this attempt's files.

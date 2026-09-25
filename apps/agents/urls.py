@@ -18,6 +18,11 @@ urlpatterns = [
         name="batch-cancel",
     ),
     path(
+        "recorder/proxy/batches/<int:batch_id>/reopen/",
+        views.batch_reopen,
+        name="batch-reopen",
+    ),
+    path(
         "recorder/proxy/batches/<int:batch_id>/recipients/new/",
         views.recipient_create,
         name="recipient-create",
@@ -26,6 +31,11 @@ urlpatterns = [
         "recorder/proxy/recipients/<int:recipient_id>/edit/",
         views.recipient_edit,
         name="recipient-edit",
+    ),
+    path(
+        "recorder/proxy/recipients/<int:recipient_id>/generate-receipt/",
+        views.recipient_generate_receipt,
+        name="recipient-generate-receipt",
     ),
     path("admin-console/agents/", views.proxy_workspace, name="admin-workspace"),
 ]

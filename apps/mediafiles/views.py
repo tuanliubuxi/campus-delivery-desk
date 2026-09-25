@@ -18,7 +18,14 @@ def download_media(request, media_id):
         owns_exception = media.exception_attachments.filter(
             exception_case__created_by=request.user
         ).exists()
-        if not (owns_evidence or owns_annotation or owns_exception):
+        owns_consolidation = (
+            media.consolidation_near_rounds.filter(assigned_courier=request.user).exists()
+            or media.consolidation_far_rounds.filter(assigned_courier=request.user).exists()
+            or media.consolidation_annotated_rounds.filter(
+                assigned_courier=request.user
+            ).exists()
+        )
+        if not (owns_evidence or owns_annotation or owns_exception or owns_consolidation):
             raise PermissionDenied("不能访问其他配送员的媒体")
     path = media_absolute_path(media)
     if not path.is_file():

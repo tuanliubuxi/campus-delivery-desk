@@ -1,0 +1,21 @@
+{% extends "layouts/base.html" %}
+{% block title %}结算 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3"><div class="row g-4">
+  <section class="col-lg-5">
+    <h1 class="h3">建立结算草稿</h1>
+    <p class="text-secondary">这里只固定订单集合；不会生成冻结行，也不会改变订单结算状态。</p>
+    <form method="post" action="{% url 'settlements:build' %}" class="card card-body">
+      {% csrf_token %}{{ build_form.as_p }}<button class="btn btn-primary">建立 DRAFT</button>
+    </form>
+  </section>
+  <section class="col-lg-7"><h2 class="h4">最近结算</h2>
+    {% for settlement in settlements %}
+    <a class="card card-body mb-2 text-decoration-none" href="{% url 'settlements:detail' settlement.id %}">
+      <strong>#{{ settlement.id }} · {{ settlement.get_business_type_display }}</strong>
+      <span>{{ settlement.get_status_display }} · {{ settlement.settlement_orders.count }} 单</span>
+    </a>
+    {% empty %}<div class="alert alert-light">暂无结算。</div>{% endfor %}
+  </section>
+</div></main>
+{% endblock %}

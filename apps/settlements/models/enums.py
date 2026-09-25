@@ -50,6 +50,11 @@ class SettlementStatus(models.TextChoices):
     REVERSED = "REVERSED", "已撤销"
 
 
+class SettlementImageType(models.TextChoices):
+    CUSTOMER_SETTLEMENT = "CUSTOMER_SETTLEMENT", "普通客户结算图"
+    AGENT_SUMMARY = "AGENT_SUMMARY", "代理批次汇总图"
+
+
 class AdjustmentType(models.TextChoices):
     REFUND = "REFUND", "退款"
     DISCOUNT_AFTER_SETTLEMENT = "DISCOUNT_AFTER_SETTLEMENT", "结算后减免"
