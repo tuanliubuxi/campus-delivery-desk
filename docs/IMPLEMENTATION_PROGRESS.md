@@ -117,7 +117,7 @@
 - [x] Phase 3：订单、费用与结算基础模型
 - [x] Phase 4：简单配送业务
 - [x] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
-- [ ] Phase 6：归拢、多件轮次关闭、结算构建与凭证
+- [x] Phase 6：归拢、多件轮次关闭、结算构建与凭证
 - [ ] Phase 7：结算确认、收益与工资
 - [ ] Phase 8：异常、人工处理、快速补录
 - [ ] Phase 9：经营分析、搜索、Excel
@@ -143,3 +143,22 @@
 | dashboard | 只读筛选、聚合与导出 |
 
 写入由各 App 的 `services/` 主持事务与状态迁移；复杂读取由 `selectors/` 提供。关键约束包括订单编号唯一、每单至多一个有效 Assignment、ExpressRound 收件归属二选一、代理来源仅限快递、费用项逻辑作废、SettlementLine 冻结后不可变。Phase 0 仅建立目录及运行基础，不提前创建业务模型或迁移。
+
+## Phase 6：归拢、结算构建与凭证（已完成）
+
+- [x] ExpressRound eligibility selector，统一排除上楼/当面交付、已归拢与阻塞归拢异常
+- [x] Customer/ProxyRecipient 自动归拢及录单员/管理员人工合格子集归拢
+- [x] 成员创建即冻结，默认负责人取成员中最后完成配送的配送员
+- [x] 独立 `reassign_consolidation_round()`、找件状态、最终位置/近景/远景标注与审计
+- [x] ExpressRound 等待已有 PENDING/IN_PROGRESS 归拢；完成后重算剩余候选并按少于 2 件关闭
+- [x] ProxyBatch 空批次保持 OPEN、全部逐单取消 CANCELED、完整条件 READY_TO_SETTLE 与显式 reopen
+- [x] `build_settlement()` 仅创建 DRAFT + 固定 SettlementOrder，UNKNOWN 可进入 DRAFT
+- [x] DRAFT WEATHER/CUSTOMER_EXTRA/MANUAL/MULTI_ITEM 费用新增和逻辑作废
+- [x] 结算级费用绑定当前 settlement；快递天气/多件优惠绑定 ExpressRound；客户加价明确 beneficiary
+- [x] freeze 同事务重验订单占用、UNKNOWN、阻塞异常与非负总额，复制不可变 SettlementLine
+- [x] freeze 后 Settlement/Order 同步 WAITING_PAYMENT；DRAFT/WAITING_PAYMENT 支持保留历史的 VOIDED
+- [x] 普通客户结算图、ProxyRecipient 有价/无价客户凭证、Agent 无照片汇总图及版本化受控下载
+- [x] 录单员宽窄屏结算/归拢管理页、配送员移动归拢清单/找件/拍照页
+- [x] migration、专项/全量测试、静态检查及 Docker 生产容器回归
+
+本阶段新增 `consolidation.0001_initial`（归拢轮次、冻结成员、负责人和最终证据）、`settlements.0002_*`（构建幂等键、结算图片版本、临时收件人凭证版本）、`settlements.0003_*`（每类正式图片/每位临时收件人仅一个有效版本）和 `exceptions.0003_*`（异常关联归拢轮次）。Phase 6 专项 7 项、全量 79 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。代理批次在存在 DRAFT/WAITING_PAYMENT 账单时必须先废弃账单再 reopen，避免固定订单集合与新增成员并存。付款确认、收益结转、工资计算和结算撤销未提前实现，保留到 Phase 7。
