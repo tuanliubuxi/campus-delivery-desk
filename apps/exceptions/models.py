@@ -1,7 +1,10 @@
-"""Basic exception cases with explicit consolidation and settlement blockers."""
+"""Auditable exception cases, direct attachments, and linked business evidence."""
+
+import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 from apps.orders.models import Order
 
@@ -12,6 +15,8 @@ class ExceptionStatus(models.TextChoices):
 
 
 class ExceptionCase(models.Model):
+    # Browser retries must resolve to the same exception instead of duplicating blockers.
+    operation_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     status = models.CharField(
         max_length=12,
         choices=ExceptionStatus.choices,
@@ -84,6 +89,14 @@ class ExceptionCaseAttachment(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["exception_case", "media"],
+                name="exceptions_unique_case_attachment",
+            )
+        ]
+
 
 class ExceptionEvidenceLink(models.Model):
     exception_case = models.ForeignKey(
@@ -106,3 +119,22 @@ class ExceptionEvidenceLink(models.Model):
         related_name="exception_evidence_links",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(delivery_evidence__isnull=False, media__isnull=True)
+                    | Q(delivery_evidence__isnull=True, media__isnull=False)
+                ),
+                name="exceptions_evidence_link_xor",
+            ),
+            models.UniqueConstraint(
+                fields=["exception_case", "delivery_evidence"],
+                name="exceptions_unique_case_delivery_evidence",
+            ),
+            models.UniqueConstraint(
+                fields=["exception_case", "media"],
+                name="exceptions_unique_case_media_evidence",
+            ),
+        ]

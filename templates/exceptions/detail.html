@@ -1,0 +1,20 @@
+{# Exception facts and evidence remain visible after resolution. #}
+{% extends "layouts/base.html" %}
+{% block title %}异常 #{{ case.id }} · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3 {% if user.is_courier %}cdd-mobile-shell{% endif %}">
+  <a href="{% if user.is_courier %}{% url 'exceptions:courier-workspace' %}{% else %}{% url 'exceptions:workspace' %}{% endif %}">← 返回异常列表</a>
+  <h1 class="h3 mt-2">异常 #{{ case.id }} <span class="badge text-bg-secondary">{{ case.get_status_display }}</span></h1>
+  <div class="card card-body mb-3"><dl class="row mb-0"><dt class="col-sm-3">类型</dt><dd class="col-sm-9">{{ case.reason_code }}</dd><dt class="col-sm-3">说明</dt><dd class="col-sm-9">{{ case.reason_text }}</dd><dt class="col-sm-3">关联</dt><dd class="col-sm-9">{% if case.order %}{{ case.order.display_id }}{% elif case.task %}任务 #{{ case.task_id }}{% elif case.drop %}配送 #{{ case.drop_id }}{% else %}归拢 #{{ case.consolidation_round_id }}{% endif %}</dd></dl>
+    {% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %}{% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}
+  </div>
+  <div class="card card-body mb-3"><h2 class="h5">证据</h2>
+    {% for attachment in case.attachments.all %}<a href="{% url 'mediafiles:download' attachment.media_id %}">异常上传图片 #{{ attachment.media_id }}</a>{% endfor %}
+    {% for link in case.evidence_links.all %}{% if link.delivery_evidence %}<a href="{% url 'mediafiles:download' link.delivery_evidence.media_id %}">配送证据 #{{ link.delivery_evidence_id }}</a>{% else %}<a href="{% url 'mediafiles:download' link.media_id %}">业务图片 #{{ link.media_id }}</a>{% endif %}{% empty %}<p class="text-secondary">没有引用既有证据。</p>{% endfor %}
+  </div>
+  {% if case.status == 'OPEN' %}
+    {% if not user.is_courier %}<form method="post" action="{% url 'exceptions:blockers' case.id %}" class="card card-body mb-3">{% csrf_token %}<h2 class="h5">调整阻塞属性</h2>{{ blockers_form.as_p }}<button class="btn btn-outline-warning">保存并审计</button></form>{% endif %}
+    <form method="post" action="{% url 'exceptions:resolve' case.id %}" class="card card-body">{% csrf_token %}<h2 class="h5">解决异常</h2>{{ resolve_form.as_p }}<button class="btn btn-success">标记已解决</button></form>
+  {% else %}<div class="card card-body"><h2 class="h5">处理结果</h2><p>{{ case.resolution_text }}</p><small>{{ case.resolved_at }} · {{ case.resolved_by.display_name }}</small></div>{% endif %}
+</main>
+{% endblock %}

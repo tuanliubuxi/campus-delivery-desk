@@ -1,0 +1,20 @@
+{# Shared exception desk; services still enforce relationship and role permissions. #}
+{% extends "layouts/base.html" %}
+{% block title %}异常与处理 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3 {% if user.is_courier %}cdd-mobile-shell{% endif %}">
+  <h1 class="h3">异常与处理</h1>
+  <div class="row g-4"><section class="col-lg-5">
+    <form method="post" enctype="multipart/form-data" class="card card-body">{% csrf_token %}
+      <h2 class="h5">报告异常</h2>{{ form.as_p }}<button class="btn btn-danger">建立异常</button>
+    </form>
+  </section><section class="col-lg-7">
+    {% for case in cases %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
+      <div class="d-flex justify-content-between gap-2"><strong>#{{ case.id }} · {{ case.reason_code }}</strong><span>{{ case.get_status_display }}</span></div>
+      <div>{{ case.reason_text|truncatechars:100 }}</div><div class="mt-2">
+      {% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %}
+      {% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}</div>
+    </a>{% empty %}<p class="text-secondary">暂无可见异常。</p>{% endfor %}
+  </section></div>
+</main>
+{% endblock %}

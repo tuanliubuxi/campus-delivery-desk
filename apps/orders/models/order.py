@@ -68,6 +68,8 @@ class Order(models.Model):
         choices=EntryMode.choices,
         default=EntryMode.NORMAL,
     )
+    # Kept separate from the customer's order note so historical-entry provenance is visible.
+    entry_note = models.TextField(blank=True)
 
     destination_type = models.CharField(max_length=24, choices=DestinationType.choices)
     building_snapshot = models.CharField(max_length=80, blank=True)

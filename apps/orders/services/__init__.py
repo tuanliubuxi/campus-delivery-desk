@@ -1,5 +1,6 @@
 """Orders services."""
 
+from .completion import create_completed_order
 from .creation import (
     create_errand_order,
     create_express_order,
@@ -14,6 +15,7 @@ from .mutations import cancel_order, update_order
 __all__ = [
     "PossibleDuplicateOrder",
     "cancel_order",
+    "create_completed_order",
     "create_errand_order",
     "create_express_order",
     "create_grocery_order",

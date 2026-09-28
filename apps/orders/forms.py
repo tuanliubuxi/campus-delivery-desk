@@ -1,14 +1,20 @@
 """Explicit recorder forms for each V1 business instead of a dynamic form engine."""
 
+import uuid
+
 from django import forms
 from django.utils import timezone
 
+from apps.accounts.models import User
+from apps.common.enums import UserRole
 from apps.common.forms import BootstrapFormMixin
 from apps.config_center.models import Building
 from apps.customers.models import Customer
+from apps.dispatch.models import LocationType
 from apps.orders.models import (
     DestinationType,
     DispatchMode,
+    EntryMode,
     PickupArea,
     PickupIdentifierType,
     SizeClass,
@@ -184,3 +190,50 @@ class CancelOrderForm(BootstrapFormMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._apply_bootstrap_classes()
+
+
+class CompletionMetadataForm(BootstrapFormMixin, forms.Form):
+    """Actual completion facts shared by direct completion and historical backfill."""
+
+    operation_id = forms.UUIDField(widget=forms.HiddenInput)
+    entry_mode = forms.ChoiceField(
+        choices=[
+            (EntryMode.DIRECT_COMPLETE, "快速完成"),
+            (EntryMode.HISTORICAL_BACKFILL, "历史补录"),
+        ],
+        label="录入模式",
+    )
+    actual_courier = forms.ModelChoiceField(queryset=User.objects.none(), label="实际配送员")
+    completed_at = forms.DateTimeField(
+        label="实际完成时间",
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+    )
+    location_type = forms.ChoiceField(choices=LocationType.choices, label="放置类型")
+    final_location_text = forms.CharField(max_length=255, label="最终位置")
+    near_photo = forms.ImageField(required=False, label="近景照片")
+    far_photo = forms.ImageField(required=False, label="远景照片")
+    entry_note = forms.CharField(
+        required=False,
+        label="补录说明",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("initial", {}).update(
+            {
+                "operation_id": uuid.uuid4(),
+                "completed_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+            }
+        )
+        super().__init__(*args, **kwargs)
+        self.fields["actual_courier"].queryset = User.objects.filter(
+            role=UserRole.COURIER, is_active=True
+        )
+        self._apply_bootstrap_classes()
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("entry_mode") == EntryMode.HISTORICAL_BACKFILL:
+            if not cleaned.get("entry_note", "").strip():
+                self.add_error("entry_note", "历史补录必须填写补录说明")
+        return cleaned

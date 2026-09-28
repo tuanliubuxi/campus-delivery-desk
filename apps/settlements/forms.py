@@ -75,6 +75,33 @@ class FinancialActionForm(OperationForm, ReasonForm):
 
 class RefundForm(FinancialActionForm):
     amount = forms.DecimalField(min_value=0.01, max_digits=12, decimal_places=2, label="退款金额")
+    impact_wage = forms.BooleanField(required=False, label="该退款影响计薪收入池")
+    wage_courier = forms.ModelChoiceField(
+        required=False, queryset=User.objects.none(), label="指定扣减配送员（可选）"
+    )
+    wage_amount = forms.DecimalField(
+        required=False,
+        min_value=0.01,
+        max_digits=12,
+        decimal_places=2,
+        label="个人工资扣减金额（正数填写）",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["wage_courier"].queryset = User.objects.filter(
+            role=UserRole.COURIER, is_active=True
+        )
+
+    def clean(self):
+        cleaned = super().clean()
+        courier = cleaned.get("wage_courier")
+        wage_amount = cleaned.get("wage_amount")
+        if bool(courier) != bool(wage_amount):
+            raise forms.ValidationError("指定个人工资扣减时，配送员和扣减金额必须同时填写")
+        if not cleaned.get("impact_wage") and (courier or wage_amount):
+            raise forms.ValidationError("填写个人工资扣减前必须勾选影响计薪")
+        return cleaned
 
 
 class WageCalculatorForm(forms.Form):

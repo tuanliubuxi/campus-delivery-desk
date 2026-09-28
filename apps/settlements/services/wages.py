@@ -21,6 +21,7 @@ class WageLine:
     courier: User
     ordinary_direct: Decimal
     locked_amount: Decimal
+    wage_adjustment: Decimal
     manual_amount: Decimal
     final_amount: Decimal
     warning: str = ""
@@ -71,13 +72,14 @@ def calculate_wages(*, period_start, period_end, mode, manual_allocations=None):
                 "ordinary_direct": Decimal("0.00"),
                 "locked": Decimal("0.00"),
                 "ratio_suggested": Decimal("0.00"),
+                "wage_adjustment": Decimal("0.00"),
             },
         )
         manual = (
             allocations.get(courier_id, Decimal("0.00")) if mode == "MANUAL" else Decimal("0.00")
         )
         ordinary_part = manual if mode == "MANUAL" else data["ratio_suggested"]
-        final = _money(ordinary_part + data["locked"])
+        final = _money(ordinary_part + data["locked"] + data["wage_adjustment"])
         warning = ""
         if mode == "MANUAL" and final > data["ordinary_direct"]:
             warning = "最终金额高于该成员直接产生的普通配送收益"
@@ -86,6 +88,7 @@ def calculate_wages(*, period_start, period_end, mode, manual_allocations=None):
                 courier=data["courier"],
                 ordinary_direct=_money(data["ordinary_direct"]),
                 locked_amount=_money(data["locked"]),
+                wage_adjustment=_money(data["wage_adjustment"]),
                 manual_amount=_money(manual),
                 final_amount=final,
                 warning=warning,

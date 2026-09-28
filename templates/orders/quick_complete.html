@@ -1,0 +1,12 @@
+{# Recorder-only creation of already-completed facts; no fake task or assignment is created. #}
+{% extends "layouts/base.html" %}
+{% block title %}快速完成与历史补录 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3"><h1 class="h3">快速完成与历史补录</h1>
+{% if businesses %}<p>先选择业务类型，再填写完整订单和实际完成信息。</p><div class="row g-3">
+  {% for business in businesses %}<div class="col-sm-6 col-lg-4"><a class="card card-body text-decoration-none" href="?business_type={{ business.business_type }}"><strong>{{ business.icon }} {{ business.display_name }}</strong></a></div>{% endfor %}
+</div>{% else %}<form method="post" enctype="multipart/form-data" class="row g-4">{% csrf_token %}<input type="hidden" name="business_type" value="{{ business_type }}">
+  <section class="col-lg-7"><div class="card card-body"><h2 class="h5">订单业务字段</h2>{{ order_form.as_p }}</div></section>
+  <aside class="col-lg-5"><div class="card card-body"><h2 class="h5">实际完成事实</h2>{{ completion_form.as_p }}<button class="btn btn-primary">创建已完成订单</button></div></aside>
+</form>{% endif %}</main>
+{% endblock %}

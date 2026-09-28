@@ -270,7 +270,17 @@ def reverse_settlement(*, settlement, actor, reason, operation_id):
 
 
 @transaction.atomic
-def record_refund(*, settlement, actor, amount, reason, operation_id):
+def record_refund(
+    *,
+    settlement,
+    actor,
+    amount,
+    reason,
+    operation_id,
+    impact_wage=False,
+    wage_courier=None,
+    wage_amount=None,
+):
     """Append a real refund without changing the original settled statement or lines."""
     require_financial_operator(actor)
     operation_id = UUID(str(operation_id))
@@ -286,13 +296,26 @@ def record_refund(*, settlement, actor, amount, reason, operation_id):
     reason = reason.strip()
     if not reason:
         raise ValidationError("退款原因必填")
+    if bool(wage_courier) != bool(wage_amount):
+        raise ValidationError("指定个人工资扣减时，配送员和扣减金额必须同时填写")
+    if (wage_courier or wage_amount) and not impact_wage:
+        raise ValidationError("个人工资扣减必须标记为影响计薪")
+    if wage_courier and wage_courier.role != UserRole.COURIER:
+        raise ValidationError("工资扣减对象必须是配送员")
+    if wage_amount is not None:
+        wage_amount = _money(wage_amount)
+        if wage_amount <= 0:
+            raise ValidationError("个人工资扣减金额必须大于 0")
+        wage_amount = -wage_amount
     adjustment = FinancialAdjustment.objects.create(
         settlement=settlement,
         operation_id=operation_id,
         adjustment_type=AdjustmentType.REFUND,
         amount=-amount,
         reason=reason,
-        impact_wage=False,
+        impact_wage=impact_wage,
+        wage_courier=wage_courier,
+        wage_amount=wage_amount,
         created_by=actor,
     )
     record_event(

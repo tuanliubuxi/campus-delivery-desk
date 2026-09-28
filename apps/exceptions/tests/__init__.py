@@ -1,1 +1,1 @@
-"""Exceptions tests."""
+"""Exception workflow tests."""

@@ -8,6 +8,7 @@ app_name = "orders"
 
 urlpatterns = [
     path("recorder/orders/new/", views.order_new, name="new"),
+    path("recorder/orders/quick-complete/", views.quick_complete, name="quick-complete"),
     path("recorder/orders/new/<str:business_type>/", views.order_create, name="create"),
     path(
         "recorder/orders/continuous/<int:customer_id>/",

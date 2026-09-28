@@ -67,6 +67,7 @@ def courier_earning_totals(*, period_start, period_end):
                 "ordinary_direct": Decimal("0.00"),
                 "locked": Decimal("0.00"),
                 "ratio_suggested": Decimal("0.00"),
+                "wage_adjustment": Decimal("0.00"),
             },
         )
         if earning.source_type == EarningSourceType.CUSTOMER_EXTRA:
@@ -74,4 +75,24 @@ def courier_earning_totals(*, period_start, period_end):
         else:
             row["ordinary_direct"] += earning.amount_base or Decimal("0.00")
             row["ratio_suggested"] += earning.suggested_wage_amount or Decimal("0.00")
+    adjustments = FinancialAdjustment.objects.filter(
+        settlement__status=SettlementStatus.SETTLED,
+        settlement__settled_at__date__gte=period_start,
+        settlement__settled_at__date__lte=period_end,
+        impact_wage=True,
+        wage_courier__isnull=False,
+        wage_amount__isnull=False,
+    ).select_related("wage_courier")
+    for adjustment in adjustments:
+        row = rows.setdefault(
+            adjustment.wage_courier_id,
+            {
+                "courier": adjustment.wage_courier,
+                "ordinary_direct": Decimal("0.00"),
+                "locked": Decimal("0.00"),
+                "ratio_suggested": Decimal("0.00"),
+                "wage_adjustment": Decimal("0.00"),
+            },
+        )
+        row["wage_adjustment"] += adjustment.wage_amount
     return rows
