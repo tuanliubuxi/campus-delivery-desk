@@ -37,7 +37,9 @@ class AddChargeForm(forms.Form):
     label = forms.CharField(required=False, max_length=160, label="说明")
     amount = forms.DecimalField(required=False, max_digits=12, decimal_places=2, label="金额")
     beneficiary_courier = forms.ModelChoiceField(
-        required=False, queryset=User.objects.none(), label="客户加价收益人"
+        required=False,
+        queryset=User.objects.none(),
+        label="收益人（客户加价/人工额外服务）",
     )
     proxy_recipient = forms.ModelChoiceField(
         required=False, queryset=ProxyRecipient.objects.all(), label="代理临时收件人"
@@ -55,3 +57,37 @@ class AddChargeForm(forms.Form):
 
 class ReasonForm(forms.Form):
     reason = forms.CharField(max_length=255, label="原因")
+
+
+class OperationForm(forms.Form):
+    """Idempotency token for critical financial actions."""
+
+    operation_id = forms.UUIDField(widget=forms.HiddenInput)
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("initial", {})["operation_id"] = uuid.uuid4()
+        super().__init__(*args, **kwargs)
+
+
+class FinancialActionForm(OperationForm, ReasonForm):
+    """Idempotent reason form shared by reversal/refund operations."""
+
+
+class RefundForm(FinancialActionForm):
+    amount = forms.DecimalField(min_value=0.01, max_digits=12, decimal_places=2, label="退款金额")
+
+
+class WageCalculatorForm(forms.Form):
+    """Period/mode fields; per-courier manual amounts are parsed by the service DTO."""
+
+    MODE_CHOICES = [("RATIO", "比例模式"), ("MANUAL", "手工模式")]
+    period_start = forms.DateField(label="开始日期", widget=forms.DateInput(attrs={"type": "date"}))
+    period_end = forms.DateField(label="结束日期", widget=forms.DateInput(attrs={"type": "date"}))
+    mode = forms.ChoiceField(choices=MODE_CHOICES, label="计算模式")
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("period_start") and cleaned.get("period_end"):
+            if cleaned["period_start"] > cleaned["period_end"]:
+                raise forms.ValidationError("开始日期不能晚于结束日期")
+        return cleaned

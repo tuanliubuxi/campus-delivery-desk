@@ -1,19 +1,35 @@
 """Thin recorder/admin views for DRAFT editing and receipt freezing."""
 
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.common.permissions import recorder_or_admin_required
+from apps.accounts.models import User
+from apps.common.enums import UserRole
+from apps.common.permissions import admin_required, recorder_or_admin_required
 
-from .forms import AddChargeForm, BuildSettlementForm, ReasonForm
+from .forms import (
+    AddChargeForm,
+    BuildSettlementForm,
+    FinancialActionForm,
+    OperationForm,
+    ReasonForm,
+    RefundForm,
+    WageCalculatorForm,
+)
 from .models import ChargeItem, Settlement
 from .selectors import settlement_charge_items, settlement_preview_total
 from .services import (
     add_draft_charge,
     build_settlement,
+    calculate_wages,
+    confirm_settlement,
     freeze_settlement_for_payment,
+    record_refund,
+    reverse_settlement,
     void_draft_charge,
     void_settlement,
 )
@@ -56,7 +72,12 @@ def build(request):
 def detail(request, settlement_id):
     settlement = get_object_or_404(
         Settlement.objects.select_related("customer", "agent", "proxy_batch").prefetch_related(
-            "settlement_orders__order", "lines", "image_versions", "proxy_recipient_receipts"
+            "settlement_orders__order",
+            "lines",
+            "image_versions",
+            "proxy_recipient_receipts",
+            "courier_earnings__courier",
+            "adjustments",
         ),
         pk=settlement_id,
     )
@@ -69,6 +90,9 @@ def detail(request, settlement_id):
             "preview_total": settlement_preview_total(settlement),
             "charge_form": AddChargeForm(),
             "reason_form": ReasonForm(),
+            "operation_form": OperationForm(),
+            "financial_action_form": FinancialActionForm(),
+            "refund_form": RefundForm(),
         },
     )
 
@@ -129,3 +153,89 @@ def void(request, settlement_id):
         else:
             messages.success(request, "账单已废弃，历史冻结行和图片均保留")
     return redirect("settlements:detail", settlement_id=settlement_id)
+
+
+@require_POST
+@recorder_or_admin_required
+def confirm(request, settlement_id):
+    """Confirm payment; service-level role/state checks remain authoritative."""
+    settlement = get_object_or_404(Settlement, pk=settlement_id)
+    form = OperationForm(request.POST)
+    if form.is_valid():
+        try:
+            confirm_settlement(settlement=settlement, actor=request.user)
+        except (ValidationError, PermissionError) as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "收款已确认，订单与配送收益已结算")
+    return redirect("settlements:detail", settlement_id=settlement_id)
+
+
+@require_POST
+@admin_required
+def reverse(request, settlement_id):
+    settlement = get_object_or_404(Settlement, pk=settlement_id)
+    form = FinancialActionForm(request.POST)
+    if form.is_valid():
+        try:
+            reverse_settlement(settlement=settlement, actor=request.user, **form.cleaned_data)
+        except (ValidationError, PermissionError) as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "误结算已撤销，原财务与凭证事实已保留")
+    else:
+        messages.error(request, "撤销原因必填")
+    return redirect("settlements:detail", settlement_id=settlement_id)
+
+
+@require_POST
+@recorder_or_admin_required
+def refund(request, settlement_id):
+    settlement = get_object_or_404(Settlement, pk=settlement_id)
+    form = RefundForm(request.POST)
+    if form.is_valid():
+        try:
+            record_refund(settlement=settlement, actor=request.user, **form.cleaned_data)
+        except (ValidationError, PermissionError) as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "真实退款已追加记录，原结算明细保持不变")
+    else:
+        messages.error(request, "请填写有效退款金额和原因")
+    return redirect("settlements:detail", settlement_id=settlement_id)
+
+
+@admin_required
+def wages(request):
+    """Admin-only calculator; it computes suggestions and never marks wages as paid."""
+    form = WageCalculatorForm(request.POST or None)
+    calculation = None
+    if request.method == "POST" and form.is_valid():
+        allocations = {}
+        for key, value in request.POST.items():
+            if not key.startswith("courier_") or not value:
+                continue
+            try:
+                allocations[int(key.removeprefix("courier_"))] = Decimal(value)
+            except (ValueError, InvalidOperation):
+                messages.error(request, "人工工资金额格式无效")
+                break
+        else:
+            try:
+                calculation = calculate_wages(
+                    period_start=form.cleaned_data["period_start"],
+                    period_end=form.cleaned_data["period_end"],
+                    mode=form.cleaned_data["mode"],
+                    manual_allocations=allocations,
+                )
+            except ValidationError as exc:
+                messages.error(request, str(exc))
+    return render(
+        request,
+        "settlements/wages.html",
+        {
+            "form": form,
+            "calculation": calculation,
+            "couriers": User.objects.filter(role=UserRole.COURIER, is_active=True),
+        },
+    )

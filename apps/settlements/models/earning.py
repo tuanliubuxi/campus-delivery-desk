@@ -1,5 +1,7 @@
 """Append-oriented financial adjustments and courier earning ownership records."""
 
+import uuid
+
 from django.conf import settings
 from django.db import models
 
@@ -26,6 +28,8 @@ class FinancialAdjustment(models.Model):
         on_delete=models.PROTECT,
         related_name="adjustments",
     )
+    # Critical financial writes carry a caller-generated key so browser retries stay append-once.
+    operation_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     adjustment_type = models.CharField(max_length=32, choices=AdjustmentType.choices)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     reason = models.CharField(max_length=255)
@@ -45,6 +49,9 @@ class FinancialAdjustment(models.Model):
         related_name="created_financial_adjustments",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
 
     def save(self, *args, **kwargs):
         # Refund/adjustment rows are accounting facts; corrections append a new row.

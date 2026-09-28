@@ -33,6 +33,7 @@
           <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'agents:workspace' %}">代理</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'settlements:workspace' %}">结算</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'settlements:wages' %}">收益与工资</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'consolidation:manual-create' %}">归拢管理</a>
         {% elif user.is_recorder %}
           <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:new' %}">录单</a>

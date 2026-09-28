@@ -1,0 +1,29 @@
+{# Admin-only calculator: results are suggestions and never represent wage payment. #}
+{% extends "layouts/base.html" %}
+{% block title %}收益与工资 · 校驿{% endblock %}
+{% block content %}
+<main class="container py-3">
+  <h1 class="h3">工资计算器</h1>
+  <p class="text-secondary">仅计算与复核，不表示工资已经发放。</p>
+  <form method="post" class="card card-body mb-4">{% csrf_token %}
+    {{ form.as_p }}
+    <h2 class="h5">手工模式分配</h2>
+    <div class="row g-2">{% for courier in couriers %}<label class="col-md-4">{{ courier.display_name }}
+      <input class="form-control" type="number" min="0" step="0.01" name="courier_{{ courier.id }}">
+    </label>{% empty %}<p>暂无配送员账号。</p>{% endfor %}</div>
+    <button class="btn btn-primary mt-3">计算</button>
+  </form>
+  {% if calculation %}<section class="card card-body">
+    <h2 class="h5">计算结果 · {% if calculation.mode == 'RATIO' %}比例模式{% else %}手工模式{% endif %}</h2>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4"><strong>净服务收入池</strong><br>¥{{ calculation.available_pool }}</div>
+      <div class="col-md-4"><strong>强制归属</strong><br>¥{{ calculation.locked_amount }}</div>
+      <div class="col-md-4"><strong>剩余可人工分配</strong><br>¥{{ calculation.manual_allocatable_remaining }}</div>
+      {% if calculation.mode == 'MANUAL' %}<div class="col-md-4"><strong>当前人工合计</strong><br>¥{{ calculation.current_manual_total }}</div>{% endif %}
+    </div>
+    <div class="table-responsive"><table class="table"><thead><tr><th>成员</th><th>普通直接收益</th><th>强制归属</th><th>人工金额</th><th>最终金额</th><th>提示</th></tr></thead><tbody>
+    {% for line in calculation.lines %}<tr><td>{{ line.courier.display_name }}</td><td>¥{{ line.ordinary_direct }}</td><td>¥{{ line.locked_amount }}</td><td>¥{{ line.manual_amount }}</td><td>¥{{ line.final_amount }}</td><td class="text-warning">{{ line.warning }}</td></tr>{% empty %}<tr><td colspan="6">该周期暂无已结算收益。</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>{% endif %}
+</main>
+{% endblock %}

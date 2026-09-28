@@ -22,4 +22,8 @@ urlpatterns = [
     ),
     path("recorder/settlements/<int:settlement_id>/generate-image/", views.freeze, name="freeze"),
     path("recorder/settlements/<int:settlement_id>/void/", views.void, name="void"),
+    path("recorder/settlements/<int:settlement_id>/confirm/", views.confirm, name="confirm"),
+    path("recorder/settlements/<int:settlement_id>/reverse/", views.reverse, name="reverse"),
+    path("recorder/settlements/<int:settlement_id>/refund/", views.refund, name="refund"),
+    path("admin-console/wages/", views.wages, name="wages"),
 ]

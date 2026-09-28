@@ -142,6 +142,12 @@ def add_draft_charge(
 
             beneficiary_courier = User.objects.get(pk=courier_ids.pop())
         beneficiary_type = BeneficiaryType.COURIER
+    elif charge_type == ChargeType.MANUAL_SURCHARGE and beneficiary_courier is not None:
+        # A manual surcharge is platform revenue unless the recorder explicitly attributes
+        # this extra service to one courier; only attributed rows become MANUAL_EXTRA earnings.
+        beneficiary_type = BeneficiaryType.COURIER
+    else:
+        beneficiary_courier = None
     item = ChargeItem.objects.create(
         scope_type=ChargeScope.SETTLEMENT,
         settlement=settlement,

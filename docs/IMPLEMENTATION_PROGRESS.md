@@ -118,7 +118,7 @@
 - [x] Phase 4：简单配送业务
 - [x] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
 - [x] Phase 6：归拢、多件轮次关闭、结算构建与凭证
-- [ ] Phase 7：结算确认、收益与工资
+- [x] Phase 7：结算确认、收益与工资
 - [ ] Phase 8：异常、人工处理、快速补录
 - [ ] Phase 9：经营分析、搜索、Excel
 - [ ] Phase 10：运维
@@ -162,3 +162,20 @@
 - [x] migration、专项/全量测试、静态检查及 Docker 生产容器回归
 
 本阶段新增 `consolidation.0001_initial`（归拢轮次、冻结成员、负责人和最终证据）、`settlements.0002_*`（构建幂等键、结算图片版本、临时收件人凭证版本）、`settlements.0003_*`（每类正式图片/每位临时收件人仅一个有效版本）和 `exceptions.0003_*`（异常关联归拢轮次）。Phase 6 专项 7 项、全量 79 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。代理批次在存在 DRAFT/WAITING_PAYMENT 账单时必须先废弃账单再 reopen，避免固定订单集合与新增成员并存。付款确认、收益结转、工资计算和结算撤销未提前实现，保留到 Phase 7。
+
+## Phase 7：结算确认、收益与工资（已完成）
+
+- [x] WAITING_PAYMENT 确认收款及 Settlement/Order/ProxyBatch 状态联动
+- [x] 配送完成时的 PENDING_PAYMENT 基础收益绑定 Settlement，并冻结最终金额与分成比例
+- [x] BASE_DELIVERY、UPSTAIRS、CUSTOMER_EXTRA、MANUAL_EXTRA 按来源独立记录
+- [x] 确定性 earning_key 与重复确认幂等；未配置分成比例时拒绝确认
+- [x] CUSTOMER_EXTRA 100% 锁定指定配送员，不乘普通分成
+- [x] 管理员误结算撤销、原收益转 REVERSED、原凭证转历史且旧财务事实保留
+- [x] 撤销后新建 Settlement 再结算，并创建全新的 CourierEarning
+- [x] 真实退款以幂等、append-only FinancialAdjustment 追加，不修改 SettlementLine
+- [x] 已结算净服务收入池、locked earning 与配送员收益聚合 selectors
+- [x] 管理员比例/手工工资计算器、剩余池硬约束及个人超额软提醒
+- [x] 结算确认、退款、撤销、收益明细与工资计算响应式页面
+- [x] migration、专项/全量测试、静态检查及迁移漂移检查
+
+本阶段新增 `settlements.0004_*`，为 append-only FinancialAdjustment 增加关键请求幂等键；工资计算保持只读 DTO，不表示工资已经发放，也不额外保存“已发工资”状态。真实退款默认不影响工资；按实施计划，“退款影响工资”的人工处置入口保留到 Phase 8。Phase 7 专项 4 项、全量 83 项 pytest 测试通过；Ruff、Django check、migration drift check与 `git diff --check` 通过。规格没有给出默认分成比例，系统继续保留未配置状态，并在确认结算需要对应收益来源时明确拒绝，未自行猜测默认值。Phase 8 尚未开始。
