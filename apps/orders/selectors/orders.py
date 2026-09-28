@@ -1,5 +1,7 @@
 """Optimized recorder order queries and identifier-aware search."""
 
+import re
+
 from django.db.models import Q
 
 from apps.orders.models import Order
@@ -28,15 +30,21 @@ def search_orders(query=""):
     parsed = parse_order_id(query)
     if parsed:
         return queryset.filter(**parsed)
-    return queryset.filter(
-        Q(recipient_name_snapshot__icontains=query)
-        | Q(recipient_phone_snapshot__icontains=query)
-        | Q(customer__wechat_nickname__icontains=query)
-        | Q(customer__recipient_names__icontains=query)
-        | Q(customer__phone_suffixes__icontains=query)
-        | Q(proxy_recipient__display_name__icontains=query)
-        | Q(express_detail__pickup_identifier__icontains=query)
-    ).distinct()
+    # Customer fields deliberately keep slash-separated aliases; search each supplied token.
+    tokens = [token for token in re.split(r"[\s/]+", query) if token]
+    criteria = Q()
+    for token in tokens:
+        criteria |= (
+            Q(recipient_name_snapshot__icontains=token)
+            | Q(recipient_phone_snapshot__icontains=token)
+            | Q(customer__wechat_nickname__icontains=token)
+            | Q(customer__recipient_names__icontains=token)
+            | Q(customer__phone_suffixes__icontains=token)
+            | Q(proxy_recipient__display_name__icontains=token)
+            | Q(express_detail__pickup_identifier__icontains=token)
+            | Q(express_detail__normalized_pickup_identifier__icontains=token)
+        )
+    return queryset.filter(criteria).distinct()
 
 
 def order_detail(order_id):

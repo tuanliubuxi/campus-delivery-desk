@@ -261,7 +261,8 @@ def test_refund_is_append_only_and_wage_modes_use_pool_and_locked_amount():
     settlement.refresh_from_db()
     assert settlement.status == SettlementStatus.SETTLED
 
-    day = settlement.settled_at.date()
+    # Wage periods follow the configured local timezone across UTC-midnight boundaries.
+    day = timezone.localdate(settlement.settled_at)
     ratio = calculate_wages(period_start=day, period_end=day, mode="RATIO")
     assert ratio.locked_amount == Decimal("2.00")
     assert ratio.lines[0].final_amount == Decimal("3.78")

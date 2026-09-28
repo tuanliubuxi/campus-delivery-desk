@@ -1,0 +1,93 @@
+{# Administrator-only multi-dimensional reporting surface. #}
+{% extends "layouts/base.html" %}
+{% block title %}经营分析 · 校驿{% endblock %}
+{% block content %}
+<main class="container-fluid px-3 px-lg-4 pb-5">
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+    <div><h1 class="h3 mb-1">经营分析</h1><p class="text-body-secondary mb-0">卡片、图表、明细与 Excel 使用同一组筛选条件。</p></div>
+    <a class="btn btn-success" href="{% url 'dashboard:export-excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">导出 Excel</a>
+  </div>
+
+  <details class="card mb-3" open>
+    <summary class="card-header fw-semibold">筛选条件</summary>
+    <div class="card-body">
+      <form method="get" class="row g-3">
+        {% for field in form %}
+        <div class="col-6 col-md-4 col-xl-2">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+        <div class="col-12 d-flex gap-2 align-items-end">
+          <button class="btn btn-primary" type="submit">应用筛选</button>
+          <a class="btn btn-outline-secondary" href="{% url 'dashboard:reports' %}">清空</a>
+        </div>
+      </form>
+      {% for error in form.non_field_errors %}<div class="alert alert-danger mt-3 mb-0">{{ error }}</div>{% endfor %}
+    </div>
+  </details>
+
+  <section class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4" aria-label="经营指标">
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">订单数 / 物件数</div><div class="h4 mb-0">{{ cards.order_count }} / {{ cards.item_count }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">已结算收入</div><div class="h4 mb-0">¥{{ cards.settled_income|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">待收款</div><div class="h4 mb-0">¥{{ cards.waiting_payment|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">退款 / 减免</div><div class="h4 mb-0">¥{{ cards.refunds|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">附加费用</div><div class="h4 mb-0">¥{{ cards.extras|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">平均客单价</div><div class="h4 mb-0">¥{{ cards.average_ticket|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">异常数</div><div class="h4 mb-0">{{ cards.exception_count }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">配送员收益</div><div class="h4 mb-0">¥{{ cards.courier_earnings|floatformat:2 }}</div></div></div></div>
+  </section>
+
+  <section class="row g-3 mb-4">
+    <div class="col-12 col-xl-6"><div class="card"><div class="card-header">收入趋势</div><div class="card-body cdd-chart"><canvas id="incomeTrend"></canvas></div></div></div>
+    <div class="col-12 col-xl-6"><div class="card"><div class="card-header">订单量趋势</div><div class="card-body cdd-chart"><canvas id="orderTrend"></canvas></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="card"><div class="card-header">业务收入构成</div><div class="card-body cdd-chart"><canvas id="businessIncome"></canvas></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="card"><div class="card-header">成员贡献</div><div class="card-body cdd-chart"><canvas id="courierContribution"></canvas></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="card"><div class="card-header">快递大小</div><div class="card-body cdd-chart"><canvas id="sizeDistribution"></canvas></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="card"><div class="card-header">路线分布</div><div class="card-body cdd-chart"><canvas id="routeDistribution"></canvas></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="card"><div class="card-header">费用项构成</div><div class="card-body cdd-chart"><canvas id="chargeDistribution"></canvas></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="card"><div class="card-header">普通 / 代理</div><div class="card-body cdd-chart"><canvas id="sourceDistribution"></canvas></div></div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">订单明细（页面最多显示 200 条，Excel 导出全部）</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr><th>订单号</th><th>日期</th><th>业务</th><th>收件归属</th><th>来源 / Agent</th><th>区域</th><th>加急</th><th>上楼</th><th>配送</th><th>结算</th></tr></thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td><a href="{% url 'orders:detail' order.pk %}">{{ order.display_id }}</a><div class="small text-body-secondary">{{ order.fixed_id }}</div></td>
+            <td>{{ order.sequence_date }}</td><td>{{ order.get_business_type_display }}</td><td>{{ order.recipient_name_snapshot }}</td>
+            <td>{{ order.get_source_type_display }}{% if order.proxy_batch_id %}<div class="small">{{ order.proxy_batch.agent.name }}</div>{% endif %}</td>
+            <td>{{ order.zone_snapshot|default:order.off_campus_address }}</td><td>{{ order.is_urgent|yesno:"是,否" }}</td><td>{{ order.requires_upstairs|yesno:"是,否" }}</td>
+            <td>{{ order.get_delivery_status_display }}</td><td>{{ order.get_settlement_status_display }}</td>
+          </tr>
+          {% empty %}<tr><td colspan="10" class="text-center text-body-secondary py-4">当前筛选没有订单</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+{{ charts|json_script:"dashboard-chart-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+  // Chart inputs are server-produced from the same immutable filter DTO as cards and Excel.
+  const chartData = JSON.parse(document.getElementById("dashboard-chart-data").textContent);
+  const palette = ["#2456a6", "#2f8f83", "#e39b34", "#c85b67", "#7957a8", "#5f748c"];
+  function drawChart(id, series, type = "bar") {
+    const node = document.getElementById(id);
+    if (!node) return;
+    new Chart(node, {type, data: {labels: series.map(row => row.label), datasets: [{data: series.map(row => Number(row.value)), backgroundColor: palette, borderColor: "#2456a6", tension: 0.25}]}, options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {display: type === "doughnut"}}}});
+  }
+  drawChart("incomeTrend", chartData.income_trend, "line");
+  drawChart("orderTrend", chartData.order_trend, "line");
+  drawChart("businessIncome", chartData.business_income, "doughnut");
+  drawChart("courierContribution", chartData.courier_contribution);
+  drawChart("sizeDistribution", chartData.size_distribution, "doughnut");
+  drawChart("routeDistribution", chartData.route_distribution, "doughnut");
+  drawChart("chargeDistribution", chartData.charge_distribution, "doughnut");
+  drawChart("sourceDistribution", chartData.source_distribution, "doughnut");
+</script>
+{% endblock %}

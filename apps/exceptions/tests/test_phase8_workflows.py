@@ -264,9 +264,11 @@ def test_refund_can_explicitly_reduce_pool_and_one_courier_wage():
     )
     assert adjustment.amount == Decimal("-2.00")
     assert adjustment.wage_amount == Decimal("-1.00")
+    # Wage periods are local business dates, not the UTC date component of the timestamp.
+    business_day = timezone.localdate(settlement.settled_at)
     calculation = calculate_wages(
-        period_start=settlement.settled_at.date(),
-        period_end=settlement.settled_at.date(),
+        period_start=business_day,
+        period_end=business_day,
         mode="RATIO",
     )
     assert calculation.available_pool == Decimal("-2.00")

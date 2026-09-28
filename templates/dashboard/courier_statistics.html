@@ -1,0 +1,29 @@
+{# Mobile-first personal statistics; team operating totals are deliberately absent. #}
+{% extends "layouts/base.html" %}
+{% block title %}个人统计 · 校驿{% endblock %}
+{% block content %}
+<main class="container pb-5">
+  <h1 class="h3">我的统计</h1>
+  <form method="get" class="card card-body mb-3"><div class="row g-2">
+    {% for field in form %}<div class="col-6 col-md-3"><label class="form-label">{{ field.label }}</label>{{ field }}</div>{% endfor %}
+    <div class="col-12"><button class="btn btn-primary">筛选</button> <a class="btn btn-outline-secondary" href="{% url 'dashboard:courier-statistics' %}">清空</a></div>
+  </div></form>
+  <section class="row row-cols-2 g-3 mb-3">
+    <div class="col"><div class="card h-100"><div class="card-body"><small>相关订单</small><div class="h3">{{ cards.order_count }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><small>已送达</small><div class="h3">{{ cards.delivered_count }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><small>已结算个人收益</small><div class="h3">¥{{ cards.settled_earnings|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><small>待付款个人收益</small><div class="h3">¥{{ cards.pending_earnings|floatformat:2 }}</div></div></div></div>
+  </section>
+  <div class="card mb-3"><div class="card-header">订单量趋势</div><div class="card-body cdd-chart"><canvas id="personalTrend"></canvas></div></div>
+  <div class="vstack gap-2">
+    {% for order in orders %}<a class="card card-body text-decoration-none" href="{% url 'orders:detail' order.pk %}"><strong>{{ order.display_id }}</strong><span>{{ order.get_business_type_display }} · {{ order.recipient_name_snapshot }} · {{ order.sequence_date }}</span></a>{% empty %}<div class="card card-body">当前筛选暂无记录</div>{% endfor %}
+  </div>
+</main>
+{{ order_trend|json_script:"personal-chart-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+  // Only the signed-in courier's server-filtered order counts reach this chart.
+  const personalData = JSON.parse(document.getElementById("personal-chart-data").textContent);
+  new Chart(document.getElementById("personalTrend"), {type: "line", data: {labels: personalData.map(row => row.label), datasets: [{data: personalData.map(row => row.value), borderColor: "#2456a6", tension: 0.25}]}, options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}}}});
+</script>
+{% endblock %}

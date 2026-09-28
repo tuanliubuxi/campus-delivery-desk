@@ -60,3 +60,13 @@ body {
     padding-inline: 0.75rem;
   }
 }
+.cdd-chart {
+  min-height: 18rem;
+  position: relative;
+}
+
+/* Keep report controls usable on both desktop grids and narrow mobile drawers. */
+.card form select,
+.card form input {
+  max-width: 100%;
+}

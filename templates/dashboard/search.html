@@ -1,0 +1,21 @@
+{# Global identifier and recipient search for administrators and recorders. #}
+{% extends "layouts/base.html" %}
+{% block title %}全局搜索 · 校驿{% endblock %}
+{% block content %}
+<main class="container pb-5">
+  <h1 class="h3">全局订单搜索</h1>
+  <form method="get" class="input-group mb-3">
+    <input class="form-control" name="q" value="{{ query }}" placeholder="固定/动态订单号、收件人、尾号、取件标识" autofocus>
+    <button class="btn btn-primary">搜索</button>
+  </form>
+  <div class="list-group">
+    {% for order in orders %}
+    <a class="list-group-item list-group-item-action" href="{% url 'orders:detail' order.pk %}">
+      <div class="d-flex justify-content-between gap-2"><strong>{{ order.display_id }}</strong><span>{{ order.get_delivery_status_display }}</span></div>
+      <div>{{ order.get_business_type_display }} · {{ order.recipient_name_snapshot }} · {{ order.sequence_date }}</div>
+      <small class="text-body-secondary">固定编号 {{ order.fixed_id }}</small>
+    </a>
+    {% empty %}{% if query %}<div class="card card-body text-body-secondary">没有匹配订单</div>{% endif %}{% endfor %}
+  </div>
+</main>
+{% endblock %}
