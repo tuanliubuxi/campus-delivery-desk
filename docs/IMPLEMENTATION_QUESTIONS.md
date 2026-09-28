@@ -9,3 +9,7 @@
 ## Phase 3
 
 1. 快递强重复提醒要求“同一收件归属 + pickup_area + normalized pickup_identifier + 时间窗口”，但规格没有给出窗口长度。当前实现保守地以同一 `service_date` 作为窗口；原值仍保留，规范化值仅用于比对，命中后允许录单员明确确认并继续创建。若需跨日小时窗口，请补充准确时长和边界算法。
+
+## Phase 8
+
+1. `ManualHandling` 被列为 Phase 8 TODO，架构文档仅说明 exceptions App 负责“异常 case、处理记录、人工处理”，但权威规格没有给出该实体的字段、动作类型、状态机、允许的订单状态迁移或验收口径。当前不能在不发明业务规则的前提下建立模型和 workflow；ExceptionCase 的创建、阻塞属性调整、证据、解决记录仍按已有明确规格实现。请补充 ManualHandling 的准确数据模型与业务动作后再实现。

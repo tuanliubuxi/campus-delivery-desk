@@ -119,7 +119,7 @@
 - [x] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
 - [x] Phase 6：归拢、多件轮次关闭、结算构建与凭证
 - [x] Phase 7：结算确认、收益与工资
-- [ ] Phase 8：异常、人工处理、快速补录
+- [ ] Phase 8：异常、人工处理、快速补录（除规格未定义的 ManualHandling 外已实现）
 - [ ] Phase 9：经营分析、搜索、Excel
 - [ ] Phase 10：运维
 - [ ] Phase 11：PWA/弱网/收尾
@@ -179,3 +179,19 @@
 - [x] migration、专项/全量测试、静态检查及迁移漂移检查
 
 本阶段新增 `settlements.0004_*`，为 append-only FinancialAdjustment 增加关键请求幂等键；工资计算保持只读 DTO，不表示工资已经发放，也不额外保存“已发工资”状态。真实退款默认不影响工资；按实施计划，“退款影响工资”的人工处置入口保留到 Phase 8。Phase 7 专项 4 项、全量 83 项 pytest 测试通过；Ruff、Django check、migration drift check与 `git diff --check` 通过。规格没有给出默认分成比例，系统继续保留未配置状态，并在确认结算需要对应收益来源时明确拒绝，未自行猜测默认值。Phase 8 尚未开始。
+
+## Phase 8：异常、人工处理、快速补录（部分完成，等待规格）
+
+- [x] ExceptionCase 管理员/录单员宽窄屏 UI 与配送员移动 UI
+- [x] 显式 blocks_consolidation / blocks_settlement 修改、权限与 AuditEvent
+- [x] ExceptionCaseAttachment 多图片上传与受控下载
+- [x] ExceptionEvidenceLink 引用配送证据和归拢最终图片
+- [x] OPEN 异常直接/间接媒体保护 selector
+- [x] 异常解决后 `max(created_at + retention, resolved_at + retention)` 保留边界
+- [ ] ManualHandling（权威规格缺少字段、动作类型、状态机及验收口径）
+- [x] 真实退款显式选择是否影响计薪，并可记录个人工资扣减
+- [x] DIRECT_COMPLETE：实际配送员、完成时间、位置、普通业务照片与正常待结算收益
+- [x] HISTORICAL_BACKFILL：允许无照片、强制补录说明并保留实际完成时间
+- [x] migration、专项/全量测试、静态检查及迁移漂移检查
+
+本阶段新增 `exceptions.0004_*`，为异常创建增加幂等键并收紧附件/证据关系约束；新增 `orders.0002_order_entry_note`，将快速完成/历史补录说明与普通订单备注分开保存。已明确的 Phase 8 工作流专项 3 项、全量 86 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷上完成全量迁移和容器内 Django check；临时卷及后台 Docker 均已清理。`ManualHandling` 只在实施计划和模块职责中出现，当前规格没有可执行的数据模型或状态规则，已记录到 `docs/IMPLEMENTATION_QUESTIONS.md`，因此 Phase 8 尚不能标记为全部完成，Phase 9 未开始。
