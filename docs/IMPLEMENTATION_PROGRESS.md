@@ -120,7 +120,7 @@
 - [x] Phase 6：归拢、多件轮次关闭、结算构建与凭证
 - [x] Phase 7：结算确认、收益与工资
 - [ ] Phase 8：异常、人工处理、快速补录（除规格未定义的 ManualHandling 外已实现）
-- [ ] Phase 9：经营分析、搜索、Excel
+- [x] Phase 9：经营分析、搜索、Excel
 - [ ] Phase 10：运维
 - [ ] Phase 11：PWA/弱网/收尾
 
@@ -194,4 +194,18 @@
 - [x] HISTORICAL_BACKFILL：允许无照片、强制补录说明并保留实际完成时间
 - [x] migration、专项/全量测试、静态检查及迁移漂移检查
 
-本阶段新增 `exceptions.0004_*`，为异常创建增加幂等键并收紧附件/证据关系约束；新增 `orders.0002_order_entry_note`，将快速完成/历史补录说明与普通订单备注分开保存。已明确的 Phase 8 工作流专项 3 项、全量 86 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷上完成全量迁移和容器内 Django check；临时卷及后台 Docker 均已清理。`ManualHandling` 只在实施计划和模块职责中出现，当前规格没有可执行的数据模型或状态规则，已记录到 `docs/IMPLEMENTATION_QUESTIONS.md`，因此 Phase 8 尚不能标记为全部完成，Phase 9 未开始。
+本阶段新增 `exceptions.0004_*`，为异常创建增加幂等键并收紧附件/证据关系约束；新增 `orders.0002_order_entry_note`，将快速完成/历史补录说明与普通订单备注分开保存。已明确的 Phase 8 工作流专项 3 项、全量 86 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷上完成全量迁移和容器内 Django check；临时卷及后台 Docker 均已清理。`ManualHandling` 只在实施计划和模块职责中出现，当前规格没有可执行的数据模型或状态规则，已记录到 `docs/IMPLEMENTATION_QUESTIONS.md`，因此 Phase 8 尚不能标记为全部完成。
+
+## Phase 9：经营分析、搜索、Excel（已完成）
+
+- [x] 不可变 `DashboardFilters` DTO 与唯一表单解析入口
+- [x] 时间、业务、配送员、普通/代理、Agent、取件/目的区域、路线、大小、加急、上楼、天气、异常、退款、费用项和结算状态筛选
+- [x] 订单/物件、已结算收入、待收款、退款/减免、附加费用、平均客单价、异常和配送员收益 cards
+- [x] 收入/订单趋势、业务收入、成员贡献、大小、路线、楼栋、费用项及普通/代理 Chart.js 数据
+- [x] 固定/动态订单号全局搜索、`/` 分隔客户 token 与规范化取件标识搜索
+- [x] Excel 继承相同筛选，并导出订单、费用项、SettlementLine、结算、退款/调整、收益和代理维度
+- [x] 配送员移动优先个人统计，后端强制本人范围且不暴露团队经营总额
+- [x] 管理员宽窄屏经营分析、响应式明细表、全局搜索和导航入口
+- [x] 专项/全量测试、静态检查、迁移漂移检查及 Docker 生产容器回归
+
+本阶段没有新增数据模型或 migration，所有经营指标继续实时聚合 Order、ChargeItem、SettlementLine、FinancialAdjustment 与 CourierEarning 等事实表，不建立每日统计真值表。Phase 9 专项 5 项、全量 91 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷中完成全量迁移和容器检查，临时卷及 Docker Desktop 已清理/关闭。跨本地午夜运行全量测试时同时修正了两处既有工资测试使用 UTC `.date()` 的脆弱断言，生产工资查询仍按 Asia/Shanghai 本地业务日期。`ManualHandling` 规格缺口继续保留，Phase 10 尚未开始。
