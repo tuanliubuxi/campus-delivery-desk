@@ -121,7 +121,7 @@
 - [x] Phase 7：结算确认、收益与工资
 - [ ] Phase 8：异常、人工处理、快速补录（除规格未定义的 ManualHandling 外已实现）
 - [x] Phase 9：经营分析、搜索、Excel
-- [ ] Phase 10：运维
+- [x] Phase 10：运维
 - [ ] Phase 11：PWA/弱网/收尾
 
 ## 模块边界确认
@@ -209,3 +209,20 @@
 - [x] 专项/全量测试、静态检查、迁移漂移检查及 Docker 生产容器回归
 
 本阶段没有新增数据模型或 migration，所有经营指标继续实时聚合 Order、ChargeItem、SettlementLine、FinancialAdjustment 与 CourierEarning 等事实表，不建立每日统计真值表。Phase 9 专项 5 项、全量 91 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷中完成全量迁移和容器检查，临时卷及 Docker Desktop 已清理/关闭。跨本地午夜运行全量测试时同时修正了两处既有工资测试使用 UTC `.date()` 的脆弱断言，生产工资查询仍按 Asia/Shanghai 本地业务日期。`ManualHandling` 规格缺口继续保留，Phase 10 尚未开始。
+
+## Phase 10：运维（已完成）
+
+- [x] 独立 scheduler 每日 03:00 自动备份及管理员手动备份
+- [x] SQLite 在线备份、配置快照、manifest 校验和与照片归档
+- [x] 普通图片、生成结算图、ProxyRecipient 凭证和 Agent 汇总图统一保留期清理
+- [x] OPEN 异常直接/间接图片保护及解决后完整 retention 周期
+- [x] 备份照片归档独立清理，数据库与配置备份继续保留
+- [x] 结算凭证完整重建与明确标识的无照片历史模式
+- [x] restore 前 PRE_RESTORE 保护备份、校验及恢复后持续维护模式
+- [x] Maintenance mode 应用写入门禁，不包含宿主机关机或 Docker 控制
+- [x] startup recovery 文件系统/SQLite/中断任务/临时文件/租约检查，不回滚配送状态
+- [x] JobRun 自动任务幂等记录及 stale login lease 清理
+- [x] 管理员备份、恢复、维护、媒体浏览下载、单项/批量清理和空间统计页面
+- [x] migration、专项/全量测试、静态检查及迁移漂移检查
+
+本阶段新增 `operations.0001_initial`，建立 manifest 对应的 BackupRecord、自动任务幂等 JobRun 和应用级 MaintenanceState。备份目录按数据库、非敏感配置快照、manifest 与可独立删除的 `photos.tar` 分层保存；恢复不会因历史照片已经清理而失败，并始终先生成 PRE_RESTORE 保护点。Phase 10 专项 6 项、全量 97 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。scheduler 继续作为 Compose 独立进程运行，Web 启动前执行只做检查和安全清理的 recovery command。`ManualHandling` 权威规格缺口仍未消除；Phase 11 尚未开始。
