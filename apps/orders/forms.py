@@ -23,6 +23,8 @@ from apps.orders.models import (
 
 
 class CommonOrderForm(BootstrapFormMixin, forms.Form):
+    # Legacy/manual POSTs may omit the key; services still generate one, while rendered forms persist it.
+    operation_id = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4, required=False)
     customer = forms.ModelChoiceField(queryset=Customer.objects.none(), label="客户")
     destination_type = forms.ChoiceField(choices=DestinationType.choices, label="目的地类型")
     building = forms.ModelChoiceField(

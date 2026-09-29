@@ -1,5 +1,7 @@
 """Common order identity, recipient snapshots, and lifecycle state."""
 
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -22,6 +24,9 @@ class Order(models.Model):
     """Stable order identity; mutable delivery and settlement states remain separate."""
 
     business_type = models.CharField(max_length=24, choices=BusinessType.choices, db_index=True)
+    # A stable browser-generated key makes retries return the original order instead of duplicating it.
+    creation_operation_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    creation_fingerprint = models.CharField(max_length=64, blank=True, editable=False)
     sequence_date = models.DateField(default=timezone.localdate, db_index=True)
     daily_sequence = models.PositiveIntegerField()
     service_date = models.DateField(null=True, blank=True, db_index=True)

@@ -28,12 +28,14 @@ def pwa_manifest(request):
 
 
 def service_worker(request):
-    response = HttpResponse(
-        'self.addEventListener("install", () => self.skipWaiting());'
-        'self.addEventListener("activate", event => event.waitUntil(self.clients.claim()));',
-        content_type="text/javascript",
+    from django.conf import settings
+
+    body = (settings.BASE_DIR / "static" / "pwa" / "service-worker.js").read_text(
+        encoding="utf-8"
     )
+    response = HttpResponse(body, content_type="text/javascript; charset=utf-8")
     response["Service-Worker-Allowed"] = "/"
+    response["Cache-Control"] = "no-cache"
     return response
 
 

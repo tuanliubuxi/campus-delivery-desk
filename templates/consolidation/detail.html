@@ -26,7 +26,7 @@
   {% endfor %}
   <section class="card card-body">
     <h2 class="h5">最终放置凭证</h2>
-    <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}">
+    <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="consolidation-{{ round.pk }}">
       {% csrf_token %}{{ complete_form.as_p }}
       <section id="annotation-tools" class="border rounded p-2 mb-3" hidden>
         <div class="small mb-2">点击远景图可画红圈；保存后上传派生标注图，原图不会被覆盖。</div>

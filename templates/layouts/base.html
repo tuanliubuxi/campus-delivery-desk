@@ -14,12 +14,16 @@
   <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
   <script defer src="{% static 'js/app.js' %}"></script>
+  <script defer src="{% static 'js/resilience.js' %}"></script>
   <title>{% block title %}校驿{% endblock %}</title>
 </head>
 <body data-heartbeat-interval="{{ heartbeat_interval|default:0 }}"
       data-heartbeat-url="{% url 'accounts:heartbeat' %}"
       data-theme-url="{% url 'accounts:theme-preference' %}"
       data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
+  <div class="cdd-offline-banner" data-cdd-offline-banner role="status" hidden>
+    当前网络不可用：不能提交业务操作；页面中的文本和已选图片会保留供重试。
+  </div>
   {% if user.is_authenticated %}
   <nav class="navbar cdd-nav border-bottom mb-3">
     <div class="container-fluid gap-2">

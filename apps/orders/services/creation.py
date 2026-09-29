@@ -1,5 +1,11 @@
 """Transactional creators for the six fixed V1 order types."""
 
+import hashlib
+import json
+import uuid
+from datetime import date
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -96,6 +102,41 @@ def _recipient_snapshots(customer, proxy_recipient):
     return name, getattr(recipient, "phone_suffixes", "")
 
 
+def _fingerprint_value(value):
+    if hasattr(value, "pk"):
+        return {"model": value._meta.label_lower, "pk": value.pk}
+    if isinstance(value, (date, Decimal, uuid.UUID)):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _fingerprint_value(item) for key, item in sorted(value.items())}
+    if isinstance(value, (list, tuple)):
+        return [_fingerprint_value(item) for item in value]
+    return value
+
+
+def _creation_fingerprint(payload):
+    normalized = json.dumps(_fingerprint_value(payload), ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _existing_order(
+    *, operation_id, actor, business_type, customer, proxy_recipient, creation_fingerprint
+):
+    """Return an exact retry while rejecting reuse of a key for another order identity."""
+    existing = Order.objects.filter(creation_operation_id=operation_id).first()
+    if existing is None:
+        return None
+    if (
+        existing.created_by_id != actor.pk
+        or existing.business_type != business_type
+        or existing.customer_id != getattr(customer, "pk", None)
+        or existing.proxy_recipient_id != getattr(proxy_recipient, "pk", None)
+        or existing.creation_fingerprint != creation_fingerprint
+    ):
+        raise ValidationError("operation_id 已被其他录单操作使用")
+    return existing
+
+
 def _duplicate_check(
     *,
     business_type,
@@ -127,6 +168,8 @@ def _duplicate_check(
 def _create_order(
     *,
     actor,
+    operation_id,
+    creation_fingerprint,
     business_type,
     customer=None,
     proxy_recipient=None,
@@ -157,6 +200,8 @@ def _create_order(
     sequence_date = timezone.localdate()
     recipient_name, recipient_phone = _recipient_snapshots(customer, proxy_recipient)
     order = Order(
+        creation_operation_id=operation_id,
+        creation_fingerprint=creation_fingerprint,
         business_type=business_type,
         sequence_date=sequence_date,
         daily_sequence=next_daily_sequence(
@@ -208,6 +253,7 @@ def _finish_creation(*, order, detail, actor):
 def create_express_order(
     *,
     actor,
+    operation_id=None,
     pickup_area,
     pickup_identifier_type,
     pickup_identifier,
@@ -220,7 +266,33 @@ def create_express_order(
     allow_duplicate=False,
     **common,
 ):
+    operation_id = operation_id or uuid.uuid4()
     service_date = service_date or timezone.localdate()
+    creation_fingerprint = _creation_fingerprint(
+        {
+            "business_type": BusinessType.EXPRESS,
+            "customer": customer,
+            "proxy_recipient": proxy_recipient,
+            "service_date": service_date,
+            "pickup_area": pickup_area,
+            "pickup_identifier_type": pickup_identifier_type,
+            "pickup_identifier": pickup_identifier,
+            "outside_pickup_location": outside_pickup_location,
+            "size_class": size_class,
+            "dispatch_mode": dispatch_mode,
+            "common": common,
+        }
+    )
+    existing = _existing_order(
+        operation_id=operation_id,
+        actor=actor,
+        business_type=BusinessType.EXPRESS,
+        customer=customer,
+        proxy_recipient=proxy_recipient,
+        creation_fingerprint=creation_fingerprint,
+    )
+    if existing:
+        return existing
     _duplicate_check(
         business_type=BusinessType.EXPRESS,
         customer=customer,
@@ -232,6 +304,8 @@ def create_express_order(
     )
     order = _create_order(
         actor=actor,
+        operation_id=operation_id,
+        creation_fingerprint=creation_fingerprint,
         business_type=BusinessType.EXPRESS,
         customer=customer,
         proxy_recipient=proxy_recipient,
@@ -263,8 +337,35 @@ def create_express_order(
 
 
 def _create_simple(
-    *, actor, business_type, detail_class, detail_fields, customer, allow_duplicate=False, **common
+    *,
+    actor,
+    operation_id,
+    business_type,
+    detail_class,
+    detail_fields,
+    customer,
+    allow_duplicate=False,
+    **common,
 ):
+    operation_id = operation_id or uuid.uuid4()
+    creation_fingerprint = _creation_fingerprint(
+        {
+            "business_type": business_type,
+            "customer": customer,
+            "detail_fields": detail_fields,
+            "common": common,
+        }
+    )
+    existing = _existing_order(
+        operation_id=operation_id,
+        actor=actor,
+        business_type=business_type,
+        customer=customer,
+        proxy_recipient=None,
+        creation_fingerprint=creation_fingerprint,
+    )
+    if existing:
+        return existing
     _duplicate_check(
         business_type=business_type,
         customer=customer,
@@ -272,7 +373,14 @@ def _create_simple(
         service_date=None,
         allow_duplicate=allow_duplicate,
     )
-    order = _create_order(actor=actor, business_type=business_type, customer=customer, **common)
+    order = _create_order(
+        actor=actor,
+        operation_id=operation_id,
+        creation_fingerprint=creation_fingerprint,
+        business_type=business_type,
+        customer=customer,
+        **common,
+    )
     return _finish_creation(
         order=order,
         detail=detail_class(order=order, **detail_fields),
@@ -284,6 +392,7 @@ def _create_simple(
 def create_takeout_order(
     *,
     actor,
+    operation_id=None,
     customer,
     pickup_gate,
     identifier,
@@ -293,6 +402,7 @@ def create_takeout_order(
 ):
     return _create_simple(
         actor=actor,
+        operation_id=operation_id,
         business_type=BusinessType.TAKEOUT,
         detail_class=TakeoutOrderDetail,
         detail_fields={
@@ -308,10 +418,18 @@ def create_takeout_order(
 
 @transaction.atomic
 def create_kfc_order(
-    *, actor, customer, pickup_location, pickup_code, allow_duplicate=False, **common
+    *,
+    actor,
+    operation_id=None,
+    customer,
+    pickup_location,
+    pickup_code,
+    allow_duplicate=False,
+    **common,
 ):
     return _create_simple(
         actor=actor,
+        operation_id=operation_id,
         business_type=BusinessType.KFC,
         detail_class=KfcOrderDetail,
         detail_fields={
@@ -326,10 +444,18 @@ def create_kfc_order(
 
 @transaction.atomic
 def create_grocery_order(
-    *, actor, customer, pickup_location, item_list, allow_duplicate=False, **common
+    *,
+    actor,
+    operation_id=None,
+    customer,
+    pickup_location,
+    item_list,
+    allow_duplicate=False,
+    **common,
 ):
     return _create_simple(
         actor=actor,
+        operation_id=operation_id,
         business_type=BusinessType.GROCERY,
         detail_class=GroceryOrderDetail,
         detail_fields={"pickup_location": pickup_location.strip(), "item_list": item_list.strip()},
@@ -343,6 +469,7 @@ def create_grocery_order(
 def create_errand_order(
     *,
     actor,
+    operation_id=None,
     customer,
     pickup_location,
     delivery_location_text,
@@ -353,6 +480,7 @@ def create_errand_order(
 ):
     return _create_simple(
         actor=actor,
+        operation_id=operation_id,
         business_type=BusinessType.ERRAND,
         detail_class=ErrandOrderDetail,
         detail_fields={
@@ -371,6 +499,7 @@ def create_errand_order(
 def create_luggage_upstairs_order(
     *,
     actor,
+    operation_id=None,
     customer,
     small_medium_count,
     large_oversize_count,
@@ -382,6 +511,7 @@ def create_luggage_upstairs_order(
     common.update(requires_upstairs=True, floor=floor, is_urgent=False)
     return _create_simple(
         actor=actor,
+        operation_id=operation_id,
         business_type=BusinessType.LUGGAGE_UPSTAIRS,
         detail_class=LuggageUpstairsDetail,
         detail_fields={

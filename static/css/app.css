@@ -5,6 +5,21 @@ body {
   color: var(--cdd-text);
 }
 
+.cdd-offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  padding: 0.75rem 1rem;
+  background: #8a3b12;
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+}
+
+.cdd-draft-controls .btn-link {
+  min-height: 44px;
+}
+
 .cdd-card {
   background: var(--cdd-surface);
   border: 1px solid var(--cdd-border);
@@ -58,6 +73,12 @@ body {
 @media (max-width: 420px) {
   .container {
     padding-inline: 0.75rem;
+  }
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
   }
 }
 .cdd-chart {

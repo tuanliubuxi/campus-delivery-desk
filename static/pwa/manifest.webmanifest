@@ -1,10 +1,13 @@
 {
   "name": "校驿 Campus Delivery Desk",
+  "id": "/",
   "short_name": "校驿",
   "description": "校园配送运营工作台",
+  "lang": "zh-CN",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#f5f7fb",
   "theme_color": "#2456a6",
   "icons": [
