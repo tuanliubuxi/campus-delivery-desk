@@ -50,6 +50,7 @@ urlpatterns = [
     path("", include("apps.mediafiles.urls")),
     path("", include("apps.config_center.urls")),
     path("", include("apps.dashboard.urls")),
+    path("", include("apps.operations.urls")),
     path("manifest.webmanifest", pwa_manifest, name="pwa-manifest"),
     path("service-worker.js", service_worker, name="service-worker"),
     path("admin/", admin.site.urls),

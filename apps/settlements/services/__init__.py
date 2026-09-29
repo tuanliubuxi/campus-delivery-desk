@@ -7,6 +7,7 @@ from .earnings import make_earning_key, record_pending_earning
 from .freeze import freeze_settlement_for_payment
 from .pricing import create_initial_order_charges, void_charge_item
 from .proxy_receipts import generate_proxy_recipient_receipt
+from .rebuild import rebuild_settlement_artifacts
 from .void import void_settlement
 from .wages import calculate_wages
 
@@ -21,6 +22,7 @@ __all__ = [
     "make_earning_key",
     "record_pending_earning",
     "record_refund",
+    "rebuild_settlement_artifacts",
     "reverse_settlement",
     "void_charge_item",
     "void_draft_charge",

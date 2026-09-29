@@ -23,3 +23,5 @@ CSRF_COOKIE_SECURE = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = True
 SECURE_REDIRECT_EXEMPT = [r"^health/"]
+# Production is HTTPS-only behind Caddy; operators may set 0 during a controlled staging test.
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))

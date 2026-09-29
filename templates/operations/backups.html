@@ -1,0 +1,41 @@
+{# Administrator operations console; no host shutdown controls are exposed. #}
+{% extends "layouts/base.html" %}
+{% block title %}备份与维护 · 校驿{% endblock %}
+{% block content %}
+<main class="container-fluid px-3 px-lg-4 pb-5">
+  <h1 class="h3">备份、恢复与维护</h1>
+  <div class="alert {% if maintenance.is_enabled %}alert-warning{% else %}alert-success{% endif %}">
+    <strong>维护模式：{{ maintenance.is_enabled|yesno:"已开启,未开启" }}</strong>
+    {% if maintenance.is_enabled %}<div>{{ maintenance.reason }} · {{ maintenance.entered_at }}</div>{% endif %}
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-4"><div class="card h-100"><div class="card-header">手动备份</div><div class="card-body">
+      <p>立即备份 SQLite、类型化配置和当前媒体归档。</p>
+      <form method="post" action="{% url 'operations:backup-create' %}">{% csrf_token %}{{ operation_form.operation_id }}<button class="btn btn-primary">立即备份</button></form>
+    </div></div></div>
+    <div class="col-12 col-lg-4"><div class="card h-100"><div class="card-header">维护模式</div><div class="card-body">
+      {% if maintenance.is_enabled %}<form method="post" action="{% url 'operations:maintenance-disable' %}">{% csrf_token %}<button class="btn btn-success">退出维护模式</button></form>
+      {% else %}<form method="post" action="{% url 'operations:maintenance-enable' %}">{% csrf_token %}{{ maintenance_form.as_p }}<button class="btn btn-warning">进入维护模式</button></form>{% endif %}
+    </div></div></div>
+    <div class="col-12 col-lg-4"><div class="card h-100"><div class="card-header">恢复检查</div><div class="card-body">
+      <p>检查 SQLite/data，处理遗留任务、临时文件和 stale 登录；不会回退配送状态。</p>
+      <form method="post" action="{% url 'operations:recovery-check' %}">{% csrf_token %}<button class="btn btn-outline-primary">立即检查</button></form>
+    </div></div></div>
+  </div>
+  <div class="card mb-4"><div class="card-header">备份记录</div><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th>时间/类型</th><th>状态</th><th>大小</th><th>照片归档</th><th>操作</th></tr></thead><tbody>
+    {% for backup in backups %}<tr>
+      <td>{{ backup.created_at }}<div class="small">{{ backup.get_backup_type_display }} · {{ backup.storage_name }}</div></td>
+      <td>{{ backup.get_status_display }}{% if backup.error_summary %}<div class="text-danger small">{{ backup.error_summary }}</div>{% endif %}</td>
+      <td>{{ backup.total_size|filesizeformat }}</td><td>{{ backup.get_photo_archive_status_display }} · {{ backup.photo_archive_size|filesizeformat }}</td>
+      <td><div class="d-flex flex-wrap gap-1">
+        {% if backup.status == 'READY' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'operations:backup-download' backup.pk %}">下载</a>
+        {% if backup.photo_archive_status == 'INCLUDED' %}<form method="post" action="{% url 'operations:backup-photos-delete' backup.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">仅删照片归档</button></form>{% endif %}
+        <form method="post" action="{% url 'operations:backup-restore' backup.pk %}">{% csrf_token %}{{ restore_form.operation_id }}<input class="form-control form-control-sm" name="confirmation" placeholder="RESTORE" required><button class="btn btn-sm btn-danger mt-1" {% if not maintenance.is_enabled %}disabled title="请先进入维护模式"{% endif %}>恢复</button></form>{% endif %}
+        <form method="post" action="{% url 'operations:backup-delete' backup.pk %}">{% csrf_token %}<input class="form-control form-control-sm" name="reason" placeholder="删除原因" required><button class="btn btn-sm btn-outline-danger mt-1">删除整个备份</button></form>
+      </div></td>
+    </tr>{% empty %}<tr><td colspan="5" class="text-center py-4">暂无备份</td></tr>{% endfor %}
+    </tbody></table></div></div>
+  <div class="card"><div class="card-header">最近任务</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>任务</th><th>幂等键</th><th>状态</th><th>开始/结束</th><th>结果</th></tr></thead><tbody>{% for job in jobs %}<tr><td>{{ job.get_job_name_display }}</td><td>{{ job.idempotency_key }}</td><td>{{ job.get_status_display }}</td><td>{{ job.started_at }}<br>{{ job.finished_at|default:"-" }}</td><td>{{ job.result_summary }}{{ job.error_summary }}</td></tr>{% empty %}<tr><td colspan="5">暂无任务</td></tr>{% endfor %}</tbody></table></div></div>
+</main>
+{% endblock %}

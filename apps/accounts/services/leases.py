@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from django.contrib.auth import login as django_login
 from django.contrib.sessions.models import Session
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
 from apps.accounts.models import ActiveLoginLease
@@ -156,3 +156,19 @@ def revoke_all_user_leases(*, target_user, actor, reason):
     for lease in leases:
         _revoke(lease, actor=actor, reason=reason)
     return leases
+
+
+@transaction.atomic
+def cleanup_stale_leases(*, now=None):
+    """Revoke expired/stale leases and delete their server-side sessions."""
+    config = SiteConfiguration.load()
+    now = now or timezone.now()
+    stale_before = now - timedelta(seconds=config.lease_stale_seconds)
+    leases = list(
+        ActiveLoginLease.objects.filter(revoked_at__isnull=True).filter(
+            models.Q(expires_at__lte=now) | models.Q(last_seen_at__lt=stale_before)
+        )
+    )
+    for lease in leases:
+        _revoke(lease, actor=None, reason="STALE_CLEANUP", now=now)
+    return len(leases)

@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
-from django.db.models import Max, Sum
+from django.db.models import Max, Q, Sum
 from PIL import Image, ImageDraw, ImageFont
 
 from apps.mediafiles.models import MediaVariant
@@ -55,38 +55,51 @@ def _render_receipt(*, title, rows, photo_media=None):
     return output
 
 
-def _representative_photo(orders):
-    # Prefer the completed consolidation group photo; otherwise use the latest drop evidence.
+def _representative_photo_state(orders):
+    """Return an available photo and whether older evidence existed but was cleaned."""
     round_ids = set(orders.values_list("express_detail__express_round_id", flat=True))
     from apps.consolidation.models import ConsolidationRound, ConsolidationStatus
+    from apps.mediafiles.models import MediaFile
 
-    consolidated = (
-        ConsolidationRound.objects.filter(
+    consolidated_ids = ConsolidationRound.objects.filter(
             express_round_id__in=round_ids,
             status=ConsolidationStatus.COMPLETED,
             final_near_media__isnull=False,
-        )
-        .select_related("final_near_media")
-        .order_by("-completed_at")
-        .first()
-    )
-    if consolidated:
-        return consolidated.final_near_media
-    evidence = (
-        orders.filter(delivery_drop_items__drop__evidence__isnull=False)
-        .values_list("delivery_drop_items__drop__evidence__media_id", flat=True)
-        .first()
-    )
-    if evidence:
-        from apps.mediafiles.models import MediaFile
+        ).values_list("final_near_media_id", flat=True)
+    evidence_ids = orders.filter(
+        delivery_drop_items__drop__evidence__isnull=False
+    ).values_list("delivery_drop_items__drop__evidence__media_id", flat=True)
+    candidates = MediaFile.objects.filter(
+        Q(pk__in=consolidated_ids) | Q(pk__in=evidence_ids)
+    ).order_by("-created_at")
+    had_evidence = False
+    for media in candidates:
+        had_evidence = True
+        if media.deleted_at is None and media_absolute_path(media).is_file():
+            return media, False
+    return None, had_evidence
 
-        return MediaFile.objects.get(pk=evidence)
-    return None
+
+def receipt_photo_mode(orders):
+    """Expose the rebuild mode without duplicating media-availability rules."""
+    photo, was_cleaned = _representative_photo_state(orders)
+    if photo:
+        return "FULL"
+    if was_cleaned:
+        return "HISTORICAL_NO_PHOTO"
+    return "NO_PHOTO_REQUIRED"
+
+
+def _render_with_photo_state(*, title, rows, order_qs):
+    photo, was_cleaned = _representative_photo_state(order_qs)
+    if was_cleaned and photo is None:
+        rows.append(("Photo", "已按数据保留策略清理，当前为无照片历史凭证"))
+    return _render_receipt(title=title, rows=rows, photo_media=photo)
 
 
 def create_customer_settlement_image(settlement):
-    if settlement.status != SettlementStatus.WAITING_PAYMENT:
-        raise ValidationError("正式客户结算图只能基于已冻结账单生成")
+    if settlement.status not in {SettlementStatus.WAITING_PAYMENT, SettlementStatus.SETTLED}:
+        raise ValidationError("正式客户结算图只能基于已冻结或已结算账单生成")
     orders = settlement.settlement_orders.all().select_related("order")
     from apps.orders.models import Order
 
@@ -105,10 +118,10 @@ def create_customer_settlement_image(settlement):
     for line in settlement.lines.all():
         rows.append((line.label, f"{line.amount:.2f}"))
     rows.append(("Total", f"{settlement.amount_due_snapshot:.2f}"))
-    upload = _render_receipt(
+    upload = _render_with_photo_state(
         title="Campus Delivery Desk",
         rows=rows,
-        photo_media=_representative_photo(order_qs),
+        order_qs=order_qs,
     )
     media = store_delivery_image(upload=upload, variant_type=MediaVariant.GENERATED_RECEIPT)
     SettlementImageVersion.objects.filter(
@@ -153,8 +166,8 @@ def create_proxy_recipient_receipt(*, settlement, recipient):
             or 0
         )
         rows.append(("Amount", f"{total:.2f}"))
-    upload = _render_receipt(
-        title="Delivery Receipt", rows=rows, photo_media=_representative_photo(order_qs)
+    upload = _render_with_photo_state(
+        title="Delivery Receipt", rows=rows, order_qs=order_qs
     )
     media = store_delivery_image(upload=upload, variant_type=MediaVariant.GENERATED_RECEIPT)
     ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient, is_active=True).update(
@@ -204,8 +217,8 @@ def create_proxy_delivery_receipt(*, recipient):
             or 0
         )
         rows.append(("Amount", f"{amount:.2f}"))
-    upload = _render_receipt(
-        title="Delivery Receipt", rows=rows, photo_media=_representative_photo(order_qs)
+    upload = _render_with_photo_state(
+        title="Delivery Receipt", rows=rows, order_qs=order_qs
     )
     media = store_delivery_image(upload=upload, variant_type=MediaVariant.GENERATED_RECEIPT)
     ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient, is_active=True).update(

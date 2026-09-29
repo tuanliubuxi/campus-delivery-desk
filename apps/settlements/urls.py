@@ -25,5 +25,10 @@ urlpatterns = [
     path("recorder/settlements/<int:settlement_id>/confirm/", views.confirm, name="confirm"),
     path("recorder/settlements/<int:settlement_id>/reverse/", views.reverse, name="reverse"),
     path("recorder/settlements/<int:settlement_id>/refund/", views.refund, name="refund"),
+    path(
+        "recorder/settlements/<int:settlement_id>/rebuild-artifacts/",
+        views.rebuild_artifacts,
+        name="rebuild-artifacts",
+    ),
     path("admin-console/wages/", views.wages, name="wages"),
 ]

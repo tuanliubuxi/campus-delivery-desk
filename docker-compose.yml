@@ -5,6 +5,7 @@ services:
     command: >
       sh -c "mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
       && python manage.py collectstatic --noinput
+      && python manage.py recovery_check
       && gunicorn config.wsgi:application --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:8000"
     env_file: .env
     environment:

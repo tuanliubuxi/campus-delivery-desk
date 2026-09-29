@@ -39,6 +39,8 @@
           <a class="btn btn-sm btn-outline-primary" href="{% url 'settlements:wages' %}">收益与工资</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'exceptions:workspace' %}">异常处理</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'consolidation:manual-create' %}">归拢管理</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'operations:media' %}">媒体</a>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'operations:backups' %}">备份维护</a>
         {% elif user.is_recorder %}
           <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:new' %}">录单</a>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:quick-complete' %}">快速补录</a>

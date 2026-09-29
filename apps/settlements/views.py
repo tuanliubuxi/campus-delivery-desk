@@ -28,6 +28,7 @@ from .services import (
     calculate_wages,
     confirm_settlement,
     freeze_settlement_for_payment,
+    rebuild_settlement_artifacts,
     record_refund,
     reverse_settlement,
     void_draft_charge,
@@ -202,6 +203,23 @@ def refund(request, settlement_id):
             messages.success(request, "真实退款已追加记录，原结算明细保持不变")
     else:
         messages.error(request, "请填写有效退款金额和原因")
+    return redirect("settlements:detail", settlement_id=settlement_id)
+
+
+@require_POST
+@recorder_or_admin_required
+def rebuild_artifacts(request, settlement_id):
+    settlement = get_object_or_404(Settlement, pk=settlement_id)
+    try:
+        artifacts, mode = rebuild_settlement_artifacts(
+            settlement=settlement,
+            actor=request.user,
+        )
+    except (ValidationError, PermissionError) as exc:
+        messages.error(request, str(exc))
+    else:
+        label = "无照片历史模式" if mode == "HISTORICAL_NO_PHOTO" else "完整模式"
+        messages.success(request, f"已用{label}重建 {len(artifacts)} 个凭证")
     return redirect("settlements:detail", settlement_id=settlement_id)
 
 

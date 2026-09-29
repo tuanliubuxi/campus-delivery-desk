@@ -2,6 +2,7 @@
 from .leases import (
     AccountAlreadyOnline,
     InvalidLease,
+    cleanup_stale_leases,
     force_logout,
     heartbeat,
     login_user_with_lease,
@@ -20,6 +21,7 @@ __all__ = [
     "AccountAlreadyOnline",
     "InvalidLease",
     "create_user_account",
+    "cleanup_stale_leases",
     "force_logout",
     "heartbeat",
     "login_user_with_lease",
