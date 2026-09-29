@@ -14,6 +14,28 @@ class ExceptionStatus(models.TextChoices):
     RESOLVED = "RESOLVED", "已解决"
 
 
+class ManualHandlingAction(models.TextChoices):
+    ADD_EXTRA_CHARGE = "ADD_EXTRA_CHARGE", "追加费用"
+    REDUCE_CHARGE = "REDUCE_CHARGE", "减少费用"
+    WAIVE_CHARGE = "WAIVE_CHARGE", "费用全免"
+    FULL_REFUND = "FULL_REFUND", "全额退款"
+    PARTIAL_REFUND = "PARTIAL_REFUND", "部分退款"
+    REDELIVERY = "REDELIVERY", "重新配送"
+    POST_PICKUP_CANCEL = "POST_PICKUP_CANCEL", "取件后取消"
+    CUSTOMER_RESOLVED = "CUSTOMER_RESOLVED", "客户自行解决"
+    OFFLINE_SETTLEMENT = "OFFLINE_SETTLEMENT", "线下结算"
+    INFO_CORRECTION = "INFO_CORRECTION", "信息更正"
+    OTHER = "OTHER", "其他"
+
+
+class ManualHandlingQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise TypeError("ManualHandling is immutable")
+
+    def delete(self):
+        raise TypeError("ManualHandling cannot be deleted")
+
+
 class ExceptionCase(models.Model):
     # Browser retries must resolve to the same exception instead of duplicating blockers.
     operation_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -138,3 +160,74 @@ class ExceptionEvidenceLink(models.Model):
                 name="exceptions_unique_case_media_evidence",
             ),
         ]
+
+
+class ManualHandling(models.Model):
+    """Append-only operator action that points to facts created by existing workflows."""
+
+    objects = ManualHandlingQuerySet.as_manager()
+
+    operation_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    action_type = models.CharField(max_length=32, choices=ManualHandlingAction.choices)
+    reason = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    order = models.ForeignKey(
+        Order,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="manual_handlings",
+    )
+    settlement = models.ForeignKey(
+        "settlements.Settlement",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="manual_handlings",
+    )
+    exception_case = models.ForeignKey(
+        ExceptionCase,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="manual_handlings",
+    )
+    delivery_task = models.ForeignKey(
+        "dispatch.DeliveryTask",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="manual_handlings",
+    )
+    resulting_charge_item = models.ForeignKey(
+        "settlements.ChargeItem",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="manual_handlings",
+    )
+    resulting_financial_adjustment = models.ForeignKey(
+        "settlements.FinancialAdjustment",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="manual_handlings",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="created_manual_handlings",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise TypeError("ManualHandling is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise TypeError("ManualHandling cannot be deleted")

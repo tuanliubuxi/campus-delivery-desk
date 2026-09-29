@@ -151,7 +151,6 @@ def _duplicate_check(
         duplicates = find_express_duplicates(
             customer=customer,
             proxy_recipient=proxy_recipient,
-            service_date=service_date,
             pickup_area=pickup_area,
             pickup_identifier=pickup_identifier,
         )

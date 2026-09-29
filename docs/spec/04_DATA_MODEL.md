@@ -649,6 +649,31 @@ created_at
 
 OPEN 异常直接或间接关联到的 MediaFile 受到清理保护。创建异常时可按 reason_code 给出 `blocks_consolidation / blocks_settlement` 默认值，但实际流程统一读取这两个显式字段；特殊情况修改阻塞属性必须写 AuditEvent。
 
+### ManualHandling
+
+不可变、仅追加的人工处理动作，不设置长期状态字段：
+
+```text
+id
+operation_id              unique
+action_type               ADD_EXTRA_CHARGE / REDUCE_CHARGE / WAIVE_CHARGE /
+                          FULL_REFUND / PARTIAL_REFUND / REDELIVERY /
+                          POST_PICKUP_CANCEL / CUSTOMER_RESOLVED /
+                          OFFLINE_SETTLEMENT / INFO_CORRECTION / OTHER
+reason
+amount nullable
+order_id nullable
+settlement_id nullable
+exception_case_id nullable
+delivery_task_id nullable
+resulting_charge_item_id nullable
+resulting_financial_adjustment_id nullable
+created_by
+created_at
+```
+
+动作通过现有领域 service 生成或关联事实；ManualHandling 本身创建后不得更新或删除。
+
 ### AuditEvent
 
 Append-only：actor、event_type、entity_type/id、diff/metadata、created_at。

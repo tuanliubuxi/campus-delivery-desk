@@ -126,4 +126,4 @@ HISTORICAL_BACKFILL：照片允许为空但补录说明必填。
 
 ## 15. 搜索
 
-订单号固定格式 `{业务代码}-{YYMMDD}-{三位序号}`，动态展示格式 `{业务代码}-{状态代码}-{YYMMDD}-{三位序号}`；搜索同时支持两种格式。Customer 的名称/尾号字段搜索时支持 `/` 分隔 token。pickup_identifier 原值保留，同时保存/计算 normalized 版本用于查重。
+订单号固定格式 `{业务代码}-{YYMMDD}-{三位序号}`，动态展示格式 `{业务代码}-{状态代码}-{YYMMDD}-{三位序号}`；搜索同时支持两种格式。Customer 的名称/尾号字段搜索时支持 `/` 分隔 token。pickup_identifier 原值保留，同时保存/计算 normalized 版本；快递查重按同一收件归属、pickup_area、normalized 值和 created_at 滚动 72 小时判断，并排除 CANCELED。

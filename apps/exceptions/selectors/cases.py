@@ -14,6 +14,7 @@ def visible_exception_cases(actor):
         "attachments__media",
         "evidence_links__delivery_evidence__media",
         "evidence_links__media",
+        "manual_handlings__created_by",
     )
     if actor.role in {UserRole.ADMIN, UserRole.RECORDER}:
         return cases

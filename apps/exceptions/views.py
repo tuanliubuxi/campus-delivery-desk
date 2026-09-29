@@ -9,11 +9,17 @@ from django.views.decorators.http import require_POST
 from apps.common.enums import UserRole
 from apps.common.permissions import recorder_or_admin_required, role_required
 
-from .forms import ExceptionBlockersForm, ExceptionCreateForm, ExceptionResolveForm
+from .forms import (
+    ExceptionBlockersForm,
+    ExceptionCreateForm,
+    ExceptionResolveForm,
+    ManualHandlingForm,
+)
 from .models import ExceptionCase, ExceptionStatus
 from .selectors import visible_exception_cases
 from .services import (
     create_exception_case,
+    perform_manual_handling,
     resolve_exception_case,
     update_exception_blockers,
 )
@@ -54,6 +60,7 @@ def detail(request, case_id):
         {
             "case": case,
             "resolve_form": ExceptionResolveForm(),
+            "manual_handling_form": ManualHandlingForm(exception_case=case),
             "blockers_form": ExceptionBlockersForm(
                 initial={
                     "blocks_consolidation": case.blocks_consolidation,
@@ -93,4 +100,25 @@ def blockers(request, case_id):
             messages.error(request, str(exc))
         else:
             messages.success(request, "异常阻塞属性已更新并审计")
+    return redirect("exceptions:detail", case_id=case.pk)
+
+
+@require_POST
+@recorder_or_admin_required
+def manual_handling(request, case_id):
+    case = get_object_or_404(ExceptionCase, pk=case_id)
+    form = ManualHandlingForm(request.POST, exception_case=case)
+    if form.is_valid():
+        try:
+            perform_manual_handling(
+                actor=request.user,
+                exception_case=case,
+                **form.cleaned_data,
+            )
+        except (ValidationError, PermissionError) as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "人工处理动作已执行并以不可变记录审计")
+    else:
+        messages.error(request, "人工处理参数不完整，请检查后重试")
     return redirect("exceptions:detail", case_id=case.pk)

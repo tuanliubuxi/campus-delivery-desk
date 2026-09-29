@@ -378,7 +378,15 @@ SETTLED → REVERSED
 
 配送完成时的基础归属记录允许 `settlement_id=NULL`；确认客户结算时绑定 Settlement、写入最终金额并进入 SETTLED。
 
-## 18. BusinessDay 不属于 V1
+普通分成比例初始为空。缺少比例不改变 CourierEarning 的归属或 SETTLED 生命周期，只使比例/建议工资快照为空，并在 RATIO 工资计算时阻止计算；手工工资不受影响。CUSTOMER_EXTRA 始终以 100% 快照锁定 beneficiary courier。
+
+## 18. ManualHandling
+
+ManualHandling 表示已经执行的一次不可变人工处理动作，不另建 OPEN/CLOSED 等长期状态机。固定动作包括：`ADD_EXTRA_CHARGE`、`REDUCE_CHARGE`、`WAIVE_CHARGE`、`FULL_REFUND`、`PARTIAL_REFUND`、`REDELIVERY`、`POST_PICKUP_CANCEL`、`CUSTOMER_RESOLVED`、`OFFLINE_SETTLEMENT`、`INFO_CORRECTION`、`OTHER`。
+
+它通过现有 ChargeItem、FinancialAdjustment、Settlement、配送任务和 ExceptionCase 服务完成业务后，保存 operation_id、动作、原因、金额及关联/结果引用并写 AuditEvent。记录仅追加，禁止修改或删除。`POST_PICKUP_CANCEL` 不把 PICKED/DELIVERING/DELIVERED 订单伪装成普通 CANCELED，而是保留现实状态并关联异常/后续处置；`REDELIVERY` 关联既有配送服务建立的新任务。
+
+## 19. BusinessDay 不属于 V1
 
 V1 不使用快递业务日 OPEN/CLOSED、22:00 收工或每日优惠返还。
 

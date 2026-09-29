@@ -7,7 +7,13 @@ from django.core.exceptions import ValidationError
 
 from apps.accounts.models import User
 from apps.common.enums import UserRole
-from apps.settlements.selectors.wages import courier_earning_totals, wage_pool_totals
+from apps.config_center.models import CommissionConfig
+from apps.settlements.models import EarningSourceType
+from apps.settlements.selectors.wages import (
+    courier_earning_totals,
+    settled_earnings,
+    wage_pool_totals,
+)
 
 MONEY = Decimal("0.01")
 
@@ -45,6 +51,20 @@ def calculate_wages(*, period_start, period_end, mode, manual_allocations=None):
         raise ValidationError("开始日期不能晚于结束日期")
     if mode not in {"RATIO", "MANUAL"}:
         raise ValidationError("未知工资计算模式")
+    if mode == "RATIO":
+        missing_pairs = set(
+            settled_earnings(period_start=period_start, period_end=period_end)
+            .exclude(source_type=EarningSourceType.CUSTOMER_EXTRA)
+            .filter(commission_rate_snapshot__isnull=True)
+            .values_list("settlement__business_type", "source_type")
+        )
+        configured_pairs = set(
+            CommissionConfig.objects.exclude(commission_rate__isnull=True).values_list(
+                "business_type", "earning_source"
+            )
+        )
+        if missing_pairs - configured_pairs:
+            raise ValidationError("所选周期存在尚未配置分成比例的普通收益，无法计算比例工资")
     pool = wage_pool_totals(period_start=period_start, period_end=period_end)
     aggregates = courier_earning_totals(period_start=period_start, period_end=period_end)
     couriers = {courier.pk: courier for courier in User.objects.filter(role=UserRole.COURIER)}

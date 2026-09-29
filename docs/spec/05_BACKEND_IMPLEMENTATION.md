@@ -53,7 +53,7 @@ display_id = {business_code}-{status_code}-{YYMMDD}-{seq3}
 
 ## 5. 重复订单检查
 
-快递强提醒条件：同一收件归属 + pickup_area + normalized pickup_identifier + 时间窗口。
+快递强提醒条件：同一收件归属 + pickup_area + normalized pickup_identifier + `created_at` 滚动 72 小时窗口。窗口按当前时刻向前计算，不按 `service_date` 或自然日切分；`CANCELED` 订单不参与。
 
 命中后 UI 弹警告但允许“仍然创建”，不要求填写原因。
 
@@ -416,6 +416,8 @@ manual_allocatable_remaining = 880
 - RATIO：普通业务收益按业务分成快照计算，强制归属收益直接加入对应人员；
 - MANUAL：管理员分配剩余可人工分配池，强制归属部分不可转给别人。
 
+比例配置初始为空。缺少比例不得阻止业务、结算确认或 CourierEarning 收益归属；对应收益行保留空的比例/建议工资快照。只有 RATIO 工资计算遇到所选周期内缺少比例快照的普通收益时拒绝，并提示管理员补配置。CUSTOMER_EXTRA 始终按 100% 快照归 beneficiary courier，不依赖普通比例配置。
+
 MANUAL 硬约束 `sum(manual_allocations) <= manual_allocatable_remaining`。个人最终工资高于本人直接产生的普通配送收益只返回 warning，不阻塞。
 
 ## 24. Dashboard Selector
@@ -445,7 +447,13 @@ delete_after = max(
 
 计算。异常刚解决时至少再保留一个完整 retention 周期。
 
-## 26. 备份与 scheduler
+## 26. ManualHandling
+
+`ManualHandling` 是不可变、仅追加的人工处理动作，不建立长期状态机。动作类型固定为 `ADD_EXTRA_CHARGE / REDUCE_CHARGE / WAIVE_CHARGE / FULL_REFUND / PARTIAL_REFUND / REDELIVERY / POST_PICKUP_CANCEL / CUSTOMER_RESOLVED / OFFLINE_SETTLEMENT / INFO_CORRECTION / OTHER`。
+
+人工处理 service 只负责编排既有领域服务并保存结果引用：增减免写 ChargeItem，退款写 FinancialAdjustment，线下结算调用 Settlement 确认，客户自行解决调用 ExceptionCase 解决；重新配送关联通过配送服务建立的任务；取件后取消保留现实配送状态并关联 ExceptionCase，不得绕过普通取消状态机。每次动作必须携带 operation_id、原因、操作者、时间和适用的订单/结算/异常/任务/金额及结果引用，并写 AuditEvent；记录创建后禁止更新或删除。
+
+## 27. 备份与 scheduler
 
 V1 不存在快递收工 service。
 
@@ -458,6 +466,6 @@ scheduler 主要任务：
 
 所有任务必须 JobRun 幂等记录。
 
-## 27. 幂等
+## 28. 幂等
 
 关键写操作使用 `operation_id` 或业务唯一状态判断：路线接单、直送接单、配送完成、归拢完成、Settlement 构建、结算确认/撤销、代理图片生成、ProxyBatch 重新打开、备份、恢复保护备份。

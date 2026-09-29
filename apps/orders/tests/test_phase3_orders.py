@@ -1,11 +1,12 @@
 """Phase 3 acceptance tests for order creation, pricing, rounds, edits, and UI."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.agents.services import create_agent, create_proxy_batch, create_proxy_recipient
@@ -18,6 +19,7 @@ from apps.orders.models import (
     DestinationType,
     DispatchMode,
     ExpressRoundStatus,
+    Order,
     PickupArea,
     PickupIdentifierType,
     SizeClass,
@@ -170,6 +172,66 @@ def test_duplicate_warning_is_non_blocking_after_explicit_confirmation(
         **express_args(customer, building),
     )
     assert duplicate.pk
+
+
+@pytest.mark.django_db
+def test_express_duplicate_warning_uses_rolling_72_hours_and_excludes_canceled(
+    recorder, customer, building
+):
+    first = create_express_order(
+        actor=recorder,
+        customer=customer,
+        pickup_area=PickupArea.SOUTH,
+        pickup_identifier_type=PickupIdentifierType.PICKUP_CODE,
+        pickup_identifier=" Ab 12 ",
+        size_class=SizeClass.SMALL,
+        dispatch_mode=DispatchMode.ROUTE,
+        building=building,
+        destination_type=DestinationType.CAMPUS_BUILDING,
+    )
+    # Cross-day matching is based on created_at, and normalization ignores case/whitespace.
+    Order.objects.filter(pk=first.pk).update(
+        created_at=timezone.now() - timedelta(hours=71),
+        service_date=timezone.localdate() - timedelta(days=2),
+    )
+    with pytest.raises(PossibleDuplicateOrder):
+        create_express_order(
+            actor=recorder,
+            customer=customer,
+            pickup_area=PickupArea.SOUTH,
+            pickup_identifier_type=PickupIdentifierType.PICKUP_CODE,
+            pickup_identifier="ab12",
+            size_class=SizeClass.SMALL,
+            dispatch_mode=DispatchMode.ROUTE,
+            building=building,
+            destination_type=DestinationType.CAMPUS_BUILDING,
+        )
+
+    Order.objects.filter(pk=first.pk).update(created_at=timezone.now() - timedelta(hours=73))
+    outside_window = create_express_order(
+        actor=recorder,
+        customer=customer,
+        pickup_area=PickupArea.SOUTH,
+        pickup_identifier_type=PickupIdentifierType.PICKUP_CODE,
+        pickup_identifier="ab12",
+        size_class=SizeClass.SMALL,
+        dispatch_mode=DispatchMode.ROUTE,
+        building=building,
+        destination_type=DestinationType.CAMPUS_BUILDING,
+    )
+    outside_window.delivery_status = DeliveryStatus.CANCELED
+    outside_window.save(update_fields=["delivery_status"])
+    assert create_express_order(
+        actor=recorder,
+        customer=customer,
+        pickup_area=PickupArea.SOUTH,
+        pickup_identifier_type=PickupIdentifierType.PICKUP_CODE,
+        pickup_identifier="ab12",
+        size_class=SizeClass.SMALL,
+        dispatch_mode=DispatchMode.ROUTE,
+        building=building,
+        destination_type=DestinationType.CAMPUS_BUILDING,
+    ).pk
 
 
 @pytest.mark.django_db

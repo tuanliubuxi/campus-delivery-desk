@@ -66,7 +66,7 @@ class EarningSource(models.TextChoices):
 
 
 class CommissionConfig(models.Model):
-    # A null rate means "administrator has not configured it"; later earning services must reject it.
+    # A null rate is the required initial state and blocks only ratio-mode wage calculation.
     business_type = models.CharField(max_length=24, choices=BusinessType.choices)
     earning_source = models.CharField(max_length=24, choices=EarningSource.choices)
     commission_rate = models.DecimalField(

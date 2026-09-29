@@ -46,16 +46,17 @@ def _commission_rate(*, business_type, source_type):
     config = CommissionConfig.objects.filter(
         business_type=business_type, earning_source=source_type
     ).first()
-    if config is None or config.commission_rate is None:
-        raise ValidationError(f"{business_type} 的 {source_type} 分成比例尚未配置")
-    return config.commission_rate
+    return config.commission_rate if config else None
 
 
 def _settle_earning(*, earning, settlement, amount_base, rate):
     earning.settlement = settlement
     earning.amount_base = _money(amount_base)
     earning.commission_rate_snapshot = rate
-    earning.suggested_wage_amount = _money(Decimal(amount_base) * rate)
+    # Missing commission never blocks settlement or earning ownership; it is handled by RATIO wages.
+    earning.suggested_wage_amount = (
+        _money(Decimal(amount_base) * rate) if rate is not None else None
+    )
     earning.status = EarningStatus.SETTLED
     earning.save(
         update_fields=[

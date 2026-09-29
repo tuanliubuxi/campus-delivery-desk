@@ -12,6 +12,10 @@
     {% for attachment in case.attachments.all %}<a href="{% url 'mediafiles:download' attachment.media_id %}">异常上传图片 #{{ attachment.media_id }}</a>{% endfor %}
     {% for link in case.evidence_links.all %}{% if link.delivery_evidence %}<a href="{% url 'mediafiles:download' link.delivery_evidence.media_id %}">配送证据 #{{ link.delivery_evidence_id }}</a>{% else %}<a href="{% url 'mediafiles:download' link.media_id %}">业务图片 #{{ link.media_id }}</a>{% endif %}{% empty %}<p class="text-secondary">没有引用既有证据。</p>{% endfor %}
   </div>
+  {% if not user.is_courier %}<div class="card card-body mb-3"><h2 class="h5">不可变人工处理记录</h2>
+    {% for handling in case.manual_handlings.all %}<div class="border-bottom py-2"><strong>{{ handling.get_action_type_display }}</strong> · {{ handling.reason }}{% if handling.amount != None %} · ¥{{ handling.amount }}{% endif %}<br><small>{{ handling.created_at }} · {{ handling.created_by.display_name }}</small></div>{% empty %}<p class="text-secondary">暂无人工处理动作。</p>{% endfor %}
+    <form method="post" action="{% url 'exceptions:manual-handling' case.id %}" class="mt-3" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="manual-handling-{{ case.id }}">{% csrf_token %}<h3 class="h6">执行并记录一次动作</h3>{{ manual_handling_form.as_p }}<button class="btn btn-primary">确认执行</button></form>
+  </div>{% endif %}
   {% if case.status == 'OPEN' %}
     {% if not user.is_courier %}<form method="post" action="{% url 'exceptions:blockers' case.id %}" class="card card-body mb-3">{% csrf_token %}<h2 class="h5">调整阻塞属性</h2>{{ blockers_form.as_p }}<button class="btn btn-outline-warning">保存并审计</button></form>{% endif %}
     <form method="post" action="{% url 'exceptions:resolve' case.id %}" class="card card-body">{% csrf_token %}<h2 class="h5">解决异常</h2>{{ resolve_form.as_p }}<button class="btn btn-success">标记已解决</button></form>

@@ -25,7 +25,7 @@
 - [ ] Customer CRUD + 快照
 - [ ] `/` 多名称/尾号搜索
 - [ ] Building/Zone
-- [ ] 业务/价格/加急/上楼/分成/主题配置
+- [ ] 业务/价格/加急/上楼/分成/主题配置（分成比例初始为空，仅比例工资计算要求已配置）
 - [ ] KFC 默认开放日配置
 
 ## Phase 2：代理人体系
@@ -144,7 +144,7 @@
 - [ ] ExceptionCaseAttachment
 - [ ] ExceptionEvidenceLink
 - [ ] OPEN 异常图片保护
-- [ ] ManualHandling
+- [ ] 不可变 ManualHandling 动作及既有 ChargeItem/FinancialAdjustment/Settlement/配送任务/ExceptionCase 服务编排
 - [ ] 退款影响工资
 - [ ] DIRECT_COMPLETE
 - [ ] HISTORICAL_BACKFILL

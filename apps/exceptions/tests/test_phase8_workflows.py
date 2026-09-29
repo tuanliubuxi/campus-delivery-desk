@@ -17,10 +17,23 @@ from apps.audit.models import AuditEvent
 from apps.common.enums import BusinessType, UserRole
 from apps.config_center.models import Building
 from apps.customers.models import Customer
-from apps.dispatch.models import DeliveryDrop, DeliveryDropItem, LocationType
-from apps.exceptions.models import ExceptionCaseAttachment, ExceptionEvidenceLink, ExceptionStatus
+from apps.dispatch.models import (
+    DeliveryDrop,
+    DeliveryDropItem,
+    DeliveryTask,
+    LocationType,
+    TaskType,
+)
+from apps.exceptions.models import (
+    ExceptionCaseAttachment,
+    ExceptionEvidenceLink,
+    ExceptionStatus,
+    ManualHandling,
+    ManualHandlingAction,
+)
 from apps.exceptions.services import (
     create_exception_case,
+    perform_manual_handling,
     resolve_exception_case,
     update_exception_blockers,
 )
@@ -35,6 +48,7 @@ from apps.orders.models import (
 )
 from apps.orders.services import create_completed_order, create_takeout_order
 from apps.settlements.models import (
+    ChargeType,
     CourierEarning,
     EarningStatus,
     Settlement,
@@ -274,3 +288,188 @@ def test_refund_can_explicitly_reduce_pool_and_one_courier_wage():
     assert calculation.available_pool == Decimal("-2.00")
     assert calculation.lines[0].wage_adjustment == Decimal("-1.00")
     assert calculation.lines[0].final_amount == Decimal("-1.00")
+
+
+@pytest.mark.django_db
+def test_manual_handling_is_immutable_and_delegates_financial_actions():
+    recorder, admin, courier, building, customer = people_and_customer()
+    draft = Settlement.objects.create(
+        business_type=BusinessType.TAKEOUT,
+        party_type=SettlementPartyType.CUSTOMER,
+        customer=customer,
+        status=SettlementStatus.DRAFT,
+        created_by=recorder,
+    )
+    surcharge = perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.ADD_EXTRA_CHARGE,
+        reason="额外跑楼服务",
+        amount="3.00",
+        settlement=draft,
+        beneficiary_courier=courier,
+        operation_id=uuid.uuid4(),
+    )
+    assert surcharge.resulting_charge_item.charge_type == ChargeType.MANUAL_SURCHARGE
+    assert surcharge.resulting_charge_item.amount == Decimal("3.00")
+
+    waived = perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.WAIVE_CHARGE,
+        reason="客户投诉后全免",
+        settlement=draft,
+        operation_id=uuid.uuid4(),
+    )
+    assert waived.resulting_charge_item.charge_type == ChargeType.MANUAL_DISCOUNT
+    assert waived.resulting_charge_item.amount == Decimal("-3.00")
+
+    settled = Settlement.objects.create(
+        business_type=BusinessType.TAKEOUT,
+        party_type=SettlementPartyType.CUSTOMER,
+        customer=customer,
+        status=SettlementStatus.SETTLED,
+        amount_due_snapshot=Decimal("10.00"),
+        settled_at=timezone.now(),
+        settled_by=recorder,
+        created_by=recorder,
+    )
+    refund_operation = uuid.uuid4()
+    refund = perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.PARTIAL_REFUND,
+        reason="售后部分退款",
+        amount="2.00",
+        settlement=settled,
+        operation_id=refund_operation,
+    )
+    assert refund.resulting_financial_adjustment.amount == Decimal("-2.00")
+    assert (
+        perform_manual_handling(
+            actor=recorder,
+            action_type=ManualHandlingAction.PARTIAL_REFUND,
+            reason="浏览器重试",
+            amount="2.00",
+            settlement=settled,
+            operation_id=refund_operation,
+        ).pk
+        == refund.pk
+    )
+
+    fully_refunded = Settlement.objects.create(
+        business_type=BusinessType.TAKEOUT,
+        party_type=SettlementPartyType.CUSTOMER,
+        customer=customer,
+        status=SettlementStatus.SETTLED,
+        amount_due_snapshot=Decimal("5.00"),
+        settled_at=timezone.now(),
+        settled_by=recorder,
+        created_by=recorder,
+    )
+    full_refund = perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.FULL_REFUND,
+        reason="整单退款",
+        settlement=fully_refunded,
+        operation_id=uuid.uuid4(),
+    )
+    assert full_refund.resulting_financial_adjustment.amount == Decimal("-5.00")
+
+    offline = Settlement.objects.create(
+        business_type=BusinessType.TAKEOUT,
+        party_type=SettlementPartyType.CUSTOMER,
+        customer=customer,
+        status=SettlementStatus.WAITING_PAYMENT,
+        amount_due_snapshot=Decimal("0.00"),
+        created_by=recorder,
+    )
+    perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.OFFLINE_SETTLEMENT,
+        reason="已线下收款",
+        settlement=offline,
+        operation_id=uuid.uuid4(),
+    )
+    offline.refresh_from_db()
+    assert offline.status == SettlementStatus.SETTLED
+
+    with pytest.raises(TypeError, match="immutable"):
+        refund.save()
+    with pytest.raises(TypeError, match="immutable"):
+        ManualHandling.objects.filter(pk=refund.pk).update(reason="不得覆盖")
+
+
+@pytest.mark.django_db
+def test_manual_handling_records_non_state_machine_actions_and_existing_results():
+    assert set(ManualHandlingAction.values) == {
+        "ADD_EXTRA_CHARGE",
+        "REDUCE_CHARGE",
+        "WAIVE_CHARGE",
+        "FULL_REFUND",
+        "PARTIAL_REFUND",
+        "REDELIVERY",
+        "POST_PICKUP_CANCEL",
+        "CUSTOMER_RESOLVED",
+        "OFFLINE_SETTLEMENT",
+        "INFO_CORRECTION",
+        "OTHER",
+    }
+    recorder, admin, courier, building, customer = people_and_customer()
+    order = create_takeout_order(
+        actor=recorder,
+        customer=customer,
+        pickup_gate=TakeoutGate.SOUTH_GATE,
+        identifier="MANUAL-1",
+        building=building,
+        destination_type=DestinationType.CAMPUS_BUILDING,
+    )
+    order.delivery_status = DeliveryStatus.PICKED
+    order.save(update_fields=["delivery_status"])
+    task = DeliveryTask.objects.create(
+        task_type=TaskType.SIMPLE,
+        business_type=BusinessType.TAKEOUT,
+        courier=courier,
+        operation_id=uuid.uuid4(),
+        accepted_at=timezone.now(),
+    )
+    case = create_exception_case(
+        actor=recorder,
+        order=order,
+        reason_code="POST_PICKUP_CANCEL",
+        reason_text="取件后客户取消",
+    )
+    handling = perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.POST_PICKUP_CANCEL,
+        reason="实物已取，保留原状态并转异常处理",
+        order=order,
+        exception_case=case,
+        operation_id=uuid.uuid4(),
+    )
+    order.refresh_from_db()
+    assert handling.exception_case == case
+    assert order.delivery_status == DeliveryStatus.PICKED
+
+    redelivery = perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.REDELIVERY,
+        reason="已通过配送服务建立重新配送任务",
+        order=order,
+        delivery_task=task,
+        exception_case=case,
+        operation_id=uuid.uuid4(),
+    )
+    assert redelivery.delivery_task == task
+
+    resolved = perform_manual_handling(
+        actor=recorder,
+        action_type=ManualHandlingAction.CUSTOMER_RESOLVED,
+        reason="客户已自行取回",
+        order=order,
+        exception_case=case,
+        operation_id=uuid.uuid4(),
+    )
+    case.refresh_from_db()
+    assert resolved.exception_case == case
+    assert case.status == ExceptionStatus.RESOLVED
+    assert AuditEvent.objects.filter(
+        event_type="MANUAL_HANDLING_RECORDED", entity_id=resolved.pk
+    ).exists()

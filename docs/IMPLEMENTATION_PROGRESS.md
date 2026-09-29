@@ -74,7 +74,7 @@
 - [x] 响应式录单选择/表单/历史/详情/取消页面与角色后端权限
 - [x] migration、专项/全量测试、静态检查与 migration drift 检查
 
-本阶段新增 `orders.0001_initial`，建立 Order、ExpressRound 和六类 Detail 及收件归属、轮次、编号、目的地等数据库约束；新增 `settlements.0001_initial`，建立 ChargeItem、Settlement、SettlementOrder、SettlementLine、FinancialAdjustment、CourierEarning 及费用作用域、作废元数据、受益归属和冻结行唯一约束。全量 49 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。快递重复提醒的“时间窗口”长度未由规格给出，当前按同一 `service_date` 处理并记录于 `docs/IMPLEMENTATION_QUESTIONS.md`。按阶段边界，配送状态推进、UNKNOWN 大小确认、ExpressRound 关闭、代理批次整批取消、结算 build/freeze/confirm 均未提前实现。
+本阶段新增 `orders.0001_initial`，建立 Order、ExpressRound 和六类 Detail 及收件归属、轮次、编号、目的地等数据库约束；新增 `settlements.0001_initial`，建立 ChargeItem、Settlement、SettlementOrder、SettlementLine、FinancialAdjustment、CourierEarning 及费用作用域、作废元数据、受益归属和冻结行唯一约束。快递重复强提醒现已按最终口径使用同一收件归属 + pickup_area + normalized pickup_identifier + created_at 滚动 72 小时并排除 CANCELED。按阶段边界，配送状态推进、UNKNOWN 大小确认、ExpressRound 关闭、代理批次整批取消、结算 build/freeze/confirm 均未提前实现。
 
 ## Phase 4：简单配送业务（已完成）
 
@@ -119,7 +119,7 @@
 - [x] Phase 5：快递复杂配送、基础 ExpressRound 关闭、原子整批取消
 - [x] Phase 6：归拢、多件轮次关闭、结算构建与凭证
 - [x] Phase 7：结算确认、收益与工资
-- [ ] Phase 8：异常、人工处理、快速补录（除规格未定义的 ManualHandling 外已实现）
+- [x] Phase 8：异常、不可变人工处理动作、快速补录
 - [x] Phase 9：经营分析、搜索、Excel
 - [x] Phase 10：运维
 - [ ] Phase 11：PWA/弱网/收尾（自动化开发完成，等待真实设备验收）
@@ -168,7 +168,7 @@
 - [x] WAITING_PAYMENT 确认收款及 Settlement/Order/ProxyBatch 状态联动
 - [x] 配送完成时的 PENDING_PAYMENT 基础收益绑定 Settlement，并冻结最终金额与分成比例
 - [x] BASE_DELIVERY、UPSTAIRS、CUSTOMER_EXTRA、MANUAL_EXTRA 按来源独立记录
-- [x] 确定性 earning_key 与重复确认幂等；未配置分成比例时拒绝确认
+- [x] 确定性 earning_key 与重复确认幂等；未配置分成比例不阻止确认和收益归属
 - [x] CUSTOMER_EXTRA 100% 锁定指定配送员，不乘普通分成
 - [x] 管理员误结算撤销、原收益转 REVERSED、原凭证转历史且旧财务事实保留
 - [x] 撤销后新建 Settlement 再结算，并创建全新的 CourierEarning
@@ -178,9 +178,9 @@
 - [x] 结算确认、退款、撤销、收益明细与工资计算响应式页面
 - [x] migration、专项/全量测试、静态检查及迁移漂移检查
 
-本阶段新增 `settlements.0004_*`，为 append-only FinancialAdjustment 增加关键请求幂等键；工资计算保持只读 DTO，不表示工资已经发放，也不额外保存“已发工资”状态。真实退款默认不影响工资；按实施计划，“退款影响工资”的人工处置入口保留到 Phase 8。Phase 7 专项 4 项、全量 83 项 pytest 测试通过；Ruff、Django check、migration drift check与 `git diff --check` 通过。规格没有给出默认分成比例，系统继续保留未配置状态，并在确认结算需要对应收益来源时明确拒绝，未自行猜测默认值。Phase 8 尚未开始。
+本阶段新增 `settlements.0004_*`，为 append-only FinancialAdjustment 增加关键请求幂等键；工资计算保持只读 DTO，不表示工资已经发放，也不额外保存“已发工资”状态。真实退款默认不影响工资；按实施计划，“退款影响工资”的人工处置入口保留到 Phase 8。最终确认不存在默认分成比例：结算确认始终保存金额与收益归属，比例/建议工资快照可空；缺少比例只阻止对应周期的 RATIO 工资计算，MANUAL 模式不受影响。
 
-## Phase 8：异常、人工处理、快速补录（部分完成，等待规格）
+## Phase 8：异常、人工处理、快速补录（已完成）
 
 - [x] ExceptionCase 管理员/录单员宽窄屏 UI 与配送员移动 UI
 - [x] 显式 blocks_consolidation / blocks_settlement 修改、权限与 AuditEvent
@@ -188,13 +188,15 @@
 - [x] ExceptionEvidenceLink 引用配送证据和归拢最终图片
 - [x] OPEN 异常直接/间接媒体保护 selector
 - [x] 异常解决后 `max(created_at + retention, resolved_at + retention)` 保留边界
-- [ ] ManualHandling（权威规格缺少字段、动作类型、状态机及验收口径）
+- [x] 不可变 ManualHandling 固定动作、operation_id 幂等、既有服务编排、结果引用与 AuditEvent
 - [x] 真实退款显式选择是否影响计薪，并可记录个人工资扣减
 - [x] DIRECT_COMPLETE：实际配送员、完成时间、位置、普通业务照片与正常待结算收益
 - [x] HISTORICAL_BACKFILL：允许无照片、强制补录说明并保留实际完成时间
 - [x] migration、专项/全量测试、静态检查及迁移漂移检查
 
-本阶段新增 `exceptions.0004_*`，为异常创建增加幂等键并收紧附件/证据关系约束；新增 `orders.0002_order_entry_note`，将快速完成/历史补录说明与普通订单备注分开保存。已明确的 Phase 8 工作流专项 3 项、全量 86 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷上完成全量迁移和容器内 Django check；临时卷及后台 Docker 均已清理。`ManualHandling` 只在实施计划和模块职责中出现，当前规格没有可执行的数据模型或状态规则，已记录到 `docs/IMPLEMENTATION_QUESTIONS.md`，因此 Phase 8 尚不能标记为全部完成。
+本阶段新增 `exceptions.0004_*`，为异常创建增加幂等键并收紧附件/证据关系约束；新增 `orders.0002_order_entry_note`，将快速完成/历史补录说明与普通订单备注分开保存。需求补充后新增 `exceptions.0005_manualhandling`：固定 11 类不可变动作，通过 ChargeItem、FinancialAdjustment、Settlement、配送任务和 ExceptionCase 既有服务/事实执行或关联，保存类型化结果引用并完整审计，不建立另一套长期状态机。
+
+2026-09-30 缺口闭环回归同时完成：普通收益允许在分成比例为空时确认并保持归属，RATIO 仅在当前仍无可用比例时拒绝，后补配置可计算且不回写旧结算事实；快递重复提醒改为 created_at 滚动 72 小时并排除 CANCELED。全量 109 项 pytest、Ruff、Django check、migration drift 和 `git diff --check` 通过；生产镜像空卷顺序迁移至 `exceptions.0005` 及容器内系统检查通过。
 
 ## Phase 9：经营分析、搜索、Excel（已完成）
 
@@ -208,7 +210,7 @@
 - [x] 管理员宽窄屏经营分析、响应式明细表、全局搜索和导航入口
 - [x] 专项/全量测试、静态检查、迁移漂移检查及 Docker 生产容器回归
 
-本阶段没有新增数据模型或 migration，所有经营指标继续实时聚合 Order、ChargeItem、SettlementLine、FinancialAdjustment 与 CourierEarning 等事实表，不建立每日统计真值表。Phase 9 专项 5 项、全量 91 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷中完成全量迁移和容器检查，临时卷及 Docker Desktop 已清理/关闭。跨本地午夜运行全量测试时同时修正了两处既有工资测试使用 UTC `.date()` 的脆弱断言，生产工资查询仍按 Asia/Shanghai 本地业务日期。`ManualHandling` 规格缺口继续保留，Phase 10 尚未开始。
+本阶段没有新增数据模型或 migration，所有经营指标继续实时聚合 Order、ChargeItem、SettlementLine、FinancialAdjustment 与 CourierEarning 等事实表，不建立每日统计真值表。Phase 9 专项 5 项、全量 91 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。生产镜像构建成功，并在临时空数据卷中完成全量迁移和容器检查，临时卷及 Docker Desktop 已清理/关闭。跨本地午夜运行全量测试时同时修正了两处既有工资测试使用 UTC `.date()` 的脆弱断言，生产工资查询仍按 Asia/Shanghai 本地业务日期。
 
 ## Phase 10：运维（已完成）
 
@@ -225,7 +227,7 @@
 - [x] 管理员备份、恢复、维护、媒体浏览下载、单项/批量清理和空间统计页面
 - [x] migration、专项/全量测试、静态检查及迁移漂移检查
 
-本阶段新增 `operations.0001_initial`，建立 manifest 对应的 BackupRecord、自动任务幂等 JobRun 和应用级 MaintenanceState。备份目录按数据库、非敏感配置快照、manifest 与可独立删除的 `photos.tar` 分层保存；恢复不会因历史照片已经清理而失败，并始终先生成 PRE_RESTORE 保护点。Phase 10 专项 6 项、全量 97 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。scheduler 继续作为 Compose 独立进程运行，Web 启动前执行只做检查和安全清理的 recovery command。`ManualHandling` 权威规格缺口仍未消除；Phase 11 尚未开始。
+本阶段新增 `operations.0001_initial`，建立 manifest 对应的 BackupRecord、自动任务幂等 JobRun 和应用级 MaintenanceState。备份目录按数据库、非敏感配置快照、manifest 与可独立删除的 `photos.tar` 分层保存；恢复不会因历史照片已经清理而失败，并始终先生成 PRE_RESTORE 保护点。Phase 10 专项 6 项、全量 97 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。scheduler 继续作为 Compose 独立进程运行，Web 启动前执行只做检查和安全清理的 recovery command。
 
 ## Phase 11：PWA、弱网与发布收尾（自动化部分完成）
 
@@ -242,4 +244,4 @@
 - [x] 开源 README 与 MIT License
 - [x] V1 验收矩阵、问题记录、空库迁移、Docker 初始化和最终自动回归
 
-本阶段新增 `orders.0003_order_creation_operation_id`，通过安全的“可空字段 → 逐行 UUID 回填 → 非空唯一字段”迁移为历史及新订单建立创建幂等键；`orders.0004_order_creation_fingerprint` 保存请求指纹，拒绝同键不同内容。新增弱网 resilience 脚本、network-first 只读离线提示 service worker、`seed_demo`、`seed_initial_config` 与 `create_app_admin` 命令。Phase 11 专项 6 项、全量 103 项 pytest 测试通过；Ruff、Django check、migration drift、JavaScript 语法和 `git diff --check` 通过。生产镜像在临时空数据卷完成全量迁移、初始化配置、管理员幂等创建、PWA 静态文件收集、Recovery Check，并验证生产环境拒绝 `seed_demo`；临时卷和 Docker Desktop 已清理。真实 Android/Windows PWA 安装和 Android 相机/触控测试尚未执行，因此 Phase 11 不标记为全部完成。Phase 8 `ManualHandling` 规格缺口亦继续保留。
+本阶段新增 `orders.0003_order_creation_operation_id`，通过安全的“可空字段 → 逐行 UUID 回填 → 非空唯一字段”迁移为历史及新订单建立创建幂等键；`orders.0004_order_creation_fingerprint` 保存请求指纹，拒绝同键不同内容。新增弱网 resilience 脚本、network-first 只读离线提示 service worker、`seed_demo`、`seed_initial_config` 与 `create_app_admin` 命令。生产镜像在临时空数据卷完成全量迁移、初始化配置、管理员幂等创建、PWA 静态文件收集、Recovery Check，并验证生产环境拒绝 `seed_demo`；临时卷和 Docker Desktop 已清理。真实 Android/Windows PWA 安装和 Android 相机/触控测试尚未执行，因此 Phase 11 不标记为全部完成。

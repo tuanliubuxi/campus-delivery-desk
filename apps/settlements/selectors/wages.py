@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
+from apps.config_center.models import CommissionConfig
 from apps.settlements.models import (
     AdjustmentType,
     ChargeType,
@@ -59,6 +60,12 @@ def settled_earnings(*, period_start, period_end):
 def courier_earning_totals(*, period_start, period_end):
     """Aggregate direct ordinary, locked, and ratio suggestions by courier."""
     rows = {}
+    # A rate configured after settlement may calculate a previously unavailable suggestion
+    # without rewriting the immutable settlement or the original empty earning snapshot.
+    current_rates = {
+        (item.business_type, item.earning_source): item.commission_rate
+        for item in CommissionConfig.objects.exclude(commission_rate__isnull=True)
+    }
     for earning in settled_earnings(period_start=period_start, period_end=period_end):
         row = rows.setdefault(
             earning.courier_id,
@@ -74,7 +81,14 @@ def courier_earning_totals(*, period_start, period_end):
             row["locked"] += earning.suggested_wage_amount or Decimal("0.00")
         else:
             row["ordinary_direct"] += earning.amount_base or Decimal("0.00")
-            row["ratio_suggested"] += earning.suggested_wage_amount or Decimal("0.00")
+            suggested = earning.suggested_wage_amount
+            if suggested is None and earning.amount_base is not None:
+                rate = current_rates.get(
+                    (earning.settlement.business_type, earning.source_type)
+                )
+                if rate is not None:
+                    suggested = earning.amount_base * rate
+            row["ratio_suggested"] += suggested or Decimal("0.00")
     adjustments = FinancialAdjustment.objects.filter(
         settlement__status=SettlementStatus.SETTLED,
         settlement__settled_at__date__gte=period_start,

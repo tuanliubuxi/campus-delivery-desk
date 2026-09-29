@@ -5,11 +5,16 @@ import uuid
 from django import forms
 from django.db import models
 
+from apps.accounts.models import User
+from apps.common.enums import UserRole
 from apps.common.forms import BootstrapFormMixin
 from apps.consolidation.models import ConsolidationRound
 from apps.dispatch.models import DeliveryDrop, DeliveryTask
 from apps.mediafiles.models import DeliveryEvidence, MediaFile
 from apps.orders.models import Order
+from apps.settlements.models import Settlement
+
+from .models import ManualHandlingAction
 
 
 class MultipleImageInput(forms.ClearableFileInput):
@@ -117,4 +122,47 @@ class ExceptionBlockersForm(BootstrapFormMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._apply_bootstrap_classes()
+
+
+class ManualHandlingForm(BootstrapFormMixin, forms.Form):
+    """One-shot manual action input; the service applies action-specific requirements."""
+
+    operation_id = forms.UUIDField(widget=forms.HiddenInput)
+    action_type = forms.ChoiceField(choices=ManualHandlingAction.choices, label="处理动作")
+    order = forms.ModelChoiceField(queryset=Order.objects.none(), required=False, label="关联订单")
+    settlement = forms.ModelChoiceField(
+        queryset=Settlement.objects.none(), required=False, label="关联结算"
+    )
+    delivery_task = forms.ModelChoiceField(
+        queryset=DeliveryTask.objects.none(), required=False, label="关联配送任务"
+    )
+    amount = forms.DecimalField(
+        required=False, min_value=0, decimal_places=2, max_digits=12, label="金额"
+    )
+    beneficiary_courier = forms.ModelChoiceField(
+        queryset=User.objects.none(), required=False, label="额外服务收益人"
+    )
+    impact_wage = forms.BooleanField(required=False, label="退款影响工资")
+    wage_courier = forms.ModelChoiceField(
+        queryset=User.objects.none(), required=False, label="工资扣减配送员"
+    )
+    wage_amount = forms.DecimalField(
+        required=False, min_value=0, decimal_places=2, max_digits=12, label="工资扣减金额"
+    )
+    reason = forms.CharField(max_length=255, label="处理原因/结果")
+
+    def __init__(self, *args, exception_case=None, **kwargs):
+        initial = kwargs.setdefault("initial", {})
+        initial.setdefault("operation_id", uuid.uuid4())
+        if exception_case:
+            initial.setdefault("order", exception_case.order_id)
+            initial.setdefault("delivery_task", exception_case.task_id)
+        super().__init__(*args, **kwargs)
+        self.fields["order"].queryset = Order.objects.all()
+        self.fields["settlement"].queryset = Settlement.objects.all()
+        self.fields["delivery_task"].queryset = DeliveryTask.objects.all()
+        couriers = User.objects.filter(role=UserRole.COURIER, is_active=True)
+        self.fields["beneficiary_courier"].queryset = couriers
+        self.fields["wage_courier"].queryset = couriers
         self._apply_bootstrap_classes()

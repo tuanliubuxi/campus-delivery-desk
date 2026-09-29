@@ -161,15 +161,35 @@ def test_confirm_is_idempotent_and_splits_sources_with_snapshots():
 
 
 @pytest.mark.django_db
-def test_unconfigured_commission_blocks_confirmation_without_partial_state():
+def test_unconfigured_commission_allows_settlement_but_blocks_only_ratio_wages():
     recorder, admin, courier, order, settlement = _waiting_settlement(with_extras=False)
     CommissionConfig.objects.filter(business_type=BusinessType.EXPRESS).update(commission_rate=None)
-    with pytest.raises(ValidationError, match="尚未配置"):
-        confirm_settlement(settlement=settlement, actor=recorder)
+    confirm_settlement(settlement=settlement, actor=recorder)
     settlement.refresh_from_db()
     order.refresh_from_db()
-    assert settlement.status == SettlementStatus.WAITING_PAYMENT
-    assert order.settlement_status == OrderSettlementStatus.WAITING_PAYMENT
+    earning = CourierEarning.objects.get(
+        settlement=settlement, source_type=EarningSourceType.BASE_DELIVERY
+    )
+    assert settlement.status == SettlementStatus.SETTLED
+    assert order.settlement_status == OrderSettlementStatus.SETTLED
+    assert earning.courier == courier
+    assert earning.amount_base == Decimal("2.00")
+    assert earning.commission_rate_snapshot is None
+    assert earning.suggested_wage_amount is None
+
+    day = timezone.localdate(settlement.settled_at)
+    with pytest.raises(ValidationError, match="无法计算比例工资"):
+        calculate_wages(period_start=day, period_end=day, mode="RATIO")
+    manual = calculate_wages(
+        period_start=day,
+        period_end=day,
+        mode="MANUAL",
+        manual_allocations={courier.pk: Decimal("1.00")},
+    )
+    assert manual.lines[0].final_amount == Decimal("1.00")
+    _set_commissions()
+    ratio = calculate_wages(period_start=day, period_end=day, mode="RATIO")
+    assert ratio.lines[0].final_amount == Decimal("1.38")
 
 
 @pytest.mark.django_db

@@ -7,7 +7,7 @@
 | 1 登录与单会话 | accounts 租约/登录测试；核心工作台使用真实登录租约的路由冒烟测试 | 通过 |
 | 2 客户与代理 | customers、agents 测试 | 通过 |
 | 3 订单编号 | orders 编号与搜索测试 | 通过 |
-| 4 快递录单 | orders 字段、价格快照、重复提醒测试 | 通过 |
+| 4 快递录单 | orders 字段、价格快照、created_at 滚动 72 小时重复提醒及取消排除测试 | 通过 |
 | 5 大小确认与价格快照 | orders/dispatch/settlements 联合测试 | 通过 |
 | 6 上楼字段 | orders/dispatch/dashboard 测试 | 通过 |
 | 7 路线接单并发 | dispatch SQLite 条件写入测试 | 通过 |
@@ -21,8 +21,8 @@
 | 15 ChargeItem/SettlementLine | settlements 测试 | 通过 |
 | 16 代理图片、批次、结算 | agents、settlements 测试 | 通过 |
 | 17 结算确认、VOID、撤销 | settlements 测试 | 通过 |
-| 18 工资 | settlements 工资测试 | 通过 |
-| 19 异常与媒体生命周期 | exceptions、operations 测试 | 通过 |
+| 18 工资 | settlements 工资测试；空比例仅阻止 RATIO、MANUAL 可用测试 | 通过 |
+| 19 异常与媒体生命周期 | exceptions、operations 测试；ManualHandling 不可变动作与既有服务编排测试 | 通过 |
 | 20 Dashboard | dashboard 同筛选器/Excel 测试 | 通过 |
 | 21 快速完成/历史补录 | exceptions/orders workflow 测试 | 通过 |
 | 22 备份/恢复 | operations 专项测试 | 通过 |
@@ -35,4 +35,4 @@
 - Demo seed 仅在 DEBUG 环境可运行，生产初始化和 Compose 启动不调用。
 - 所有 migration 必须在空 SQLite 数据库顺序执行；Docker 空卷回归时再次验证。
 - 仓库扫描不得包含 `.env`、数据库、真实客户信息、媒体、日志、备份或临时文件。
-- Phase 8 `ManualHandling` 仍因权威规格缺失而未完成，不能把整个 V1 宣称为无条件完成。
+- 真实设备交互和目标小主机独立负载基准完成前，V1 仍不能宣称为无条件验收通过。
