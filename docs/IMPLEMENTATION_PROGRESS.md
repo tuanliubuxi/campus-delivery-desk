@@ -122,7 +122,7 @@
 - [ ] Phase 8：异常、人工处理、快速补录（除规格未定义的 ManualHandling 外已实现）
 - [x] Phase 9：经营分析、搜索、Excel
 - [x] Phase 10：运维
-- [ ] Phase 11：PWA/弱网/收尾
+- [ ] Phase 11：PWA/弱网/收尾（自动化开发完成，等待真实设备验收）
 
 ## 模块边界确认
 
@@ -226,3 +226,20 @@
 - [x] migration、专项/全量测试、静态检查及迁移漂移检查
 
 本阶段新增 `operations.0001_initial`，建立 manifest 对应的 BackupRecord、自动任务幂等 JobRun 和应用级 MaintenanceState。备份目录按数据库、非敏感配置快照、manifest 与可独立删除的 `photos.tar` 分层保存；恢复不会因历史照片已经清理而失败，并始终先生成 PRE_RESTORE 保护点。Phase 10 专项 6 项、全量 97 项 pytest 测试通过；Ruff、Django check、migration drift check 与 `git diff --check` 通过。scheduler 继续作为 Compose 独立进程运行，Web 启动前执行只做检查和安全清理的 recovery command。`ManualHandling` 权威规格缺口仍未消除；Phase 11 尚未开始。
+
+## Phase 11：PWA、弱网与发布收尾（自动化部分完成）
+
+- [ ] PWA 安装验证（manifest、service worker、静态资源和 Edge 渲染通过；Android/Windows 实际点击安装待人工）
+- [x] 关键文本表单 localStorage 草稿保留及手工清除
+- [x] 图片表单页面内提交，失败后保留 File 引用并支持重试
+- [x] 网络状态提示和明确的“无离线业务”边界
+- [x] Order 创建 `operation_id` 持久化、唯一约束与重复请求回查
+- [ ] Android 真机测试（必须在真实设备和正式 HTTPS Origin 执行）
+- [ ] Windows 管理员/录单员完整交互测试（宽/窄屏无头渲染通过，UI 自动化运行资产缺失）
+- [x] 配送员桌面保持 480px 移动卡片布局的模板/CSS 回归
+- [x] DEBUG-only、幂等且不会进入生产初始化的 Demo seed
+- [x] 可重复运行且不覆盖现有数据的初始化配置/管理员命令
+- [x] 开源 README 与 MIT License
+- [x] V1 验收矩阵、问题记录、空库迁移、Docker 初始化和最终自动回归
+
+本阶段新增 `orders.0003_order_creation_operation_id`，通过安全的“可空字段 → 逐行 UUID 回填 → 非空唯一字段”迁移为历史及新订单建立创建幂等键；`orders.0004_order_creation_fingerprint` 保存请求指纹，拒绝同键不同内容。新增弱网 resilience 脚本、network-first 只读离线提示 service worker、`seed_demo`、`seed_initial_config` 与 `create_app_admin` 命令。Phase 11 专项 6 项、全量 103 项 pytest 测试通过；Ruff、Django check、migration drift、JavaScript 语法和 `git diff --check` 通过。生产镜像在临时空数据卷完成全量迁移、初始化配置、管理员幂等创建、PWA 静态文件收集、Recovery Check，并验证生产环境拒绝 `seed_demo`；临时卷和 Docker Desktop 已清理。真实 Android/Windows PWA 安装和 Android 相机/触控测试尚未执行，因此 Phase 11 不标记为全部完成。Phase 8 `ManualHandling` 规格缺口亦继续保留。
