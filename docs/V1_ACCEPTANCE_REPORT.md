@@ -4,7 +4,7 @@
 
 | 规格章节 | 验证方式 | 当前结果 |
 |---|---|---|
-| 1 登录与单会话 | accounts 租约/登录测试 | 通过 |
+| 1 登录与单会话 | accounts 租约/登录测试；核心工作台使用真实登录租约的路由冒烟测试 | 通过 |
 | 2 客户与代理 | customers、agents 测试 | 通过 |
 | 3 订单编号 | orders 编号与搜索测试 | 通过 |
 | 4 快递录单 | orders 字段、价格快照、重复提醒测试 | 通过 |
@@ -27,8 +27,8 @@
 | 21 快速完成/历史补录 | exceptions/orders workflow 测试 | 通过 |
 | 22 备份/恢复 | operations 专项测试 | 通过 |
 | 23 维护与恢复 | operations 专项测试 | 通过 |
-| 24 UI/PWA | manifest/service worker/弱网脚本自动测试；Windows 无头 Edge 宽窄屏渲染；真实设备清单 | 自动部分通过；Android 真机与交互式 Windows PWA 安装待人工 |
-| 25 性能基线 | 分页、select_related/prefetch 与 SQLite 索引审查 | 架构符合；尚未执行 10 万级独立负载基准 |
+| 24 UI/PWA | manifest/service worker/弱网脚本自动测试；核心角色页面渲染和越权拒绝测试；Windows 无头 Edge 宽窄屏渲染；真实设备清单 | 自动部分通过；Android 真机与交互式 Windows PWA 安装待人工 |
+| 25 性能基线 | 普通列表 50 条分页、select_related/prefetch 与 SQLite 索引审查 | 代码结构与分页上限符合；尚未在目标小主机执行 10 万级独立负载基准 |
 
 ## 发布边界
 

@@ -9,13 +9,14 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import override_settings
+from django.test import Client, override_settings
 from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.common.enums import UserRole
 from apps.config_center.models import Building, BusinessTypeConfig
 from apps.customers.models import Customer
+from apps.exceptions.models import ExceptionCase
 from apps.orders.forms import TakeoutOrderForm
 from apps.orders.models import DestinationType, Order, TakeoutGate
 from apps.orders.services import create_takeout_order
@@ -38,6 +39,25 @@ def _recorder_customer():
         created_by=recorder,
     )
     return recorder, customer, building
+
+
+def _login_client(*, username, role):
+    """Use the real login workflow so smoke requests also exercise login leases."""
+    user = User.objects.create_user(
+        username=username,
+        password="Strong-pass-123",
+        display_name=f"{username} 验收账号",
+        role=role,
+        is_staff=role == UserRole.ADMIN,
+    )
+    client = Client()
+    route = "accounts:admin-login" if role == UserRole.ADMIN else "accounts:login"
+    response = client.post(
+        reverse(route),
+        {"role": role, "user": user.pk, "password": "Strong-pass-123"},
+    )
+    assert response.status_code == 302
+    return client
 
 
 def test_pwa_manifest_worker_and_resilience_assets(client):
@@ -148,3 +168,83 @@ def test_release_documents_and_responsive_contracts_exist():
     assert "seed_demo" in readme and "seed_initial_config" in readme
     assert "max-width: 100%" in css
     assert "cdd-mobile-shell" in courier_template
+
+
+def test_primary_workspaces_render_for_their_roles():
+    """Keep the release-critical GET routes covered without bypassing lease middleware."""
+    admin = _login_client(username="smoke-admin", role=UserRole.ADMIN)
+    recorder = _login_client(username="smoke-recorder", role=UserRole.RECORDER)
+    courier = _login_client(username="smoke-courier", role=UserRole.COURIER)
+
+    admin_routes = (
+        "accounts:admin-dashboard",
+        "accounts:user-list",
+        "config_center:index",
+        "dashboard:reports",
+        "operations:backups",
+        "operations:media",
+        "settlements:wages",
+    )
+    recorder_routes = (
+        "customers:list",
+        "orders:new",
+        "orders:history",
+        "agents:workspace",
+        "exceptions:workspace",
+        "settlements:workspace",
+        "dashboard:global-search",
+    )
+    courier_routes = (
+        "accounts:courier-dashboard",
+        "dispatch:task-list",
+        "dispatch:new-tasks",
+        "dispatch:express-route-pool",
+        "dispatch:express-direct-pool",
+        "dispatch:transfers",
+        "consolidation:courier-list",
+        "exceptions:courier-workspace",
+        "dashboard:courier-statistics",
+    )
+
+    for route in admin_routes:
+        assert admin.get(reverse(route)).status_code == 200, route
+    for route in recorder_routes:
+        assert recorder.get(reverse(route)).status_code == 200, route
+    for route in courier_routes:
+        response = courier.get(reverse(route))
+        assert response.status_code == 200, route
+        if route == "dispatch:task-list":
+            assert "cdd-mobile-shell" in response.content.decode()
+
+
+def test_primary_workspaces_reject_cross_role_access():
+    """A valid login lease must not grant access outside the account's role."""
+    admin = _login_client(username="boundary-admin", role=UserRole.ADMIN)
+    recorder = _login_client(username="boundary-recorder", role=UserRole.RECORDER)
+    courier = _login_client(username="boundary-courier", role=UserRole.COURIER)
+
+    assert recorder.get(reverse("config_center:index")).status_code == 403
+    assert recorder.get(reverse("dispatch:task-list")).status_code == 403
+    assert courier.get(reverse("customers:list")).status_code == 403
+    assert courier.get(reverse("dashboard:reports")).status_code == 403
+    assert admin.get(reverse("dispatch:task-list")).status_code == 403
+
+
+def test_exception_workspace_uses_the_v1_fifty_row_page_limit():
+    recorder = _login_client(username="paging-recorder", role=UserRole.RECORDER)
+    actor = User.objects.get(username="paging-recorder")
+    ExceptionCase.objects.bulk_create(
+        [
+            ExceptionCase(
+                reason_code="OTHER",
+                reason_text=f"分页验收异常 {index}",
+                created_by=actor,
+            )
+            for index in range(51)
+        ]
+    )
+
+    first = recorder.get(reverse("exceptions:workspace"))
+    second = recorder.get(reverse("exceptions:workspace"), {"page": 2})
+    assert len(first.context["page"].object_list) == 50
+    assert len(second.context["page"].object_list) == 1

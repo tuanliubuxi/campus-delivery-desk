@@ -2,6 +2,7 @@
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -35,10 +36,12 @@ def workspace(request):
         else:
             messages.success(request, f"异常 #{case.pk} 已建立并保留证据关系")
             return redirect("exceptions:detail", case_id=case.pk)
+    # Exception history is an ordinary operational list and follows the V1 50-row page limit.
+    page = Paginator(visible_exception_cases(request.user), 50).get_page(request.GET.get("page"))
     return render(
         request,
         "exceptions/workspace.html",
-        {"form": form, "cases": visible_exception_cases(request.user)[:100]},
+        {"form": form, "page": page},
     )
 
 

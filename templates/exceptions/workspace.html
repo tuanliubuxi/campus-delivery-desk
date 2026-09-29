@@ -9,12 +9,17 @@
       <h2 class="h5">报告异常</h2>{{ form.as_p }}<button class="btn btn-danger">建立异常</button>
     </form>
   </section><section class="col-lg-7">
-    {% for case in cases %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
+    {% for case in page %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
       <div class="d-flex justify-content-between gap-2"><strong>#{{ case.id }} · {{ case.reason_code }}</strong><span>{{ case.get_status_display }}</span></div>
       <div>{{ case.reason_text|truncatechars:100 }}</div><div class="mt-2">
       {% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %}
       {% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}</div>
     </a>{% empty %}<p class="text-secondary">暂无可见异常。</p>{% endfor %}
+    {% if page.has_other_pages %}<nav aria-label="异常列表分页"><ul class="pagination">
+      {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}">上一页</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+      {% if page.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}">下一页</a></li>{% endif %}
+    </ul></nav>{% endif %}
   </section></div>
 </main>
 {% endblock %}
