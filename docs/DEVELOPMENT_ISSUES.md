@@ -22,3 +22,7 @@
 | DEV-016 | Phase 11 首次 GitHub push 出现连接重置，HTTP/1.1 重试又超时。 | 使用 Git OpenSSL 后端及 HTTP/1.1 再次推送成功，并通过 GitHub API 核对远端 SHA。 | 已解决 |
 | DEV-017 | 发布前容量审查发现异常工作台固定截取 100 条，不符合普通列表 50 条/页的规格。 | 改为服务端每页 50 条并增加翻页控件与 51 条数据回归测试。 | 已解决 |
 | DEV-018 | 本轮 Docker 空库验证先后使用了错误的密钥变量名，并忽略卷挂载会覆盖镜像内 `/data/db` 目录。 | 两次均在迁移前失败且未写业务数据；改用正确 `DJANGO_SECRET_KEY` 并将临时 `DB_PATH` 指向卷根后，全量迁移及容器检查通过，临时卷已删除、Docker 已关闭。 | 已解决 |
+| DEV-019 | 本地生产配置密钥未达到 Django 推荐强度；临时 cpolar 域名不适合开启子域 HSTS/preload。 | 已静默轮换为 64 字符随机密钥；保持 secure cookie/HTTPS，明确不为临时域名开启 includeSubDomains/preload。 | 已解决 |
+| DEV-020 | 依赖只有兼容范围，重新构建可能获得不同传递依赖。 | 新增生产/开发精确 lock；Docker 按生产 lock 安装，README 写明升级流程。 | 已解决 |
+| DEV-021 | 首次 10 万级基准中 Dashboard 明细约 580ms，超过大多数非图片页面 500ms 目标。 | 仅在筛选需要时添加相关 EXISTS、仅在多值连接时 DISTINCT；复测明细约 238ms、cards 约 55ms。 | 已解决 |
+| DEV-022 | 备份恢复此前主要由自动测试覆盖，缺少一次实际 SQLite 文件替换演练。 | 在独立临时环境完成 MANUAL→修改→维护→PRE_RESTORE→恢复→核验，恢复任务成功且主库未参与。 | 已解决 |

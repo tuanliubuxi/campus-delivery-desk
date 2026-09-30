@@ -28,11 +28,11 @@
 | 22 备份/恢复 | operations 专项测试 | 通过 |
 | 23 维护与恢复 | operations 专项测试 | 通过 |
 | 24 UI/PWA | manifest/service worker/弱网脚本自动测试；核心角色页面渲染和越权拒绝测试；Windows 无头 Edge 宽窄屏渲染；真实设备清单 | 自动部分通过；Android 真机与交互式 Windows PWA 安装待人工 |
-| 25 性能基线 | 普通列表 50 条分页、select_related/prefetch 与 SQLite 索引审查 | 代码结构与分页上限符合；尚未在目标小主机执行 10 万级独立负载基准 |
+| 25 性能基线 | 独立 SQLite 中生成 Customer 20,000 + Agent 1,000 + Order 79,000；测量列表、搜索和 Dashboard selector | 本机代表路径中位数均 <500ms；明细查询优化记录见 `V1_HARDENING_REPORT.md`；目标小主机及 3～10 并发仍待部署验收 |
 
 ## 发布边界
 
 - Demo seed 仅在 DEBUG 环境可运行，生产初始化和 Compose 启动不调用。
 - 所有 migration 必须在空 SQLite 数据库顺序执行；Docker 空卷回归时再次验证。
 - 仓库扫描不得包含 `.env`、数据库、真实客户信息、媒体、日志、备份或临时文件。
-- 真实设备交互和目标小主机独立负载基准完成前，V1 仍不能宣称为无条件验收通过。
+- 真实设备交互、目标小主机端到端/并发负载基准和目标机恢复演练完成前，V1 仍不能宣称为无条件验收通过。

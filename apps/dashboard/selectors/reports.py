@@ -95,28 +95,40 @@ class DashboardFilters:
 
 def filtered_orders(filters):
     """Return the canonical order set for every downstream report projection."""
+    needs_distinct = False
     qs = Order.objects.select_related(
         "customer",
         "proxy_recipient__proxy_batch__agent",
         "proxy_batch__agent",
         "express_detail",
-    ).annotate(
-        has_exception=Exists(ExceptionCase.objects.filter(order_id=OuterRef("pk"))),
-        has_weather=Exists(
-            ChargeItem.objects.filter(
-                Q(order_id=OuterRef("pk"))
-                | Q(settlement__settlement_orders__order_id=OuterRef("pk")),
-                charge_type=ChargeType.WEATHER,
-                status=ChargeStatus.ACTIVE,
-            )
-        ),
-        has_refund=Exists(
-            FinancialAdjustment.objects.filter(
-                settlement__settlement_orders__order_id=OuterRef("pk"),
-                adjustment_type=AdjustmentType.REFUND,
-            )
-        ),
     )
+    # The three correlated EXISTS projections are only needed when their tri-state
+    # filters are active. Avoiding them on the default dashboard materially reduces
+    # the cost of sorting and limiting a 10万级 SQLite order set.
+    if filters.exception is not None:
+        qs = qs.annotate(
+            has_exception=Exists(ExceptionCase.objects.filter(order_id=OuterRef("pk")))
+        ).filter(has_exception=filters.exception)
+    if filters.weather is not None:
+        qs = qs.annotate(
+            has_weather=Exists(
+                ChargeItem.objects.filter(
+                    Q(order_id=OuterRef("pk"))
+                    | Q(settlement__settlement_orders__order_id=OuterRef("pk")),
+                    charge_type=ChargeType.WEATHER,
+                    status=ChargeStatus.ACTIVE,
+                )
+            )
+        ).filter(has_weather=filters.weather)
+    if filters.refund is not None:
+        qs = qs.annotate(
+            has_refund=Exists(
+                FinancialAdjustment.objects.filter(
+                    settlement__settlement_orders__order_id=OuterRef("pk"),
+                    adjustment_type=AdjustmentType.REFUND,
+                )
+            )
+        ).filter(has_refund=filters.refund)
     if filters.date_from:
         qs = qs.filter(sequence_date__gte=filters.date_from)
     if filters.date_to:
@@ -125,6 +137,7 @@ def filtered_orders(filters):
         qs = qs.filter(business_type=filters.business_type)
     if filters.courier_id:
         qs = qs.filter(delivery_drop_items__drop__courier_id=filters.courier_id)
+        needs_distinct = True
     if filters.source_type:
         qs = qs.filter(source_type=filters.source_type)
     if filters.agent_id:
@@ -142,20 +155,15 @@ def filtered_orders(filters):
     if filters.upstairs is not None:
         # This typed business flag is authoritative; address snapshots are never inferred.
         qs = qs.filter(requires_upstairs=filters.upstairs)
-    if filters.weather is not None:
-        qs = qs.filter(has_weather=filters.weather)
-    if filters.exception is not None:
-        qs = qs.filter(has_exception=filters.exception)
-    if filters.refund is not None:
-        qs = qs.filter(has_refund=filters.refund)
     if filters.charge_type:
         qs = qs.filter(
             Q(charge_items__charge_type=filters.charge_type, charge_items__status=ChargeStatus.ACTIVE)
             | Q(settlement_orders__settlement__lines__charge_type=filters.charge_type)
         )
+        needs_distinct = True
     if filters.settlement_status:
         qs = qs.filter(settlement_status=filters.settlement_status)
-    return qs.distinct()
+    return qs.distinct() if needs_distinct else qs
 
 
 def _settlements_for_order_ids(order_ids):

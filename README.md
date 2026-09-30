@@ -10,7 +10,8 @@ V1 权威需求位于 [`docs/spec/`](docs/spec/README.md)，采用 Django 单体
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e '.[dev]'
+.\.venv\Scripts\python.exe -m pip install -r requirements/dev.lock
+.\.venv\Scripts\python.exe -m pip install --no-deps -e .
 New-Item -ItemType Directory -Force data/db,data/media,data/backups,data/tmp,data/logs
 .\.venv\Scripts\python.exe manage.py migrate
 .\.venv\Scripts\python.exe manage.py seed_initial_config
@@ -48,6 +49,10 @@ docker compose up -d
 
 Compose 包含 `web`、独立 `scheduler` 与 `caddy`。`./data` 保存 SQLite、媒体、备份、临时文件和日志，升级镜像不会覆盖该目录。Caddy 只公开静态资源；业务媒体必须通过带权限的下载端点访问。
 
+Docker 使用 `requirements/prod.lock` 中经过回归测试的精确版本；本地质量工具使用 `requirements/dev.lock`。升级依赖时先更新 `pyproject.toml` 的兼容范围，再更新 lock 并重新执行完整测试和镜像检查。
+
+使用 cpolar 临时域名时，按当前隧道地址同步更新 `.env` 中的 `DJANGO_ALLOWED_HOSTS`、`DJANGO_CSRF_TRUSTED_ORIGINS`、`APP_BASE_URL` 和 `APP_DOMAIN`。不要把 cpolar 账号或隧道控制逻辑写入应用，也不要为临时域名开启 `SECURE_HSTS_INCLUDE_SUBDOMAINS` 或 `SECURE_HSTS_PRELOAD`。
+
 生产更新流程：进入维护模式 → 创建保护备份 → build/pull → migrate → restart → Recovery Check → 人工核对后退出维护模式。
 
 ## PWA 与弱网边界
@@ -68,6 +73,8 @@ Compose 包含 `web`、独立 `scheduler` 与 `caddy`。`./data` 保存 SQLite�
 - 管理员可在 Web 中管理备份、恢复、媒体和维护模式；Web 不具备宿主机关机或 Docker 控制权限。
 
 数据目录、`.env`、真实客户资料、媒体、数据库、日志与备份均不应进入 Git。恢复流程和保留策略详见 [`docs/spec/08_OPERATIONS_BACKUP_RECOVERY.md`](docs/spec/08_OPERATIONS_BACKUP_RECOVERY.md)。
+
+发布加固、10 万级本机基准和备份恢复演练结果见 [`docs/V1_HARDENING_REPORT.md`](docs/V1_HARDENING_REPORT.md)。仓库提供的 `benchmark_v1_scale` 命令只允许在 DEBUG、显式确认且无业务数据的独立数据库运行，并会拒绝默认 `app.sqlite3`，禁止指向开发主库或生产库。
 
 ## 质量检查
 

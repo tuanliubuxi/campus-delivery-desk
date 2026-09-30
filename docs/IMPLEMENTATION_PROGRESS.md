@@ -245,3 +245,5 @@
 - [x] V1 验收矩阵、问题记录、空库迁移、Docker 初始化和最终自动回归
 
 本阶段新增 `orders.0003_order_creation_operation_id`，通过安全的“可空字段 → 逐行 UUID 回填 → 非空唯一字段”迁移为历史及新订单建立创建幂等键；`orders.0004_order_creation_fingerprint` 保存请求指纹，拒绝同键不同内容。新增弱网 resilience 脚本、network-first 只读离线提示 service worker、`seed_demo`、`seed_initial_config` 与 `create_app_admin` 命令。生产镜像在临时空数据卷完成全量迁移、初始化配置、管理员幂等创建、PWA 静态文件收集、Recovery Check，并验证生产环境拒绝 `seed_demo`；临时卷和 Docker Desktop 已清理。真实 Android/Windows PWA 安装和 Android 相机/触控测试尚未执行，因此 Phase 11 不标记为全部完成。
+
+2026-10-01 发布加固补充：轮换本地生产密钥；增加生产/开发依赖 lock 并接入 Docker；新增仅限空白临时数据库的 10 万级基准命令。Customer 20,000 + Agent 1,000 + Order 79,000 本机复测的代表查询中位数均低于 500ms；同时消除 Dashboard 默认查询不必要的相关子查询和 DISTINCT。另在独立临时数据库完成 MANUAL 备份、PRE_RESTORE、真实 SQLite 恢复及维护模式核验。目标小主机端到端/并发复测和真实设备验收仍保留给部署验收。

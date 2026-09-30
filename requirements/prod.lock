@@ -1,0 +1,14 @@
+# Exact V1 production dependency set tested with Python 3.12.
+# Keep pyproject.toml as the human-maintained compatibility contract; update this
+# lock deliberately after running the full regression and Docker checks.
+APScheduler==3.11.3
+asgiref==3.12.1
+Django==5.2.17
+et_xmlfile==2.0.0
+gunicorn==24.1.1
+openpyxl==3.1.5
+packaging==26.3
+Pillow==12.3.0
+sqlparse==0.6.0
+tzdata==2026.4
+tzlocal==5.4.4

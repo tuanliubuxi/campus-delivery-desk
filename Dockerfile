@@ -9,13 +9,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml ./
+# Install the tested transitive dependency set before copying source so ordinary
+# source changes can reuse the dependency layer.
+COPY requirements ./requirements
+RUN pip install --no-cache-dir -r requirements/prod.lock
+
 COPY apps ./apps
 COPY config ./config
 COPY templates ./templates
 COPY static ./static
 COPY manage.py ./
 
-RUN pip install --no-cache-dir .
+# The dependency layer above is authoritative for production image versions.
+RUN pip install --no-cache-dir --no-deps .
 
 # All persistent runtime paths live below /data and are mounted by Compose.
 RUN mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
