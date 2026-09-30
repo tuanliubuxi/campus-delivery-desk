@@ -42,6 +42,8 @@ services:
       - "443:443"
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      # Explicit public scheme prevents cpolar HTTPS -> local HTTP from looking insecure to Django.
+      PUBLIC_SCHEME: ${PUBLIC_SCHEME:-https}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - static_data:/srv/static:ro

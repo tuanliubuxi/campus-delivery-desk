@@ -26,3 +26,4 @@
 | DEV-020 | 依赖只有兼容范围，重新构建可能获得不同传递依赖。 | 新增生产/开发精确 lock；Docker 按生产 lock 安装，README 写明升级流程。 | 已解决 |
 | DEV-021 | 首次 10 万级基准中 Dashboard 明细约 580ms，超过大多数非图片页面 500ms 目标。 | 仅在筛选需要时添加相关 EXISTS、仅在多值连接时 DISTINCT；复测明细约 238ms、cards 约 55ms。 | 已解决 |
 | DEV-022 | 备份恢复此前主要由自动测试覆盖，缺少一次实际 SQLite 文件替换演练。 | 在独立临时环境完成 MANUAL→修改→维护→PRE_RESTORE→恢复→核验，恢复任务成功且主库未参与。 | 已解决 |
+| DEV-023 | cpolar 公网 HTTPS 转本机 HTTP 时，Caddy 若按临时公网域名启用自动 HTTPS，可能证书申请失败或向 Django 传递错误协议。 | cpolar 模式改为 `APP_DOMAIN=:80`，Caddy 显式向 Django 传递 `PUBLIC_SCHEME=https`；直连域名仍保留 Caddy 自动 HTTPS。 | 已解决 |

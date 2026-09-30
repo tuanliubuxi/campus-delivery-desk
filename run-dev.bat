@@ -9,7 +9,8 @@ set "CDD_PYTHON=.venv\Scripts\python.exe"
 if not exist "%CDD_PYTHON%" (
   echo [ERROR] Python virtual environment was not found.
   echo Create it with: python -m venv .venv
-  echo Then install dependencies with: .venv\Scripts\python.exe -m pip install -e ".[dev]"
+  echo Then install dependencies with: .venv\Scripts\python.exe -m pip install -r requirements\dev.lock
+  echo And install the project with: .venv\Scripts\python.exe -m pip install --no-deps -e .
   exit /b 1
 )
 

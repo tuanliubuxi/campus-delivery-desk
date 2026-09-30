@@ -6,7 +6,8 @@
 
 V1 当前使用 cpolar 临时域名。应用只接收一个 HTTPS Base URL，不保存 cpolar 账号、Token 或隧道控制逻辑。
 
-- 每次临时域名变化时，同步更新 `.env` 中的 `DJANGO_ALLOWED_HOSTS`、`DJANGO_CSRF_TRUSTED_ORIGINS`、`APP_BASE_URL` 和 `APP_DOMAIN`。
+- 每次临时域名变化时，同步更新 `.env` 中的 `DJANGO_ALLOWED_HOSTS`、`DJANGO_CSRF_TRUSTED_ORIGINS` 和 `APP_BASE_URL`。
+- cpolar 公网 HTTPS 转发到本机 HTTP 80 时，`APP_DOMAIN=:80`、`PUBLIC_SCHEME=https`；不要把 cpolar 临时域名直接交给 Caddy 申请证书。
 - 保持安全 Cookie、CSRF、代理 HTTPS 识别和当前域名 HSTS。
 - 不启用 `SECURE_HSTS_INCLUDE_SUBDOMAINS` 或 `SECURE_HSTS_PRELOAD`；Django 对这两项的部署检查提示在临时域名阶段属于已接受提示。
 - 域名变化会形成新的 PWA Origin，旧 Origin 的安装入口和 localStorage 草稿不会自动迁移。
