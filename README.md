@@ -182,6 +182,45 @@ docker compose ps
 - 域名变化会形成新的 PWA Origin，旧域名中的安装入口和浏览器本地草稿不会自动迁移。
 - 外部反向代理或穿透工具只是网络入口，不是项目依赖；可按部署环境自行选择。
 
+## 📦 私有备份与离线部署包
+
+根目录的发布脚本会在 Git 忽略的 `tags/` 中生成同一版本名的三类私有产物。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `campus-delivery-desk-v0.1.0-20261001`。
+
+| 产物后缀 | 内容 | 用途 |
+|---|---|---|
+| `-project-private.zip` / `.tar.gz` | 源码、`.git`、`.env`、`data/` 和本地文档 | 完整私有恢复与迁移 |
+| `-venv-windows-amd64.zip` / `-venv-linux-amd64.tar.gz` | 当前开发虚拟环境 | 同系统环境的辅助恢复，不用于生产部署 |
+| `-docker-linux-amd64.tar` | 应用镜像与 Caddy 镜像 | 目标机离线导入，不再下载 Python 或镜像依赖 |
+| `-manifest.txt` | Git commit、平台和 SHA-256 | 核对版本与文件完整性 |
+
+构建前应提交所有受 Git 跟踪的修改、停止 Compose 服务，并确认 `.env` 和数据库状态正确。Windows：
+
+```powershell
+.\build-release.bat amd64
+```
+
+Linux：
+
+```bash
+chmod +x build-release.sh run-offline.sh
+./build-release.sh amd64
+```
+
+`amd64` 可替换为 `arm64`；Docker 镜像必须与目标主机 CPU 架构一致。`.venv` 可能包含宿主机路径及平台相关二进制，因此必须单独保存，不能替代 Docker 离线包。
+
+在目标机安装好 Docker 后，解压私有项目包并进入项目目录，将 Docker tar 路径传给启动脚本：
+
+```powershell
+.\run-offline.bat "..\campus-delivery-desk-v0.1.0-20261001-docker-linux-amd64.tar"
+```
+
+```bash
+chmod +x run-offline.sh
+./run-offline.sh ../campus-delivery-desk-v0.1.0-20261001-docker-linux-amd64.tar
+```
+
+脚本会执行 `docker load`、迁移、幂等初始化、必要时创建首个管理员，然后以 `--no-build --pull never` 启动服务。目标机仍须预先安装 Docker；固定域名首次签发公开 HTTPS 证书也需要网络。私有项目包包含密钥和业务数据，当前格式未加密，只能通过可信介质传输并妥善保管，禁止上传到公开仓库或公共网盘。
+
 ## 🗂️ 数据与运维
 
 所有运行数据均位于 `data/`，不会写入 Docker 镜像：

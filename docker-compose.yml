@@ -1,6 +1,10 @@
 # Single-host V1 production topology: Django web, scheduler, and Caddy proxy.
+# The explicit project/image names let an offline image archive work from any folder name.
+name: campus-delivery-desk
+
 services:
   web:
+    image: campus-delivery-desk-app:local
     build: .
     command: >
       sh -c "mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
@@ -23,7 +27,7 @@ services:
 
   scheduler:
     # Scheduler is a separate process but calls the same Django service layer as web requests.
-    build: .
+    image: campus-delivery-desk-app:local
     command: >
       sh -c "mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
       && python manage.py run_scheduler"
