@@ -178,6 +178,7 @@ docker compose ps
 ### 4. 网络入口注意事项
 
 - 正式环境必须通过 HTTPS 访问；不要关闭安全 Cookie 或 CSRF 校验来适配纯 HTTP。
+- Caddy 默认占用宿主机 `80/443`；若端口被占用，可在 `.env` 中调整 `HTTP_PORT`/`HTTPS_PORT`，同时确保外部入口仍映射到正确端口。
 - 若域名发生变化，同步修改 `DJANGO_ALLOWED_HOSTS`、`DJANGO_CSRF_TRUSTED_ORIGINS` 和 `APP_BASE_URL`，然后运行 `docker compose up -d --force-recreate`。
 - 域名变化会形成新的 PWA Origin，旧域名中的安装入口和浏览器本地草稿不会自动迁移。
 - 外部反向代理或穿透工具只是网络入口，不是项目依赖；可按部署环境自行选择。
