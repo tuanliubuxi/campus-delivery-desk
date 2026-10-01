@@ -42,7 +42,7 @@ flowchart LR
     W --> M[Local Media]
     S[Independent Scheduler] --> W
     S --> B[Backup · Cleanup · Recovery]
-    T[cpolar optional] -. HTTPS tunnel .-> C
+    G[Optional external HTTPS gateway] -. reverse proxy / tunnel .-> C
 ```
 
 | 层次 | 技术 |
@@ -50,7 +50,7 @@ flowchart LR
 | 后端 | Python 3.12、Django 5.2 LTS、Gunicorn |
 | 页面 | Django Templates、HTMX、Alpine.js、Bootstrap 5.3、Chart.js |
 | 数据 | SQLite WAL、本地文件、Pillow、openpyxl |
-| 运维 | APScheduler 独立进程、Docker Compose、Caddy、cpolar（可选） |
+| 运维 | APScheduler 独立进程、Docker Compose、Caddy |
 
 V1 是模块化 Django 单体，不依赖 Redis、Celery、PostgreSQL、微服务或原生客户端。权威业务规格位于 [`docs/spec/`](docs/spec/README.md)。
 
@@ -103,36 +103,62 @@ Demo seed 只允许在 DEBUG 开发环境运行，具有幂等保护，且不会
 
 ## 🐳 Docker Compose 部署
 
+生产部署同时支持 Windows 和 Linux，应用容器及业务行为一致；差异只在 Docker 的安装方式和宿主机命令。
+
+### 1. 环境要求
+
+| 平台 | 必备工具 | 说明 |
+|---|---|---|
+| Windows 10/11 x64 | Docker Desktop、WSL2、Docker Compose v2 | 启动前确认 Docker Desktop 正在运行 |
+| Linux x86_64 / arm64 | Docker Engine、Docker Compose plugin v2 | 当前用户需有执行 `docker` 的权限 |
+
+两种平台都建议安装 Git 以便克隆和更新代码。正式公网部署还需要稳定域名、正确的 DNS 解析，并允许宿主机的 `80/443` 端口入站。宿主机不需要另外安装 Python、Django、SQLite 或 Caddy。
+
 Compose 启动三个职责独立的服务：
 
 - `web`：Gunicorn + Django；
 - `scheduler`：备份、媒体清理、租约和临时文件任务；
 - `caddy`：静态文件、反向代理和 HTTPS 入口。
 
-### 1. 准备配置
+### 2. 获取代码并准备配置
+
+Windows PowerShell：
 
 ```powershell
+git clone https://github.com/tuanliubuxi/campus-delivery-desk.git
+Set-Location campus-delivery-desk
 Copy-Item .env.example .env
-python -c "import secrets; print(secrets.token_urlsafe(48))"
+$bytes = New-Object byte[] 48
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
 ```
 
-将生成结果填入 `.env` 的 `DJANGO_SECRET_KEY`，不要把 `.env` 提交到 Git。随后按部署方式填写：
+Linux：
 
-| 变量 | 直连固定域名示例 | cpolar 临时域名示例 |
+```bash
+git clone https://github.com/tuanliubuxi/campus-delivery-desk.git
+cd campus-delivery-desk
+cp .env.example .env
+head -c 48 /dev/urandom | base64
+```
+
+将生成结果填入 `.env` 的 `DJANGO_SECRET_KEY`，不要提交 `.env`。随后根据网络入口填写：
+
+| 变量 | Caddy 直连固定域名 | 外部 HTTPS 网关转发到本机 80 |
 |---|---|---|
-| `DJANGO_ALLOWED_HOSTS` | `delivery.example.com,localhost` | `xxxx.cpolar.top,localhost` |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://delivery.example.com` | `https://xxxx.cpolar.top` |
-| `APP_BASE_URL` | `https://delivery.example.com` | `https://xxxx.cpolar.top` |
+| `DJANGO_ALLOWED_HOSTS` | `delivery.example.com,localhost` | `public.example.com,localhost` |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://delivery.example.com` | `https://public.example.com` |
+| `APP_BASE_URL` | `https://delivery.example.com` | `https://public.example.com` |
 | `APP_DOMAIN` | `delivery.example.com` | `:80` |
 | `PUBLIC_SCHEME` | `https` | `https` |
 
-直连固定域名由 Caddy 自动申请和续期证书。cpolar 模式由 cpolar 提供公网 HTTPS，并将 HTTP 隧道指向本机 `80` 端口；不要把临时 cpolar 域名直接写成 Caddy 的证书域名。
+直连固定域名由 Caddy 自动申请和续期证书。若 HTTPS 已由云负载均衡、反向代理或内网穿透服务终止，应让 Caddy 监听本机 `80`，并保持 `PUBLIC_SCHEME=https`。不要把只能由外部网关访问的临时域名交给本机 Caddy 申请证书。
 
-### 2. 首次初始化
+### 3. 首次初始化
 
-确保 Docker Desktop 已启动：
+以下命令在 Windows PowerShell 和 Linux shell 中相同：
 
-```powershell
+```bash
 docker compose config --quiet
 docker compose build
 docker compose run --rm web python manage.py migrate
@@ -142,17 +168,19 @@ docker compose up -d
 docker compose ps
 ```
 
-日常启动也可使用 `run-prod.bat`；`run-prod.bat --check` 只检查 Docker、`.env` 和 Compose 配置。
+Windows 可使用 `run-prod.bat` 完成同一流程；`run-prod.bat --check` 只检查 Docker、`.env` 和 Compose 配置。Linux 日常启动使用：
 
-### 3. cpolar
-
-在 cpolar 中创建 HTTP 隧道并转发到本机 `80` 端口，然后使用在线隧道列表给出的 HTTPS 地址访问。临时域名变化后，需要同步更新上表前三项并重新启动 Compose：
-
-```powershell
-docker compose up -d --force-recreate
+```bash
+docker compose up -d
+docker compose ps
 ```
 
-域名变化会形成新的 PWA Origin，旧域名中的安装入口和浏览器本地草稿不会自动迁移。长期使用建议购买或保留固定域名。
+### 4. 网络入口注意事项
+
+- 正式环境必须通过 HTTPS 访问；不要关闭安全 Cookie 或 CSRF 校验来适配纯 HTTP。
+- 若域名发生变化，同步修改 `DJANGO_ALLOWED_HOSTS`、`DJANGO_CSRF_TRUSTED_ORIGINS` 和 `APP_BASE_URL`，然后运行 `docker compose up -d --force-recreate`。
+- 域名变化会形成新的 PWA Origin，旧域名中的安装入口和浏览器本地草稿不会自动迁移。
+- 外部反向代理或穿透工具只是网络入口，不是项目依赖；可按部署环境自行选择。
 
 ## 🗂️ 数据与运维
 
