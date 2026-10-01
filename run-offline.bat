@@ -54,7 +54,11 @@ if "%CDD_ADMIN_CHECK%"=="42" (
 
 echo [INFO] Starting services without downloads or builds...
 docker compose up -d --no-build --pull never
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo [ERROR] Service startup failed. Cleaning up partially started containers...
+  docker compose down --remove-orphans
+  exit /b 1
+)
 docker compose ps
 echo [OK] Offline production services started.
 exit /b 0

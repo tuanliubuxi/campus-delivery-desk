@@ -52,6 +52,10 @@ elif (( admin_check != 0 )); then
 fi
 
 echo "[INFO] Starting services without downloads or builds..."
-docker compose up -d --no-build --pull never
+if ! docker compose up -d --no-build --pull never; then
+  echo "[ERROR] Service startup failed. Cleaning up partially started containers..." >&2
+  docker compose down --remove-orphans
+  exit 1
+fi
 docker compose ps
 echo "[OK] Offline production services started."

@@ -112,7 +112,7 @@ Demo seed 只允许在 DEBUG 开发环境运行，具有幂等保护，且不会
 | Windows 10/11 x64 | Docker Desktop、WSL2、Docker Compose v2 | 启动前确认 Docker Desktop 正在运行 |
 | Linux x86_64 / arm64 | Docker Engine、Docker Compose plugin v2 | 当前用户需有执行 `docker` 的权限 |
 
-两种平台都建议安装 Git 以便克隆和更新代码。正式公网部署还需要稳定域名、正确的 DNS 解析，并允许宿主机的 `80/443` 端口入站。宿主机不需要另外安装 Python、Django、SQLite 或 Caddy。
+两种平台都建议安装 Git 以便克隆和更新代码。正式公网部署还需要稳定域名、正确的 DNS 解析，并确保宿主机的 `80/443` 端口允许入站且未被其他程序占用或由系统保留。宿主机不需要另外安装 Python、Django、SQLite 或 Caddy。
 
 Compose 启动三个职责独立的服务：
 
