@@ -103,13 +103,7 @@ powershell -NoProfile -Command "$p=[IO.Path]::GetFullPath($env:CDD_STAGE); $t=[I
 if errorlevel 1 exit /b 1
 
 for /f %%H in ('git rev-parse HEAD') do set "CDD_COMMIT=%%H"
-> "%CDD_MANIFEST%" echo Release: %CDD_RELEASE%
->>"%CDD_MANIFEST%" echo Project version: %CDD_VERSION%
->>"%CDD_MANIFEST%" echo Git commit: %CDD_COMMIT%
->>"%CDD_MANIFEST%" echo Docker platform: linux/%CDD_ARCH%
->>"%CDD_MANIFEST%" echo Created: %DATE% %TIME%
->>"%CDD_MANIFEST%" echo.
-powershell -NoProfile -Command "Get-ChildItem -LiteralPath 'tags' -File | Where-Object Name -Like '%CDD_RELEASE%-*' | Where-Object Name -NotLike '*-manifest.txt' | Get-FileHash -Algorithm SHA256 | ForEach-Object { '{0}  {1}' -f $_.Hash.ToLowerInvariant(), $_.Path.Split([IO.Path]::DirectorySeparatorChar)[-1] } | Add-Content -LiteralPath '%CDD_MANIFEST%'"
+powershell -NoProfile -Command "$lines=@('Release: %CDD_RELEASE%','Project version: %CDD_VERSION%','Git commit: %CDD_COMMIT%','Docker platform: linux/%CDD_ARCH%',('Created: '+(Get-Date -Format o)),''); $lines | Set-Content -LiteralPath '%CDD_MANIFEST%' -Encoding utf8; Get-ChildItem -LiteralPath 'tags' -File | Where-Object Name -Like '%CDD_RELEASE%-*' | Where-Object Name -NotLike '*-manifest.txt' | Get-FileHash -Algorithm SHA256 | ForEach-Object { '{0}  {1}' -f $_.Hash.ToLowerInvariant(), $_.Path.Split([IO.Path]::DirectorySeparatorChar)[-1] } | Add-Content -LiteralPath '%CDD_MANIFEST%' -Encoding utf8"
 if errorlevel 1 exit /b 1
 
 echo.
