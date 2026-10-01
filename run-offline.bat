@@ -35,17 +35,17 @@ docker compose config --quiet
 if errorlevel 1 exit /b 1
 
 echo [INFO] Applying database migrations...
-docker compose run --rm --no-deps --no-build web python manage.py migrate
+docker compose run --rm --no-deps --pull never web python manage.py migrate
 if errorlevel 1 exit /b 1
 echo [INFO] Seeding initial configuration...
-docker compose run --rm --no-deps --no-build web python manage.py seed_initial_config
+docker compose run --rm --no-deps --pull never web python manage.py seed_initial_config
 if errorlevel 1 exit /b 1
 
-docker compose run --rm --no-deps --no-build web python manage.py shell -c "from apps.accounts.models import User; from apps.common.enums import UserRole; raise SystemExit(0 if User.objects.filter(role=UserRole.ADMIN).exists() else 42)"
+docker compose run --rm --no-deps --pull never web python manage.py shell -c "from apps.accounts.models import User; from apps.common.enums import UserRole; raise SystemExit(0 if User.objects.filter(role=UserRole.ADMIN).exists() else 42)"
 set "CDD_ADMIN_CHECK=%ERRORLEVEL%"
 if "%CDD_ADMIN_CHECK%"=="42" (
   echo [INFO] No administrator exists. Create the first administrator now.
-  docker compose run --rm --no-deps --no-build web python manage.py create_app_admin
+  docker compose run --rm --no-deps --pull never web python manage.py create_app_admin
   if errorlevel 1 exit /b 1
 ) else if not "%CDD_ADMIN_CHECK%"=="0" (
   echo [ERROR] Could not check the administrator state.

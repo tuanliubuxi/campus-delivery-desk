@@ -34,18 +34,18 @@ echo "[INFO] Importing application and Caddy images..."
 docker image load -i "$image_archive"
 docker compose config --quiet
 echo "[INFO] Applying database migrations..."
-docker compose run --rm --no-deps --no-build web python manage.py migrate
+docker compose run --rm --no-deps --pull never web python manage.py migrate
 echo "[INFO] Seeding initial configuration..."
-docker compose run --rm --no-deps --no-build web python manage.py seed_initial_config
+docker compose run --rm --no-deps --pull never web python manage.py seed_initial_config
 
 set +e
-docker compose run --rm --no-deps --no-build web python manage.py shell -c \
+docker compose run --rm --no-deps --pull never web python manage.py shell -c \
   "from apps.accounts.models import User; from apps.common.enums import UserRole; raise SystemExit(0 if User.objects.filter(role=UserRole.ADMIN).exists() else 42)"
 admin_check=$?
 set -e
 if (( admin_check == 42 )); then
   echo "[INFO] No administrator exists. Create the first administrator now."
-  docker compose run --rm --no-deps --no-build web python manage.py create_app_admin
+  docker compose run --rm --no-deps --pull never web python manage.py create_app_admin
 elif (( admin_check != 0 )); then
   echo "[ERROR] Could not check the administrator state." >&2
   exit 1
