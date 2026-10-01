@@ -90,7 +90,9 @@ if errorlevel 1 exit /b 1
 
 if exist ".venv" (
   echo [INFO] Archiving the Windows virtual environment separately...
-  tar -a -cf "%CDD_VENV%" -C "%~dp0" ".venv"
+  rem Use the current directory instead of %%~dp0; its trailing backslash can escape
+  rem the closing quote for Windows tar.exe and make the archive appear empty.
+  tar -a -cf "%CDD_VENV%" -C "." ".venv"
   if errorlevel 1 exit /b 1
 ) else (
   echo [WARN] .venv was not found; no virtualenv archive was created.
