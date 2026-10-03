@@ -33,7 +33,7 @@ if defined CDD_ARGUMENT (
   ) else (
     rem Root mode reads the new per-release tags layout and the previous flat layout.
     call :CDD_RESET_CANDIDATES
-    for %%F in ("tags\*\*-offline-runtime-%CDD_HOST_ARCH%.zip" "tags\*-offline-runtime-%CDD_HOST_ARCH%.zip") do if exist "%%~F" call :CDD_ADD_CANDIDATE "%%~fF"
+    if exist "tags" for /r "tags" %%F in (*-offline-runtime-%CDD_HOST_ARCH%.zip) do call :CDD_ADD_CANDIDATE "%%~fF"
     if !CDD_MATCHES! GTR 0 (
       set "CDD_SELECTION_LABEL=offline runtime bundles for %CDD_HOST_ARCH%"
       call :CDD_SELECT_CANDIDATE
@@ -42,7 +42,8 @@ if defined CDD_ARGUMENT (
     ) else (
       rem Legacy standalone Docker tars remain usable when no runtime bundle exists.
       call :CDD_RESET_CANDIDATES
-      for %%F in ("tags\*\*-docker-linux-%CDD_HOST_ARCH%.tar" "tags\*-docker-linux-%CDD_HOST_ARCH%.tar" "..\*-docker-linux-%CDD_HOST_ARCH%.tar") do if exist "%%~F" call :CDD_ADD_CANDIDATE "%%~fF"
+      if exist "tags" for /r "tags" %%F in (*-docker-linux-%CDD_HOST_ARCH%.tar) do call :CDD_ADD_CANDIDATE "%%~fF"
+      for %%F in ("..\*-docker-linux-%CDD_HOST_ARCH%.tar") do if exist "%%~F" call :CDD_ADD_CANDIDATE "%%~fF"
       if "!CDD_MATCHES!"=="0" (
         echo [ERROR] No %CDD_HOST_ARCH% offline runtime bundle or Docker archive was found.
         exit /b 1

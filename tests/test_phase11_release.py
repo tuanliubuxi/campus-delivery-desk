@@ -183,6 +183,7 @@ def test_offline_release_layout_and_shared_deployment_contracts():
     assert "tags\\%CDD_RELEASE%" in batch_builder
     assert 'release_dir="tags/${release_name}"' in shell_builder
     assert "%CDD_DEPLOYMENTS%\\%CDD_DEPLOYMENT_NAME%" in batch_runner
+    assert 'for /r "tags"' in batch_runner
     assert 'deployments_dir="$root_dir/deployments"' in shell_runner
     assert "${CDD_DATA_PATH:-./data}:/data" in compose
     assert "${CDD_ENV_FILE:-.env}" in compose
