@@ -54,8 +54,9 @@ mkdir -p tags
 project_archive="tags/${release_name}-project-private.tar.gz"
 venv_archive="tags/${release_name}-venv-linux-${target_arch}.tar.gz"
 docker_archive="tags/${release_name}-docker-linux-${target_arch}.tar"
+runtime_archive="tags/${release_name}-offline-runtime-${target_arch}.tar.gz"
 manifest="tags/${release_name}-manifest.txt"
-for target in "$project_archive" "$venv_archive" "$docker_archive" "$manifest"; do
+for target in "$project_archive" "$venv_archive" "$docker_archive" "$runtime_archive" "$manifest"; do
   [[ ! -e "$target" ]] || { echo "[ERROR] Refusing to overwrite $target" >&2; exit 1; }
 done
 
@@ -87,6 +88,14 @@ else
   venv_archive=""
 fi
 
+runtime_dir="$stage_dir/${release_name}-offline-runtime-${target_arch}"
+mkdir -p "$runtime_dir"
+echo "[INFO] Staging the self-contained offline runtime bundle..."
+cp run-offline.bat run-offline.sh docker-compose.yml Caddyfile .env .env.example README.md LICENSE "$runtime_dir/"
+cp "$docker_archive" "$runtime_dir/${release_name}-docker-linux-${target_arch}.tar"
+cp -a data "$runtime_dir/data"
+tar -C "$stage_dir" -czf "$root_dir/$runtime_archive" "${release_name}-offline-runtime-${target_arch}"
+
 {
   echo "Release: $release_name"
   echo "Project version: $project_version"
@@ -94,7 +103,7 @@ fi
   echo "Docker platform: linux/$target_arch"
   echo "Created: $(date --iso-8601=seconds)"
   echo
-  sha256sum "$project_archive" "$docker_archive"
+  sha256sum "$project_archive" "$docker_archive" "$runtime_archive"
   [[ -z "$venv_archive" ]] || sha256sum "$venv_archive"
 } >"$manifest"
 
@@ -102,5 +111,6 @@ echo "[OK] Release artifacts created in tags/:"
 echo "  $project_archive"
 [[ -z "$venv_archive" ]] || echo "  $venv_archive"
 echo "  $docker_archive"
+echo "  $runtime_archive"
 echo "  $manifest"
 echo "[WARN] The private project archive contains .env and data. Store and transfer it securely."

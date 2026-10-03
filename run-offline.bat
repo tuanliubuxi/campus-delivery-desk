@@ -15,15 +15,8 @@ findstr /c:"DJANGO_SECRET_KEY=replace-with-a-long-random-secret" ".env" >nul && 
 
 set "CDD_IMAGE_ARCHIVE=%~1"
 if not defined CDD_IMAGE_ARCHIVE (
-  set "CDD_MATCHES=0"
-  for %%F in ("tags\*-docker-linux-*.tar" "..\*-docker-linux-*.tar" "*-docker-linux-*.tar") do if exist "%%~F" (
-    set /a CDD_MATCHES+=1
-    set "CDD_IMAGE_ARCHIVE=%%~fF"
-  )
-  if not "!CDD_MATCHES!"=="1" (
-    echo [ERROR] Pass the exact Docker archive path: run-offline.bat path\release-docker-linux-amd64.tar
-    exit /b 1
-  )
+  call :CDD_SELECT_IMAGE
+  if errorlevel 1 exit /b 1
 )
 if not exist "%CDD_IMAGE_ARCHIVE%" (echo [ERROR] Docker archive not found: %CDD_IMAGE_ARCHIVE%& exit /b 1)
 
@@ -61,4 +54,39 @@ if errorlevel 1 (
 )
 docker compose ps
 echo [OK] Offline production services started.
+exit /b 0
+
+:CDD_SELECT_IMAGE
+set "CDD_MATCHES=0"
+for %%F in ("tags\*-docker-linux-*.tar" "..\*-docker-linux-*.tar" "*-docker-linux-*.tar") do if exist "%%~F" call :CDD_ADD_CANDIDATE "%%~fF"
+if "!CDD_MATCHES!"=="0" (
+  echo [ERROR] No Docker archive was found in the project, tags, or parent directory.
+  exit /b 1
+)
+
+echo [INFO] Available Docker archives:
+for /L %%I in (1,1,!CDD_MATCHES!) do echo   [%%I] !CDD_CANDIDATE[%%I]!
+if "!CDD_MATCHES!"=="1" (
+  set "CDD_IMAGE_ARCHIVE=!CDD_CANDIDATE[1]!"
+  echo [INFO] Automatically selected the only available archive.
+  exit /b 0
+)
+
+:CDD_SELECT_PROMPT
+set "CDD_CHOICE="
+set /p "CDD_CHOICE=Select a Docker archive [1-!CDD_MATCHES!] or 0 to cancel: "
+if "!CDD_CHOICE!"=="0" exit /b 1
+set "CDD_IMAGE_ARCHIVE="
+for /L %%I in (1,1,!CDD_MATCHES!) do if "!CDD_CHOICE!"=="%%I" set "CDD_IMAGE_ARCHIVE=!CDD_CANDIDATE[%%I]!"
+if not defined CDD_IMAGE_ARCHIVE (
+  echo [ERROR] Invalid selection.
+  goto CDD_SELECT_PROMPT
+)
+exit /b 0
+
+:CDD_ADD_CANDIDATE
+set "CDD_NEW_CANDIDATE=%~1"
+if !CDD_MATCHES! GTR 0 for /L %%I in (1,1,!CDD_MATCHES!) do if /i "!CDD_CANDIDATE[%%I]!"=="!CDD_NEW_CANDIDATE!" exit /b 0
+set /a CDD_MATCHES+=1
+set "CDD_CANDIDATE[!CDD_MATCHES!]=!CDD_NEW_CANDIDATE!"
 exit /b 0

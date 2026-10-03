@@ -57,9 +57,10 @@ if not exist "tags" mkdir "tags"
 set "CDD_PROJECT=tags\%CDD_RELEASE%-project-private.zip"
 set "CDD_VENV=tags\%CDD_RELEASE%-venv-windows-%CDD_ARCH%.zip"
 set "CDD_DOCKER=tags\%CDD_RELEASE%-docker-linux-%CDD_ARCH%.tar"
+set "CDD_RUNTIME=tags\%CDD_RELEASE%-offline-runtime-%CDD_ARCH%.zip"
 set "CDD_MANIFEST=tags\%CDD_RELEASE%-manifest.txt"
 
-for %%F in ("%CDD_PROJECT%" "%CDD_VENV%" "%CDD_DOCKER%" "%CDD_MANIFEST%") do if exist "%%~F" (
+for %%F in ("%CDD_PROJECT%" "%CDD_VENV%" "%CDD_DOCKER%" "%CDD_RUNTIME%" "%CDD_MANIFEST%") do if exist "%%~F" (
   echo [ERROR] Refusing to overwrite %%~F
   exit /b 1
 )
@@ -99,6 +100,20 @@ if exist ".venv" (
   set "CDD_VENV="
 )
 
+set "CDD_RUNTIME_DIR=%CDD_STAGE%\%CDD_RELEASE%-offline-runtime-%CDD_ARCH%"
+mkdir "%CDD_RUNTIME_DIR%" >nul || exit /b 1
+echo [INFO] Staging the self-contained offline runtime bundle...
+for %%F in (run-offline.bat run-offline.sh docker-compose.yml Caddyfile .env .env.example README.md LICENSE) do copy /Y "%%F" "%CDD_RUNTIME_DIR%\%%F" >nul || exit /b 1
+copy /Y "%CDD_DOCKER%" "%CDD_RUNTIME_DIR%\%CDD_RELEASE%-docker-linux-%CDD_ARCH%.tar" >nul || exit /b 1
+robocopy "data" "%CDD_RUNTIME_DIR%\data" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP
+set "CDD_ROBOCOPY=!ERRORLEVEL!"
+if !CDD_ROBOCOPY! GEQ 8 (
+  echo [ERROR] Runtime data staging failed with robocopy code !CDD_ROBOCOPY!.
+  exit /b 1
+)
+tar -a -cf "%CDD_RUNTIME%" -C "%CDD_STAGE%" "%CDD_RELEASE%-offline-runtime-%CDD_ARCH%"
+if errorlevel 1 exit /b 1
+
 powershell -NoProfile -Command "$p=[IO.Path]::GetFullPath($env:CDD_STAGE); $t=[IO.Path]::GetFullPath($env:TEMP); if(-not $p.StartsWith($t)){throw 'Unsafe staging path'}; Remove-Item -LiteralPath $p -Recurse -Force"
 if errorlevel 1 exit /b 1
 
@@ -111,6 +126,7 @@ echo [OK] Release artifacts created in tags\:
 echo   %CDD_PROJECT%
 if defined CDD_VENV echo   %CDD_VENV%
 echo   %CDD_DOCKER%
+echo   %CDD_RUNTIME%
 echo   %CDD_MANIFEST%
 echo [WARN] The private project archive contains .env and data. Store and transfer it securely.
 exit /b 0

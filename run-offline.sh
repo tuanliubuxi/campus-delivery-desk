@@ -20,13 +20,31 @@ fi
 image_archive="${1:-}"
 if [[ -z "$image_archive" ]]; then
   shopt -s nullglob
-  candidates=(tags/*-docker-linux-*.tar ../*-docker-linux-*.tar ./*-docker-linux-*.tar)
+  discovered=(tags/*-docker-linux-*.tar ../*-docker-linux-*.tar ./*-docker-linux-*.tar)
   shopt -u nullglob
-  if (( ${#candidates[@]} != 1 )); then
-    echo "[ERROR] Pass the exact Docker archive path: ./run-offline.sh path/release-docker-linux-amd64.tar" >&2
+  if (( ${#discovered[@]} == 0 )); then
+    echo "[ERROR] No Docker archive was found in the project, tags, or parent directory." >&2
     exit 1
   fi
-  image_archive="${candidates[0]}"
+  mapfile -t candidates < <(printf '%s\n' "${discovered[@]}" | while IFS= read -r item; do readlink -f -- "$item"; done | sort -u)
+  echo "[INFO] Available Docker archives:"
+  for index in "${!candidates[@]}"; do
+    printf '  [%d] %s\n' "$((index + 1))" "${candidates[index]}"
+  done
+  if (( ${#candidates[@]} == 1 )); then
+    image_archive="${candidates[0]}"
+    echo "[INFO] Automatically selected the only available archive."
+  else
+    while true; do
+      read -r -p "Select a Docker archive [1-${#candidates[@]}] or 0 to cancel: " choice
+      [[ "$choice" == "0" ]] && exit 1
+      if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#candidates[@]} )); then
+        image_archive="${candidates[choice - 1]}"
+        break
+      fi
+      echo "[ERROR] Invalid selection." >&2
+    done
+  fi
 fi
 [[ -f "$image_archive" ]] || { echo "[ERROR] Docker archive not found: $image_archive" >&2; exit 1; }
 

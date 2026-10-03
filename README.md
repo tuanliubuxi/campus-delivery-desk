@@ -185,13 +185,14 @@ docker compose ps
 
 ## 📦 私有备份与离线部署包
 
-根目录的发布脚本会在 Git 忽略的 `tags/` 中生成同一版本名的三类私有产物。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `campus-delivery-desk-v0.1.0-20261001`。
+根目录的发布脚本会在 Git 忽略的 `tags/` 中生成同一版本名的五类私有产物。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `campus-delivery-desk-v0.1.0-20261001`。
 
 | 产物后缀 | 内容 | 用途 |
 |---|---|---|
 | `-project-private.zip` / `.tar.gz` | 源码、`.git`、`.env`、`data/` 和本地文档 | 完整私有恢复与迁移 |
 | `-venv-windows-amd64.zip` / `-venv-linux-amd64.tar.gz` | 当前开发虚拟环境 | 同系统环境的辅助恢复，不用于生产部署 |
 | `-docker-linux-amd64.tar` | 应用镜像与 Caddy 镜像 | 目标机离线导入，不再下载 Python 或镜像依赖 |
+| `-offline-runtime-amd64.zip` / `.tar.gz` | Docker tar、启动脚本、Compose、Caddy、`.env` 与 `data/` | 最简迁移包；解压后直接运行离线脚本 |
 | `-manifest.txt` | Git commit、平台和 SHA-256 | 核对版本与文件完整性 |
 
 构建前应提交所有受 Git 跟踪的修改、停止 Compose 服务，并确认 `.env` 和数据库状态正确。Windows：
@@ -209,7 +210,18 @@ chmod +x build-release.sh run-offline.sh
 
 `amd64` 可替换为 `arm64`；Docker 镜像必须与目标主机 CPU 架构一致。`.venv` 可能包含宿主机路径及平台相关二进制，因此必须单独保存，不能替代 Docker 离线包。
 
-在目标机安装好 Docker 后，解压私有项目包并进入项目目录，将 Docker tar 路径传给启动脚本：
+最简部署方式是在目标机安装好 Docker 后，只传输并解压 `offline-runtime` 包。进入解压目录后直接运行脚本；目录中只有一个 Docker tar 时会自动选择，存在多个版本时会列出编号并要求手动选择：
+
+```powershell
+.\run-offline.bat
+```
+
+```bash
+chmod +x run-offline.sh
+./run-offline.sh
+```
+
+如果使用完整项目包，或者需要自动化部署，也可以显式传入 Docker tar 路径：
 
 ```powershell
 .\run-offline.bat "..\campus-delivery-desk-v0.1.0-20261001-docker-linux-amd64.tar"
