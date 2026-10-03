@@ -89,7 +89,9 @@ docker pull --platform "linux/%CDD_ARCH%" caddy:2
 if errorlevel 1 exit /b 1
 
 echo [INFO] Exporting Docker images...
-docker image save -o "%CDD_DOCKER%" campus-delivery-desk-app:local "campus-delivery-desk-app:%CDD_RELEASE%" caddy:2
+rem A multi-platform image store can keep several caddy:2 variants under one tag;
+rem constrain the export so an ARM64 bundle cannot silently contain AMD64 Caddy.
+docker image save --platform "linux/%CDD_ARCH%" -o "%CDD_DOCKER%" campus-delivery-desk-app:local "campus-delivery-desk-app:%CDD_RELEASE%" caddy:2
 if errorlevel 1 exit /b 1
 
 if not defined CDD_REUSE_PROJECT (

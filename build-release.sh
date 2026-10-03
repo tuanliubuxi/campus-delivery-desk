@@ -90,7 +90,7 @@ docker buildx build --platform "linux/${target_arch}" --load \
 echo "[INFO] Preparing Caddy image for linux/${target_arch}..."
 docker pull --platform "linux/${target_arch}" caddy:2
 echo "[INFO] Exporting Docker images..."
-docker image save -o "$docker_archive" \
+docker image save --platform "linux/${target_arch}" -o "$docker_archive" \
   campus-delivery-desk-app:local "campus-delivery-desk-app:${release_name}" caddy:2
 
 if [[ "$reuse_project" == "false" ]]; then
