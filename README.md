@@ -112,7 +112,7 @@ Demo seed 只允许在 DEBUG 开发环境运行，具有幂等保护，且不会
 | Windows 10/11 x64 | Docker Desktop、WSL2、Docker Compose v2 | 启动前确认 Docker Desktop 正在运行 |
 | Linux x86_64 / arm64 | Docker Engine、Docker Compose plugin v2 | 当前用户需有执行 `docker` 的权限 |
 
-两种平台都建议安装 Git 以便克隆和更新代码。正式公网部署还需要稳定域名、正确的 DNS 解析，并确保宿主机的 `80/443` 端口允许入站且未被其他程序占用或由系统保留。宿主机不需要另外安装 Python、Django、SQLite 或 Caddy。
+两种平台都建议安装 Git 以便克隆和更新代码。宿主机不需要另外安装 Python、Django、SQLite 或 Caddy。项目默认通过 `18080/18443` 暴露 HTTP/HTTPS，避免 Windows 常见的 `80/443` 占用或系统保留；正式公网部署若希望使用不带端口号的标准 URL，则还需要稳定域名、正确的 DNS 解析，并确认宿主机 `80/443` 可用。
 
 Compose 启动三个职责独立的服务：
 
@@ -144,13 +144,14 @@ head -c 48 /dev/urandom | base64
 
 将生成结果填入 `.env` 的 `DJANGO_SECRET_KEY`，不要提交 `.env`。随后根据网络入口填写：
 
-| 变量 | Caddy 直连固定域名 | 外部 HTTPS 网关转发到本机 80 |
-|---|---|---|
-| `DJANGO_ALLOWED_HOSTS` | `delivery.example.com,localhost` | `public.example.com,localhost` |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://delivery.example.com` | `https://public.example.com` |
-| `APP_BASE_URL` | `https://delivery.example.com` | `https://public.example.com` |
-| `APP_DOMAIN` | `delivery.example.com` | `:80` |
-| `PUBLIC_SCHEME` | `https` | `https` |
+| 变量 | 本机/局域网默认配置 | Caddy 直连固定域名 | 外部 HTTPS 网关转发到本机 HTTP |
+|---|---|---|---|
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | `delivery.example.com,localhost` | `public.example.com,localhost` |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://localhost:18443` | `https://delivery.example.com` | `https://public.example.com` |
+| `APP_BASE_URL` | `https://localhost:18443` | `https://delivery.example.com` | `https://public.example.com` |
+| `APP_DOMAIN` | `localhost` | `delivery.example.com` | `:80` |
+| `PUBLIC_SCHEME` | `https` | `https` | `https` |
+| `HTTP_PORT` / `HTTPS_PORT` | `18080` / `18443` | `80` / `443` | 按网关入口配置 |
 
 直连固定域名由 Caddy 自动申请和续期证书。若 HTTPS 已由云负载均衡、反向代理或内网穿透服务终止，应让 Caddy 监听本机 `80`，并保持 `PUBLIC_SCHEME=https`。不要把只能由外部网关访问的临时域名交给本机 Caddy 申请证书。
 
@@ -178,14 +179,14 @@ docker compose ps
 ### 4. 网络入口注意事项
 
 - 正式环境必须通过 HTTPS 访问；不要关闭安全 Cookie 或 CSRF 校验来适配纯 HTTP。
-- Caddy 默认占用宿主机 `80/443`；若端口被占用，可在 `.env` 中调整 `HTTP_PORT`/`HTTPS_PORT`，同时确保外部入口仍映射到正确端口。
+- Caddy 在容器内使用标准 `80/443`，宿主机默认映射为 `18080/18443`，因此本机访问地址是 `https://localhost:18443`。公网直连可在 `.env` 中改为 `HTTP_PORT=80`、`HTTPS_PORT=443`；若自定义其他端口，必须同步更新 `APP_BASE_URL` 和 `DJANGO_CSRF_TRUSTED_ORIGINS`。
 - 若域名发生变化，同步修改 `DJANGO_ALLOWED_HOSTS`、`DJANGO_CSRF_TRUSTED_ORIGINS` 和 `APP_BASE_URL`，然后运行 `docker compose up -d --force-recreate`。
 - 域名变化会形成新的 PWA Origin，旧域名中的安装入口和浏览器本地草稿不会自动迁移。
 - 外部反向代理或穿透工具只是网络入口，不是项目依赖；可按部署环境自行选择。
 
 ## 📦 私有备份与离线部署包
 
-根目录的发布脚本会在 Git 忽略的 `tags/<版本名>/` 中生成三类私有产物，每个版本单独成目录。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `tags/campus-delivery-desk-v0.1.0-20261003/`。
+根目录的发布脚本会在 Git 忽略的 `tags/<版本名>/` 中生成三类私有产物，每个版本单独成目录。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `tags/campus-delivery-desk-v0.1.1-20261003/`。
 
 | 产物后缀 | 内容 | 用途 |
 |---|---|---|
@@ -235,12 +236,12 @@ chmod +x run-offline.sh
 需要自动化部署时，也可以显式传入解压目录内的 Docker tar 路径：
 
 ```powershell
-.\run-offline.bat ".\campus-delivery-desk-v0.1.0-20261003-docker-linux-amd64.tar"
+.\run-offline.bat ".\campus-delivery-desk-v0.1.1-20261003-docker-linux-amd64.tar"
 ```
 
 ```bash
 chmod +x run-offline.sh
-./run-offline.sh ./campus-delivery-desk-v0.1.0-20261003-docker-linux-amd64.tar
+./run-offline.sh ./campus-delivery-desk-v0.1.1-20261003-docker-linux-amd64.tar
 ```
 
 脚本会执行 `docker load`、迁移、幂等初始化、必要时创建首个管理员，然后以 `--no-build --pull never` 启动服务。目标机仍须预先安装 Docker；固定域名首次签发公开 HTTPS 证书也需要网络。私有项目包包含密钥和业务数据，当前格式未加密，只能通过可信介质传输并妥善保管，禁止上传到公开仓库或公共网盘。

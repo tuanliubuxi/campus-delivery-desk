@@ -187,6 +187,8 @@ def test_offline_release_layout_and_shared_deployment_contracts():
     assert 'deployments_dir="$root_dir/deployments"' in shell_runner
     assert "${CDD_DATA_PATH:-./data}:/data" in compose
     assert "${CDD_ENV_FILE:-.env}" in compose
+    assert '"${HTTP_PORT:-18080}:80"' in compose
+    assert '"${HTTPS_PORT:-18443}:443"' in compose
     assert "/deployments/" in gitignore
 
 

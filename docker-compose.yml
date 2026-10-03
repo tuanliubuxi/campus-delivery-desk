@@ -42,8 +42,9 @@ services:
     # Caddy is the only service exposed to the host and terminates HTTPS.
     image: caddy:2
     ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
+      # Non-privileged host defaults work on more Windows/Linux machines; Caddy still uses 80/443 inside.
+      - "${HTTP_PORT:-18080}:80"
+      - "${HTTPS_PORT:-18443}:443"
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
       # Preserve the public scheme when an upstream gateway forwards HTTPS over local HTTP.
