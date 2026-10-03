@@ -189,6 +189,10 @@ def test_offline_release_layout_and_shared_deployment_contracts():
     assert "${CDD_ENV_FILE:-.env}" in compose
     assert '"${HTTP_PORT:-18080}:80"' in compose
     assert '"${HTTPS_PORT:-18443}:443"' in compose
+    assert "TLS_DEFAULT_SNI: ${TLS_DEFAULT_SNI:-localhost}" in compose
+    assert "default_sni {$TLS_DEFAULT_SNI:localhost}" in (
+        root / "Caddyfile"
+    ).read_text(encoding="utf-8")
     assert "/deployments/" in gitignore
 
 

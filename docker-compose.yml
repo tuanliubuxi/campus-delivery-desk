@@ -47,6 +47,8 @@ services:
       - "${HTTPS_PORT:-18443}:443"
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      # Use the LAN host's certificate when an IP-address client omits TLS SNI.
+      TLS_DEFAULT_SNI: ${TLS_DEFAULT_SNI:-localhost}
       # Preserve the public scheme when an upstream gateway forwards HTTPS over local HTTP.
       PUBLIC_SCHEME: ${PUBLIC_SCHEME:-https}
     volumes:

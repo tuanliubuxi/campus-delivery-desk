@@ -1,3 +1,8 @@
+# Bare-IP clients may omit TLS SNI, so select the configured host's certificate as a fallback.
+{
+	default_sni {$TLS_DEFAULT_SNI:localhost}
+}
+
 # Terminate HTTP(S), compress responses, and proxy application traffic to Django.
 {$APP_DOMAIN:localhost} {
 	encode zstd gzip

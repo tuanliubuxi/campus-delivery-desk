@@ -150,6 +150,7 @@ head -c 48 /dev/urandom | base64
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://localhost:18443` | `https://delivery.example.com` | `https://public.example.com` |
 | `APP_BASE_URL` | `https://localhost:18443` | `https://delivery.example.com` | `https://public.example.com` |
 | `APP_DOMAIN` | `localhost` | `delivery.example.com` | `:80` |
+| `TLS_DEFAULT_SNI` | `localhost` | `delivery.example.com` | `localhost`（HTTPS 在上游终止） |
 | `PUBLIC_SCHEME` | `https` | `https` | `https` |
 | `HTTP_PORT` / `HTTPS_PORT` | `18080` / `18443` | `80` / `443` | 按网关入口配置 |
 
@@ -183,6 +184,23 @@ docker compose ps
 - 若域名发生变化，同步修改 `DJANGO_ALLOWED_HOSTS`、`DJANGO_CSRF_TRUSTED_ORIGINS` 和 `APP_BASE_URL`，然后运行 `docker compose up -d --force-recreate`。
 - 域名变化会形成新的 PWA Origin，旧域名中的安装入口和浏览器本地草稿不会自动迁移。
 - 外部反向代理或穿透工具只是网络入口，不是项目依赖；可按部署环境自行选择。
+
+### 5. 局域网手机测试
+
+假设宿主机局域网地址为 `192.168.2.14`，需要同步配置站点地址和无 SNI 客户端的证书回退：
+
+```env
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.2.14
+DJANGO_CSRF_TRUSTED_ORIGINS=https://192.168.2.14:18443
+APP_BASE_URL=https://192.168.2.14:18443
+APP_DOMAIN=192.168.2.14
+TLS_DEFAULT_SNI=192.168.2.14
+PUBLIC_SCHEME=https
+HTTP_PORT=18080
+HTTPS_PORT=18443
+```
+
+重新创建容器后，在同一局域网访问 `https://192.168.2.14:18443`。Caddy 会为局域网 IP 签发本地证书；手机若未安装该实例的根证书会显示安全警告。使用公网 HTTPS 网关时将 `APP_DOMAIN` 改为 `:80`，公网域名写入 Django 允许主机、CSRF 来源和 `APP_BASE_URL`，`TLS_DEFAULT_SNI` 可保留为 `localhost`。
 
 ## 📦 私有备份与离线部署包
 
