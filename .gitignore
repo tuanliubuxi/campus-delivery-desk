@@ -12,6 +12,8 @@ build/
 dist/
 # Private release archives and exported Docker images are generated locally.
 /tags/
+# Versioned runtime archives may be extracted here by the root offline launcher.
+/deployments/
 develop-eggs/
 downloads/
 eggs/

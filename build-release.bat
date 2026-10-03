@@ -57,9 +57,11 @@ if defined CDD_RUNNING (
 )
 
 if not exist "tags" mkdir "tags"
-set "CDD_PROJECT=tags\%CDD_RELEASE%-project-private-windows-%CDD_HOST_ARCH%.zip"
-set "CDD_RUNTIME=tags\%CDD_RELEASE%-offline-runtime-%CDD_ARCH%.zip"
-set "CDD_MANIFEST=tags\%CDD_RELEASE%-manifest-%CDD_ARCH%.txt"
+set "CDD_RELEASE_DIR=tags\%CDD_RELEASE%"
+if not exist "%CDD_RELEASE_DIR%" mkdir "%CDD_RELEASE_DIR%"
+set "CDD_PROJECT=%CDD_RELEASE_DIR%\%CDD_RELEASE%-project-private-windows-%CDD_HOST_ARCH%.zip"
+set "CDD_RUNTIME=%CDD_RELEASE_DIR%\%CDD_RELEASE%-offline-runtime-%CDD_ARCH%.zip"
+set "CDD_MANIFEST=%CDD_RELEASE_DIR%\%CDD_RELEASE%-manifest-%CDD_ARCH%.txt"
 set "CDD_DOCKER_NAME=%CDD_RELEASE%-docker-linux-%CDD_ARCH%.tar"
 
 for %%F in ("%CDD_RUNTIME%" "%CDD_MANIFEST%") do if exist "%%~F" (
@@ -68,7 +70,7 @@ for %%F in ("%CDD_RUNTIME%" "%CDD_MANIFEST%") do if exist "%%~F" (
 )
 set "CDD_REUSE_PROJECT="
 if exist "%CDD_PROJECT%" (
-  for %%M in ("tags\%CDD_RELEASE%-manifest-*.txt") do if exist "%%~M" findstr /x /c:"Git commit: %CDD_COMMIT%" "%%~M" >nul && set "CDD_REUSE_PROJECT=1"
+  for %%M in ("%CDD_RELEASE_DIR%\%CDD_RELEASE%-manifest-*.txt") do if exist "%%~M" findstr /x /c:"Git commit: %CDD_COMMIT%" "%%~M" >nul && set "CDD_REUSE_PROJECT=1"
   if not defined CDD_REUSE_PROJECT (
     echo [ERROR] Existing project backup has no manifest for Git commit %CDD_COMMIT%.
     echo Use a new release name or remove the incomplete/stale project backup.
@@ -97,7 +99,7 @@ if errorlevel 1 exit /b 1
 if not defined CDD_REUSE_PROJECT (
   mkdir "%CDD_STAGE%\%CDD_RELEASE%" >nul || exit /b 1
   echo [INFO] Staging private project backup, including the host virtual environment...
-  robocopy "." "%CDD_STAGE%\%CDD_RELEASE%" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "tags" ".ruff_cache" ".pytest_cache" "__pycache__" "staticfiles" /XF "*.pyc" "*.pyo"
+  robocopy "." "%CDD_STAGE%\%CDD_RELEASE%" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "tags" "deployments" ".ruff_cache" ".pytest_cache" "__pycache__" "staticfiles" /XF "*.pyc" "*.pyo"
   set "CDD_ROBOCOPY=!ERRORLEVEL!"
   if !CDD_ROBOCOPY! GEQ 8 (
     echo [ERROR] Project staging failed with robocopy code !CDD_ROBOCOPY!.
@@ -130,7 +132,7 @@ powershell -NoProfile -Command "$lines=@('Release: %CDD_RELEASE%','Project versi
 if errorlevel 1 exit /b 1
 
 echo.
-echo [OK] Release artifacts created in tags\:
+echo [OK] Release artifacts created in %CDD_RELEASE_DIR%\:
 echo   %CDD_PROJECT%
 echo   %CDD_RUNTIME%
 echo   %CDD_MANIFEST%

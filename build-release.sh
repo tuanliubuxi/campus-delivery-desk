@@ -53,9 +53,11 @@ fi
 
 mkdir -p tags
 current_commit="$(git rev-parse HEAD)"
-project_archive="tags/${release_name}-project-private-linux-${host_arch}.tar.gz"
-runtime_archive="tags/${release_name}-offline-runtime-${target_arch}.tar.gz"
-manifest="tags/${release_name}-manifest-${target_arch}.txt"
+release_dir="tags/${release_name}"
+mkdir -p "$release_dir"
+project_archive="${release_dir}/${release_name}-project-private-linux-${host_arch}.tar.gz"
+runtime_archive="${release_dir}/${release_name}-offline-runtime-${target_arch}.tar.gz"
+manifest="${release_dir}/${release_name}-manifest-${target_arch}.txt"
 docker_name="${release_name}-docker-linux-${target_arch}.tar"
 for target in "$runtime_archive" "$manifest"; do
   [[ ! -e "$target" ]] || { echo "[ERROR] Refusing to overwrite $target" >&2; exit 1; }
@@ -63,7 +65,7 @@ done
 reuse_project="false"
 if [[ -e "$project_archive" ]]; then
   shopt -s nullglob
-  existing_manifests=(tags/${release_name}-manifest-*.txt)
+  existing_manifests=("${release_dir}"/${release_name}-manifest-*.txt)
   shopt -u nullglob
   for existing_manifest in "${existing_manifests[@]}"; do
     if grep -Fxq "Git commit: $current_commit" "$existing_manifest"; then
@@ -97,7 +99,7 @@ if [[ "$reuse_project" == "false" ]]; then
   mkdir -p "$stage_dir/$release_name"
   echo "[INFO] Staging private project backup, including the host virtual environment..."
   tar -C "$root_dir" \
-    --exclude='./tags' --exclude='./.ruff_cache' --exclude='./.pytest_cache' \
+    --exclude='./tags' --exclude='./deployments' --exclude='./.ruff_cache' --exclude='./.pytest_cache' \
     --exclude='*/__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
     -cf - . | tar -C "$stage_dir/$release_name" -xf -
   tar -C "$stage_dir" -czf "$root_dir/$project_archive" "$release_name"
@@ -123,7 +125,7 @@ tar -C "$stage_dir" -czf "$root_dir/$runtime_archive" "${release_name}-offline-r
   sha256sum "$project_archive" "$runtime_archive"
 } >"$manifest"
 
-echo "[OK] Release artifacts created in tags/:"
+echo "[OK] Release artifacts created in ${release_dir}/:"
 echo "  $project_archive"
 echo "  $runtime_archive"
 echo "  $manifest"

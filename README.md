@@ -185,7 +185,7 @@ docker compose ps
 
 ## 📦 私有备份与离线部署包
 
-根目录的发布脚本会在 Git 忽略的 `tags/` 中生成三类私有产物。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `campus-delivery-desk-v0.1.0-20261003`。
+根目录的发布脚本会在 Git 忽略的 `tags/<版本名>/` 中生成三类私有产物，每个版本单独成目录。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `tags/campus-delivery-desk-v0.1.0-20261003/`。
 
 | 产物后缀 | 内容 | 用途 |
 |---|---|---|
@@ -210,7 +210,18 @@ chmod +x build-release.sh run-offline.sh
 
 `arm64` 运行包面向安装了 Docker Engine 的 ARM64 Linux 主机。普通 Android Termux 不是受支持的 Docker Engine 主机；仅有 ARM64 镜像并不能绕过 Android 内核、权限、cgroup 和容器运行时要求。
 
-最简部署方式是在目标机安装好 Docker 后，只传输并解压 `offline-runtime` 包。进入解压目录后直接运行脚本；目录中只有一个 Docker tar 时会自动选择，存在多个版本时会列出编号并要求手动选择：
+在完整项目根目录运行离线脚本时，脚本会按当前 CPU 架构扫描 `tags/*/` 下的运行包，列出版本供选择，并解压到 `deployments/<版本名>-offline-runtime-<架构>/`。部署目录中的 Compose 仍使用根目录的 `.env` 和 `data/`，因此切换版本不会创建一套空数据库；`deployments/` 只保存该版本的启动文件和内嵌镜像包。
+
+```powershell
+.\run-offline.bat
+```
+
+```bash
+chmod +x run-offline.sh
+./run-offline.sh
+```
+
+如果只把 `offline-runtime` 包传到另一台机器，解压后进入其目录运行同名脚本即可。此时没有根目录启动器注入共享路径，脚本会使用运行包自己的 `.env` 和 `data/`：
 
 ```powershell
 .\run-offline.bat
@@ -234,7 +245,15 @@ chmod +x run-offline.sh
 
 脚本会执行 `docker load`、迁移、幂等初始化、必要时创建首个管理员，然后以 `--no-build --pull never` 启动服务。目标机仍须预先安装 Docker；固定域名首次签发公开 HTTPS 证书也需要网络。私有项目包包含密钥和业务数据，当前格式未加密，只能通过可信介质传输并妥善保管，禁止上传到公开仓库或公共网盘。
 
-首次部署时可直接解压运行包。后续升级不要把新运行包覆盖到现有目录，因为包内的初始 `data/` 可能覆盖生产数据；应先创建备份，保留原 `data/` 和 `.env`，再替换程序配置与镜像包并运行启动脚本。镜像成功导入后可以删除目录内的 Docker tar 来节省空间，但保留它可用于断网重装。
+根目录自动部署模式下不要手工移动或复制业务数据库；它始终使用根目录 `data/`。若需要强制重新解压同名运行包，可以在服务停止后删除对应的 `deployments/<版本与架构>/`，再运行根目录脚本，业务数据不会随部署目录删除。独立运行包模式下，后续升级不要把新包覆盖到已有目录，因为包内初始 `data/` 可能覆盖生产数据；应先创建备份并保留原 `data/` 和 `.env`。镜像成功导入后可以删除目录内的 Docker tar 来节省空间，但保留它可用于断网重装。
+
+三类压缩包的运行边界如下：
+
+| 文件 | 普通 AMD64 Windows + Docker Desktop | 说明 |
+|---|---|---|
+| `project-private-windows-amd64.zip` | 可恢复源码；不能直接离线启动 | 包含 Windows `.venv`，但虚拟环境仍依赖相同 CPU、Python 版本及兼容安装路径；Docker 构建还可能需要网络 |
+| `offline-runtime-amd64.zip` | 支持，推荐 | 包内已有 Linux AMD64 应用与 Caddy 镜像，可完全离线导入 |
+| `offline-runtime-arm64.zip` | 不作为普通 AMD64 Windows 的运行包 | 面向 Docker ARM64 Linux；即使启用模拟也不作为生产部署方案 |
 
 ## 🗂️ 数据与运维
 

@@ -11,12 +11,12 @@ services:
       && python manage.py collectstatic --noinput
       && python manage.py recovery_check
       && gunicorn config.wsgi:application --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:8000"
-    env_file: .env
+    env_file: ${CDD_ENV_FILE:-.env}
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod
     volumes:
       # Business data stays on the host; collected static files are shared read-only with Caddy.
-      - ./data:/data
+      - ${CDD_DATA_PATH:-./data}:/data
       - static_data:/app/staticfiles
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
@@ -31,11 +31,11 @@ services:
     command: >
       sh -c "mkdir -p /data/db /data/media /data/backups /data/tmp /data/logs
       && python manage.py run_scheduler"
-    env_file: .env
+    env_file: ${CDD_ENV_FILE:-.env}
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod
     volumes:
-      - ./data:/data
+      - ${CDD_DATA_PATH:-./data}:/data
     restart: unless-stopped
 
   caddy:

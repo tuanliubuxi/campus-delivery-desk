@@ -170,6 +170,25 @@ def test_release_documents_and_responsive_contracts_exist():
     assert "cdd-mobile-shell" in courier_template
 
 
+def test_offline_release_layout_and_shared_deployment_contracts():
+    """Keep version folders and stable root data/config wiring from drifting apart."""
+    root = Path(settings.BASE_DIR)
+    batch_builder = (root / "build-release.bat").read_text(encoding="utf-8")
+    shell_builder = (root / "build-release.sh").read_text(encoding="utf-8")
+    batch_runner = (root / "run-offline.bat").read_text(encoding="utf-8")
+    shell_runner = (root / "run-offline.sh").read_text(encoding="utf-8")
+    compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
+    gitignore = (root / ".gitignore").read_text(encoding="utf-8")
+
+    assert "tags\\%CDD_RELEASE%" in batch_builder
+    assert 'release_dir="tags/${release_name}"' in shell_builder
+    assert "%CDD_DEPLOYMENTS%\\%CDD_DEPLOYMENT_NAME%" in batch_runner
+    assert 'deployments_dir="$root_dir/deployments"' in shell_runner
+    assert "${CDD_DATA_PATH:-./data}:/data" in compose
+    assert "${CDD_ENV_FILE:-.env}" in compose
+    assert "/deployments/" in gitignore
+
+
 def test_primary_workspaces_render_for_their_roles():
     """Keep the release-critical GET routes covered without bypassing lease middleware."""
     admin = _login_client(username="smoke-admin", role=UserRole.ADMIN)
