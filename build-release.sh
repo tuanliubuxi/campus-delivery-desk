@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build private project, virtualenv, and Docker archives under tags/.
+# Build a private project backup and a self-contained Docker runtime archive under tags/.
 # Usage: ./build-release.sh [amd64|arm64] [release-name]
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$root_dir"
@@ -12,6 +12,7 @@ case "$detected_arch" in
   aarch64|arm64) detected_arch="arm64" ;;
 esac
 target_arch="${1:-$detected_arch}"
+host_arch="$detected_arch"
 case "$target_arch" in
   amd64|arm64) ;;
   *) echo "[ERROR] Architecture must be amd64 or arm64." >&2; exit 1 ;;
@@ -51,14 +52,36 @@ if [[ -n "$(docker compose ps --status running -q 2>/dev/null)" ]]; then
 fi
 
 mkdir -p tags
-project_archive="tags/${release_name}-project-private.tar.gz"
-venv_archive="tags/${release_name}-venv-linux-${target_arch}.tar.gz"
-docker_archive="tags/${release_name}-docker-linux-${target_arch}.tar"
+current_commit="$(git rev-parse HEAD)"
+project_archive="tags/${release_name}-project-private-linux-${host_arch}.tar.gz"
 runtime_archive="tags/${release_name}-offline-runtime-${target_arch}.tar.gz"
-manifest="tags/${release_name}-manifest.txt"
-for target in "$project_archive" "$venv_archive" "$docker_archive" "$runtime_archive" "$manifest"; do
+manifest="tags/${release_name}-manifest-${target_arch}.txt"
+docker_name="${release_name}-docker-linux-${target_arch}.tar"
+for target in "$runtime_archive" "$manifest"; do
   [[ ! -e "$target" ]] || { echo "[ERROR] Refusing to overwrite $target" >&2; exit 1; }
 done
+reuse_project="false"
+if [[ -e "$project_archive" ]]; then
+  shopt -s nullglob
+  existing_manifests=(tags/${release_name}-manifest-*.txt)
+  shopt -u nullglob
+  for existing_manifest in "${existing_manifests[@]}"; do
+    if grep -Fxq "Git commit: $current_commit" "$existing_manifest"; then
+      reuse_project="true"
+      break
+    fi
+  done
+  [[ "$reuse_project" == "true" ]] || {
+    echo "[ERROR] Existing project backup has no manifest for Git commit $current_commit." >&2
+    echo "Use a new release name or remove the incomplete/stale project backup." >&2
+    exit 1
+  }
+fi
+
+stage_dir="$(mktemp -d)"
+cleanup() { rm -rf -- "$stage_dir"; }
+trap cleanup EXIT
+docker_archive="$stage_dir/$docker_name"
 
 echo "[INFO] Building application image for linux/${target_arch}..."
 docker buildx build --platform "linux/${target_arch}" --load \
@@ -70,47 +93,38 @@ echo "[INFO] Exporting Docker images..."
 docker image save -o "$docker_archive" \
   campus-delivery-desk-app:local "campus-delivery-desk-app:${release_name}" caddy:2
 
-stage_dir="$(mktemp -d)"
-cleanup() { rm -rf -- "$stage_dir"; }
-trap cleanup EXIT
-mkdir -p "$stage_dir/$release_name"
-tar -C "$root_dir" \
-  --exclude='./.venv' --exclude='./tags' --exclude='./.ruff_cache' \
-  --exclude='./.pytest_cache' --exclude='*/__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-  -cf - . | tar -C "$stage_dir/$release_name" -xf -
-tar -C "$stage_dir" -czf "$root_dir/$project_archive" "$release_name"
-
-if [[ -d .venv ]]; then
-  echo "[INFO] Archiving the Linux virtual environment separately..."
-  tar -czf "$venv_archive" .venv
+if [[ "$reuse_project" == "false" ]]; then
+  mkdir -p "$stage_dir/$release_name"
+  echo "[INFO] Staging private project backup, including the host virtual environment..."
+  tar -C "$root_dir" \
+    --exclude='./tags' --exclude='./.ruff_cache' --exclude='./.pytest_cache' \
+    --exclude='*/__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
+    -cf - . | tar -C "$stage_dir/$release_name" -xf -
+  tar -C "$stage_dir" -czf "$root_dir/$project_archive" "$release_name"
 else
-  echo "[WARN] .venv was not found; no virtualenv archive was created."
-  venv_archive=""
+  echo "[INFO] Reusing the project backup already verified for this Git commit."
 fi
 
 runtime_dir="$stage_dir/${release_name}-offline-runtime-${target_arch}"
 mkdir -p "$runtime_dir"
 echo "[INFO] Staging the self-contained offline runtime bundle..."
 cp run-offline.bat run-offline.sh docker-compose.yml Caddyfile .env .env.example README.md LICENSE "$runtime_dir/"
-cp "$docker_archive" "$runtime_dir/${release_name}-docker-linux-${target_arch}.tar"
+cp "$docker_archive" "$runtime_dir/$docker_name"
 cp -a data "$runtime_dir/data"
 tar -C "$stage_dir" -czf "$root_dir/$runtime_archive" "${release_name}-offline-runtime-${target_arch}"
 
 {
   echo "Release: $release_name"
   echo "Project version: $project_version"
-  echo "Git commit: $(git rev-parse HEAD)"
+  echo "Git commit: $current_commit"
   echo "Docker platform: linux/$target_arch"
   echo "Created: $(date --iso-8601=seconds)"
   echo
-  sha256sum "$project_archive" "$docker_archive" "$runtime_archive"
-  [[ -z "$venv_archive" ]] || sha256sum "$venv_archive"
+  sha256sum "$project_archive" "$runtime_archive"
 } >"$manifest"
 
 echo "[OK] Release artifacts created in tags/:"
 echo "  $project_archive"
-[[ -z "$venv_archive" ]] || echo "  $venv_archive"
-echo "  $docker_archive"
 echo "  $runtime_archive"
 echo "  $manifest"
 echo "[WARN] The private project archive contains .env and data. Store and transfer it securely."

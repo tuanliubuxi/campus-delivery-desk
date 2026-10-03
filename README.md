@@ -185,15 +185,13 @@ docker compose ps
 
 ## 📦 私有备份与离线部署包
 
-根目录的发布脚本会在 Git 忽略的 `tags/` 中生成同一版本名的五类私有产物。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `campus-delivery-desk-v0.1.0-20261001`。
+根目录的发布脚本会在 Git 忽略的 `tags/` 中生成三类私有产物。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `campus-delivery-desk-v0.1.0-20261003`。
 
 | 产物后缀 | 内容 | 用途 |
 |---|---|---|
-| `-project-private.zip` / `.tar.gz` | 源码、`.git`、`.env`、`data/` 和本地文档 | 完整私有恢复与迁移 |
-| `-venv-windows-amd64.zip` / `-venv-linux-amd64.tar.gz` | 当前开发虚拟环境 | 同系统环境的辅助恢复，不用于生产部署 |
-| `-docker-linux-amd64.tar` | 应用镜像与 Caddy 镜像 | 目标机离线导入，不再下载 Python 或镜像依赖 |
+| `-project-private-windows-amd64.zip` / `-project-private-linux-arm64.tar.gz` | 源码、`.git`、`.env`、`data/`、本地文档和当前宿主机 `.venv` | 完整私有恢复；其中 `.venv` 只适用于相同宿主环境 |
 | `-offline-runtime-amd64.zip` / `.tar.gz` | Docker tar、启动脚本、Compose、Caddy、`.env` 与 `data/` | 最简迁移包；解压后直接运行离线脚本 |
-| `-manifest.txt` | Git commit、平台和 SHA-256 | 核对版本与文件完整性 |
+| `-manifest-amd64.txt` / `-manifest-arm64.txt` | Git commit、平台和 SHA-256 | 核对目标架构与文件完整性 |
 
 构建前应提交所有受 Git 跟踪的修改、停止 Compose 服务，并确认 `.env` 和数据库状态正确。Windows：
 
@@ -208,7 +206,9 @@ chmod +x build-release.sh run-offline.sh
 ./build-release.sh amd64
 ```
 
-`amd64` 可替换为 `arm64`；Docker 镜像必须与目标主机 CPU 架构一致。`.venv` 可能包含宿主机路径及平台相关二进制，因此必须单独保存，不能替代 Docker 离线包。
+`amd64` 可替换为 `arm64`；Docker 镜像必须与目标主机 CPU 架构一致。私有源码包中的 `.venv` 可能包含宿主机路径及平台相关二进制，只用于同环境恢复，不能替代 Docker 离线包。同一 Git commit 构建第二种目标架构时会复用已有源码包，不会再次复制 `.venv`。
+
+`arm64` 运行包面向安装了 Docker Engine 的 ARM64 Linux 主机。普通 Android Termux 不是受支持的 Docker Engine 主机；仅有 ARM64 镜像并不能绕过 Android 内核、权限、cgroup 和容器运行时要求。
 
 最简部署方式是在目标机安装好 Docker 后，只传输并解压 `offline-runtime` 包。进入解压目录后直接运行脚本；目录中只有一个 Docker tar 时会自动选择，存在多个版本时会列出编号并要求手动选择：
 
@@ -221,18 +221,20 @@ chmod +x run-offline.sh
 ./run-offline.sh
 ```
 
-如果使用完整项目包，或者需要自动化部署，也可以显式传入 Docker tar 路径：
+需要自动化部署时，也可以显式传入解压目录内的 Docker tar 路径：
 
 ```powershell
-.\run-offline.bat "..\campus-delivery-desk-v0.1.0-20261001-docker-linux-amd64.tar"
+.\run-offline.bat ".\campus-delivery-desk-v0.1.0-20261003-docker-linux-amd64.tar"
 ```
 
 ```bash
 chmod +x run-offline.sh
-./run-offline.sh ../campus-delivery-desk-v0.1.0-20261001-docker-linux-amd64.tar
+./run-offline.sh ./campus-delivery-desk-v0.1.0-20261003-docker-linux-amd64.tar
 ```
 
 脚本会执行 `docker load`、迁移、幂等初始化、必要时创建首个管理员，然后以 `--no-build --pull never` 启动服务。目标机仍须预先安装 Docker；固定域名首次签发公开 HTTPS 证书也需要网络。私有项目包包含密钥和业务数据，当前格式未加密，只能通过可信介质传输并妥善保管，禁止上传到公开仓库或公共网盘。
+
+首次部署时可直接解压运行包。后续升级不要把新运行包覆盖到现有目录，因为包内的初始 `data/` 可能覆盖生产数据；应先创建备份，保留原 `data/` 和 `.env`，再替换程序配置与镜像包并运行启动脚本。镜像成功导入后可以删除目录内的 Docker tar 来节省空间，但保留它可用于断网重装。
 
 ## 🗂️ 数据与运维
 
