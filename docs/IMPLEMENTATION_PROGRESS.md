@@ -247,3 +247,5 @@
 本阶段新增 `orders.0003_order_creation_operation_id`，通过安全的“可空字段 → 逐行 UUID 回填 → 非空唯一字段”迁移为历史及新订单建立创建幂等键；`orders.0004_order_creation_fingerprint` 保存请求指纹，拒绝同键不同内容。新增弱网 resilience 脚本、network-first 只读离线提示 service worker、`seed_demo`、`seed_initial_config` 与 `create_app_admin` 命令。生产镜像在临时空数据卷完成全量迁移、初始化配置、管理员幂等创建、PWA 静态文件收集、Recovery Check，并验证生产环境拒绝 `seed_demo`；临时卷和 Docker Desktop 已清理。真实 Android/Windows PWA 安装和 Android 相机/触控测试尚未执行，因此 Phase 11 不标记为全部完成。
 
 2026-10-01 发布加固补充：轮换本地生产密钥；增加生产/开发依赖 lock 并接入 Docker；新增仅限空白临时数据库的 10 万级基准命令。Customer 20,000 + Agent 1,000 + Order 79,000 本机复测的代表查询中位数均低于 500ms；同时消除 Dashboard 默认查询不必要的相关子查询和 DISTINCT。另在独立临时数据库完成 MANUAL 备份、PRE_RESTORE、真实 SQLite 恢复及维护模式核验。目标小主机端到端/并发复测和真实设备验收仍保留给部署验收。
+
+2026-10-04 `v0.1.2` 体验与可靠性修复：修复配送完成、路线/直送接单和转单表单未实际生成 `operation_id` 导致的 500；移动浏览器后台暂停后允许原会话恢复，但新登录接管、强制下线和口令重置仍会使旧会话失效。配送标注升级为拖拽圆圈/方框/直线并支持颜色、粗细、撤销、清空和保存；全局导航改为角色化分类、宽屏分组与窄屏底栏，账号控制固定在顶部。配置字段中文化，人员页面增加受限 Emoji 选择与租约在线指示，四套主题补齐表单/表格/提示配色。Bootstrap、HTMX、Alpine.js 和 Chart.js 固定版本已本地化，不再依赖页面运行时 CDN。真实手机触控、PWA 安装、局域网证书和跨设备会话接管仍按 `docs/MANUAL_ACCEPTANCE.md` 人工验收。

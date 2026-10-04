@@ -29,15 +29,30 @@ function cddCookie(name) {
 const heartbeatSeconds = Number(document.body?.dataset.heartbeatInterval || 0);
 const heartbeatUrl = document.body?.dataset.heartbeatUrl;
 if (heartbeatSeconds > 0 && heartbeatUrl) {
-  window.setInterval(() => {
-    fetch(heartbeatUrl, {
+  let heartbeatPending = false;
+  const sendHeartbeat = async () => {
+    if (heartbeatPending || document.visibilityState === "hidden") return;
+    heartbeatPending = true;
+    try {
+      const response = await fetch(heartbeatUrl, {
       method: "POST",
       headers: { "X-CSRFToken": cddCookie("csrftoken") },
       credentials: "same-origin",
-    }).then((response) => {
+      });
       if (response.status === 401) window.location.assign("/login/");
-    });
-  }, heartbeatSeconds * 1000);
+    } catch (_error) {
+      // A temporary network/certificate failure must not create an unhandled promise.
+    } finally {
+      heartbeatPending = false;
+    }
+  };
+  window.setInterval(sendHeartbeat, heartbeatSeconds * 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") sendHeartbeat();
+  });
+  window.addEventListener("focus", sendHeartbeat);
+  window.addEventListener("online", sendHeartbeat);
+  sendHeartbeat();
 }
 
 if ("serviceWorker" in navigator) {

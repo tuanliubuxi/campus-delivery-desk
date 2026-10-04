@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from django.contrib.auth import login as django_login
 from django.contrib.sessions.models import Session
-from django.db import IntegrityError, models, transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import ActiveLoginLease
@@ -98,28 +98,35 @@ def get_request_lease(request):
 
 
 def validate_request_lease(request):
-    """Reject stale sessions on every authenticated request, not only on heartbeat."""
+    """Validate lease ownership; inactivity alone does not destroy its browser session.
+
+    A stale lease remains replaceable by a new login.  If the original browser returns
+    first, its still-valid session may resume it.  A replacement/revocation always wins.
+    """
     lease = get_request_lease(request)
-    config = SiteConfiguration.load()
     now = timezone.now()
-    if not lease.is_fresh(stale_seconds=config.lease_stale_seconds, now=now):
+    if lease.expires_at <= now:
         with transaction.atomic():
-            _revoke(lease, actor=None, reason="STALE_REQUEST", now=now)
-        raise InvalidLease("登录租约已过期")
+            _revoke(lease, actor=None, reason="SESSION_EXPIRED", now=now)
+        raise InvalidLease("登录会话已过期")
     return lease
 
 
 def heartbeat(*, request):
-    """Refresh only the current valid lease; it never creates or replaces a lease."""
+    """Refresh the current owned lease, including after a mobile background pause."""
     lease = get_request_lease(request)
-    config = SiteConfiguration.load()
     now = timezone.now()
-    if not lease.is_fresh(stale_seconds=config.lease_stale_seconds, now=now):
+    if lease.expires_at <= now:
         with transaction.atomic():
-            _revoke(lease, actor=None, reason="STALE_HEARTBEAT", now=now)
-        raise InvalidLease("登录租约已过期")
+            _revoke(lease, actor=None, reason="SESSION_EXPIRED", now=now)
+        raise InvalidLease("登录会话已过期")
+    # Conditional update prevents a force-logout/new-login race from reviving a lease.
+    updated = ActiveLoginLease.objects.filter(pk=lease.pk, revoked_at__isnull=True).update(
+        last_seen_at=now
+    )
+    if updated != 1:
+        raise InvalidLease("登录租约已失效")
     lease.last_seen_at = now
-    lease.save(update_fields=["last_seen_at"])
     return lease
 
 
@@ -160,15 +167,19 @@ def revoke_all_user_leases(*, target_user, actor, reason):
 
 @transaction.atomic
 def cleanup_stale_leases(*, now=None):
-    """Revoke expired/stale leases and delete their server-side sessions."""
-    config = SiteConfiguration.load()
+    """Revoke expired/orphaned leases; intact stale browser sessions remain resumable."""
     now = now or timezone.now()
-    stale_before = now - timedelta(seconds=config.lease_stale_seconds)
-    leases = list(
-        ActiveLoginLease.objects.filter(revoked_at__isnull=True).filter(
-            models.Q(expires_at__lte=now) | models.Q(last_seen_at__lt=stale_before)
+    candidates = list(ActiveLoginLease.objects.filter(revoked_at__isnull=True))
+    session_keys = set(
+        Session.objects.filter(session_key__in=[item.session_key for item in candidates]).values_list(
+            "session_key", flat=True
         )
     )
+    leases = [
+        item
+        for item in candidates
+        if item.expires_at <= now or item.session_key not in session_keys
+    ]
     for lease in leases:
         _revoke(lease, actor=None, reason="STALE_CLEANUP", now=now)
     return len(leases)

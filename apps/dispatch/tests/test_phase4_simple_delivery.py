@@ -404,9 +404,36 @@ def test_task_action_pages_render_for_owner(client, recorder, customer, building
     task = claim_simple_task(order=order, courier=courier, operation_id=uuid.uuid4())
     login(client, courier)
     assert client.get(reverse("dispatch:task-detail", args=[task.pk])).status_code == 200
-    assert client.get(reverse("dispatch:complete", args=[task.pk])).status_code == 200
+    complete_response = client.get(reverse("dispatch:complete", args=[task.pk]))
+    assert complete_response.status_code == 200
+    assert 'name="operation_id"' in complete_response.content.decode()
     assert client.get(reverse("dispatch:transfers") + f"?order={order.pk}").status_code == 200
     assert client.get(reverse("dispatch:exceptions") + f"?order={order.pk}").status_code == 200
+
+
+@pytest.mark.django_db
+def test_complete_delivery_view_posts_with_generated_operation_id(
+    client, recorder, customer, building, couriers
+):
+    courier, _ = couriers
+    order = make_takeout(recorder, customer, building)
+    task = claim_simple_task(order=order, courier=courier, operation_id=uuid.uuid4())
+    mark_simple_picked(order=order, courier=courier)
+    start_simple_delivery(task=task, courier=courier)
+    login(client, courier)
+    response = client.post(
+        reverse("dispatch:complete", args=[task.pk]),
+        {
+            "operation_id": str(uuid.uuid4()),
+            "order_ids": [str(order.pk)],
+            "location_type": LocationType.RACK,
+            "final_location_text": "一楼外卖架",
+            "near_photo": image_upload(),
+        },
+    )
+    assert response.status_code == 302
+    order.refresh_from_db()
+    assert order.delivery_status == DeliveryStatus.DELIVERED
 
 
 @pytest.mark.django_db

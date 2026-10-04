@@ -28,11 +28,7 @@
     <h2 class="h5">最终放置凭证</h2>
     <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="consolidation-{{ round.pk }}">
       {% csrf_token %}{{ complete_form.as_p }}
-      <section id="annotation-tools" class="border rounded p-2 mb-3" hidden>
-        <div class="small mb-2">点击远景图可画红圈；保存后上传派生标注图，原图不会被覆盖。</div>
-        <canvas id="annotation-canvas" class="w-100 border"></canvas>
-        <div class="d-flex gap-2 mt-2"><button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-clear">清空</button><button type="button" class="btn btn-sm btn-outline-primary" id="annotation-save">保存标注</button></div>
-      </section>
+      {% include "includes/annotation_tools.html" %}
       <button class="btn btn-primary w-100">完成归拢</button>
     </form>
   </section>

@@ -6,7 +6,7 @@
   <section class="cdd-card p-4 shadow-sm">
     <h1 class="h3 mb-1">校驿</h1>
     <p class="cdd-muted">{% if admin_login %}管理员入口{% else %}选择角色与人员后输入口令{% endif %}</p>
-    <form method="post" novalidate>{% csrf_token %}
+    <form method="post" novalidate id="login-form">{% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
       <div class="mb-3">{{ form.role.label_tag }}{{ form.role }}{{ form.role.errors }}</div>
       <div class="mb-3"><label for="id_user">人员</label>
@@ -25,10 +25,12 @@
     {% endif %}
   </section>
 </main>
-{% if not admin_login %}<script>
+<script>
 document.addEventListener("DOMContentLoaded", () => {
   const role = document.getElementById("id_role");
   const people = document.getElementById("id_user");
+  const form = document.getElementById("login-form");
+  const storageKey = "cdd-last-login-user";
   const filterPeople = () => {
     for (const option of people.options) {
       if (!option.value) continue;
@@ -36,8 +38,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (option.hidden && option.selected) people.value = "";
     }
   };
-  role.addEventListener("change", filterPeople);
+  if (role.type !== "hidden") role.addEventListener("change", filterPeople);
   filterPeople();
+  try {
+    if (!people.value) {
+      const remembered = window.localStorage.getItem(storageKey);
+      const option = [...people.options].find((item) => item.value === remembered && !item.hidden);
+      if (option) people.value = remembered;
+    }
+  } catch (_error) { /* Storage may be unavailable in private browsing. */ }
+  form.addEventListener("submit", () => {
+    try { if (people.value) window.localStorage.setItem(storageKey, people.value); } catch (_error) {}
+  });
 });
-</script>{% endif %}
+</script>
 {% endblock %}

@@ -128,7 +128,12 @@
           headers: { "X-CDD-Resilient-Submit": "1" },
         });
         const target = new URL(response.url, window.location.href);
-        if (response.redirected && target.pathname !== "/login/") {
+        if (response.redirected && target.pathname.startsWith("/login/")) {
+          status.className = "alert alert-danger mt-3";
+          status.textContent = "登录已失效；当前表单和已选图片仍保留，请在新页面重新登录后再提交。";
+          return;
+        }
+        if (response.redirected) {
           storage("remove", key);
           window.location.assign(response.url);
           return;
@@ -139,7 +144,10 @@
           .map((node) => node.textContent.trim())
           .filter(Boolean);
         status.className = "alert alert-danger mt-3";
-        status.textContent = errors.join("；") || "提交未成功，表单和已选图片仍保留，可检查网络或字段后重试。";
+        if (errors.length) status.textContent = errors.join("；");
+        else if (response.status === 403) status.textContent = "安全校验已失效；表单和图片仍保留，请刷新页面后重试。";
+        else if (response.status >= 500) status.textContent = "服务器处理失败；表单和图片仍保留，请稍后重试或联系管理员查看日志。";
+        else status.textContent = "提交未成功；表单和图片仍保留，请检查必填项后重试。";
       } catch (_error) {
         status.className = "alert alert-warning mt-3";
         status.textContent = "网络连接失败，表单和已选图片仍保留；恢复网络后可直接重试。";

@@ -12,7 +12,7 @@
       <div class="mt-2">{{ order.recipient_name_snapshot }} · {% if order.off_campus_address %}{{ order.off_campus_address }}{% else %}{{ order.building_snapshot }} {{ order.floor_snapshot }} {{ order.room_snapshot }}{% endif %}</div>
       <form method="post" class="mt-3">{% csrf_token %}<input type="hidden" name="order_id" value="{{ order.pk }}"><input type="hidden" name="operation_id" value="{{ operation_id }}"><button class="btn btn-primary w-100 cdd-touch">确认接取</button></form>
     </article>
-  {% empty %}<div class="cdd-card p-4 text-center cdd-muted">当前业务没有可接的简单配送订单。快递路线接单将在 Phase 5 提供。</div>{% endfor %}
+  {% empty %}<div class="cdd-card p-4 text-center cdd-muted">当前业务暂时没有可接订单。可以稍后刷新，或返回顶部切换业务类型与接单状态。</div>{% endfor %}
   </div>
 </main>
 {% endblock %}

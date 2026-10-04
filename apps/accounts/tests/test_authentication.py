@@ -77,17 +77,18 @@ def test_stale_lease_can_be_replaced_and_old_session_is_deleted(client, recorder
 
 
 @pytest.mark.django_db
-def test_stale_session_cannot_continue_authenticated_requests(client, recorder):
+def test_stale_session_resumes_until_another_login_replaces_it(client, recorder):
     login(client, recorder)
     lease = ActiveLoginLease.objects.get(user=recorder, revoked_at__isnull=True)
     ActiveLoginLease.objects.filter(pk=lease.pk).update(
         last_seen_at=timezone.now() - timedelta(seconds=151)
     )
     response = client.get(reverse("customers:list"))
-    assert response.status_code == 302
-    assert reverse("accounts:login") in response.url
+    assert response.status_code == 200
+    assert client.post(reverse("accounts:heartbeat")).status_code == 200
     lease.refresh_from_db()
-    assert lease.revoked_at is not None
+    assert lease.revoked_at is None
+    assert lease.is_fresh()
 
 
 @pytest.mark.django_db

@@ -1,5 +1,5 @@
 {# Mobile-first personal statistics; team operating totals are deliberately absent. #}
-{% extends "layouts/base.html" %}
+{% extends "layouts/base.html" %}{% load static %}
 {% block title %}个人统计 · 校驿{% endblock %}
 {% block content %}
 <main class="container pb-5">
@@ -20,7 +20,7 @@
   </div>
 </main>
 {{ order_trend|json_script:"personal-chart-data" }}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
   // Only the signed-in courier's server-filtered order counts reach this chart.
   const personalData = JSON.parse(document.getElementById("personal-chart-data").textContent);

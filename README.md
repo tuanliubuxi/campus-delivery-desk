@@ -204,7 +204,7 @@ HTTPS_PORT=18443
 
 ## 📦 私有备份与离线部署包
 
-根目录的发布脚本会在 Git 忽略的 `tags/<版本名>/` 中生成三类私有产物，每个版本单独成目录。默认版本名来自 `pyproject.toml`，并附加构建日期，例如 `tags/campus-delivery-desk-v0.1.1-20261003/`。
+根目录的发布脚本会在 Git 忽略的 `tags/<版本名>/` 中生成三类私有产物，每个版本单独成目录。默认版本名中的 `0.1.2` 直接读取 `pyproject.toml` 的 `[project].version`，日期读取构建当天，例如 `tags/campus-delivery-desk-v0.1.2-20261004/`。准备新版本时先按语义化版本规则修改该字段：兼容性修复递增最后一位（`0.1.1 → 0.1.2`），新增兼容功能递增中间位，发生不兼容变化才递增第一位。也可把自定义发布名作为构建脚本第二个参数传入，但项目版本仍以 `pyproject.toml` 为准。
 
 | 产物后缀 | 内容 | 用途 |
 |---|---|---|
@@ -254,12 +254,12 @@ chmod +x run-offline.sh
 需要自动化部署时，也可以显式传入解压目录内的 Docker tar 路径：
 
 ```powershell
-.\run-offline.bat ".\campus-delivery-desk-v0.1.1-20261003-docker-linux-amd64.tar"
+.\run-offline.bat ".\campus-delivery-desk-v0.1.2-20261004-docker-linux-amd64.tar"
 ```
 
 ```bash
 chmod +x run-offline.sh
-./run-offline.sh ./campus-delivery-desk-v0.1.1-20261003-docker-linux-amd64.tar
+./run-offline.sh ./campus-delivery-desk-v0.1.2-20261004-docker-linux-amd64.tar
 ```
 
 脚本会执行 `docker load`、迁移、幂等初始化、必要时创建首个管理员，然后以 `--no-build --pull never` 启动服务。目标机仍须预先安装 Docker；固定域名首次签发公开 HTTPS 证书也需要网络。私有项目包包含密钥和业务数据，当前格式未加密，只能通过可信介质传输并妥善保管，禁止上传到公开仓库或公共网盘。
@@ -305,7 +305,7 @@ data/
 git diff --check
 ```
 
-当前自动回归共 112 项。10 万级性能基准、依赖锁和恢复演练见 [`docs/V1_HARDENING_REPORT.md`](docs/V1_HARDENING_REPORT.md)；真实 Android/Windows 验收见 [`docs/MANUAL_ACCEPTANCE.md`](docs/MANUAL_ACCEPTANCE.md)。
+自动回归覆盖领域服务、权限、页面、弱网与发布契约。10 万级性能基准、依赖锁和恢复演练见 [`docs/V1_HARDENING_REPORT.md`](docs/V1_HARDENING_REPORT.md)；真实 Android/Windows 验收见 [`docs/MANUAL_ACCEPTANCE.md`](docs/MANUAL_ACCEPTANCE.md)。
 
 ## 📁 项目结构
 

@@ -6,6 +6,18 @@ from apps.accounts.models import User
 from apps.common.enums import BusinessType, UserRole
 from apps.common.forms import BootstrapFormMixin
 
+EMOJI_CHOICES = (
+    ("🛠️", "🛠️ 管理"), ("🧭", "🧭 调度"), ("🧑‍💼", "🧑‍💼 主管"),
+    ("📝", "📝 录单"), ("💻", "💻 内勤"), ("📋", "📋 记录"),
+    ("🛵", "🛵 骑手"), ("🚴", "🚴 配送"), ("🏃", "🏃 跑腿"),
+    ("📦", "📦 包裹"), ("🚚", "🚚 运输"), ("🌟", "🌟 成员"),
+)
+ROLE_DEFAULT_EMOJI = {
+    UserRole.ADMIN: "🛠️",
+    UserRole.RECORDER: "📝",
+    UserRole.COURIER: "🛵",
+}
+
 
 class LoginForm(BootstrapFormMixin, forms.Form):
     role = forms.ChoiceField(label="角色", choices=UserRole.choices)
@@ -42,6 +54,12 @@ class LoginForm(BootstrapFormMixin, forms.Form):
 
 class UserCreateForm(BootstrapFormMixin, forms.ModelForm):
     password = forms.CharField(label="初始口令（留空自动生成）", required=False)
+    emoji_avatar = forms.ChoiceField(
+        label="Emoji 头像",
+        choices=EMOJI_CHOICES,
+        initial=ROLE_DEFAULT_EMOJI[UserRole.COURIER],
+        widget=forms.RadioSelect,
+    )
 
     class Meta:
         model = User
@@ -56,6 +74,7 @@ class UserCreateForm(BootstrapFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._apply_bootstrap_classes()
+        self.fields["emoji_avatar"].widget.attrs["class"] = "cdd-emoji-picker"
 
 
 class BusinessSelectionForm(BootstrapFormMixin, forms.Form):

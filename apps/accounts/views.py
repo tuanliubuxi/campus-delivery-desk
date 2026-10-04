@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import logout as django_logout
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.forms import BusinessSelectionForm, LoginForm, UserCreateForm
@@ -148,11 +149,23 @@ def user_list(request):
             form = UserCreateForm()
     else:
         form = UserCreateForm()
+    config = SiteConfiguration.load()
+    now = timezone.now()
+    users = list(User.objects.prefetch_related("login_leases").order_by("role", "display_name"))
+    for item in users:
+        lease = next((lease for lease in item.login_leases.all() if lease.revoked_at is None), None)
+        item.current_lease = lease
+        item.online_state = "offline"
+        item.online_label = "离线"
+        if lease and lease.is_fresh(stale_seconds=config.lease_stale_seconds, now=now):
+            lag = (now - lease.last_seen_at).total_seconds()
+            item.online_state = "delayed" if lag > config.heartbeat_interval_seconds * 2 else "online"
+            item.online_label = "心跳延迟" if item.online_state == "delayed" else "在线"
     return render(
         request,
         "accounts/user_list.html",
         {
-            "users": User.objects.all().order_by("role", "display_name"),
+            "users": users,
             "form": form,
             "generated_password": generated_password,
         },

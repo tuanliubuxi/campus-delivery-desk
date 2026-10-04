@@ -1,5 +1,5 @@
 {# Administrator-only multi-dimensional reporting surface. #}
-{% extends "layouts/base.html" %}
+{% extends "layouts/base.html" %}{% load static %}
 {% block title %}经营分析 · 校驿{% endblock %}
 {% block content %}
 <main class="container-fluid px-3 px-lg-4 pb-5">
@@ -71,7 +71,7 @@
   </section>
 </main>
 {{ charts|json_script:"dashboard-chart-data" }}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
   // Chart inputs are server-produced from the same immutable filter DTO as cards and Excel.
   const chartData = JSON.parse(document.getElementById("dashboard-chart-data").textContent);

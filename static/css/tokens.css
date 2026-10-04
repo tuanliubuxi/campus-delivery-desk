@@ -1,41 +1,36 @@
-/* Design tokens shared by light and dark themes; components consume these variables. */
-:root,
-[data-theme="light"] {
+/* Complete theme palettes; Bootstrap variables are mapped so controls change with the theme. */
+:root, [data-theme="light"] {
   color-scheme: light;
-  --cdd-bg: #f5f7fb;
-  --cdd-surface: #ffffff;
-  --cdd-text: #172033;
-  --cdd-muted: #526079;
-  --cdd-primary: #2456a6;
-  --cdd-border: #d8e0eb;
+  --cdd-bg: #f3f6fb; --cdd-surface: #ffffff; --cdd-elevated: #f8faff;
+  --cdd-nav: #e8eef8; --cdd-text: #172033; --cdd-muted: #526079;
+  --cdd-primary: #2456a6; --cdd-primary-text: #ffffff; --cdd-border: #ccd6e5;
+  --cdd-input: #ffffff; --cdd-danger: #b42318; --cdd-shadow: rgb(35 54 86 / 12%);
 }
-
 [data-theme="dark"] {
   color-scheme: dark;
-  --cdd-bg: #101724;
-  --cdd-surface: #1c2738;
-  --cdd-text: #f2f6fc;
-  --cdd-muted: #b1bed2;
-  --cdd-primary: #93b9ff;
-  --cdd-border: #35465e;
+  --cdd-bg: #0d1420; --cdd-surface: #172235; --cdd-elevated: #202e43;
+  --cdd-nav: #131f31; --cdd-text: #f2f6fc; --cdd-muted: #b4c1d5;
+  --cdd-primary: #83adff; --cdd-primary-text: #07162d; --cdd-border: #3b4d67;
+  --cdd-input: #111b2a; --cdd-danger: #ff8d8d; --cdd-shadow: rgb(0 0 0 / 35%);
 }
-
 [data-theme="warm"] {
   color-scheme: light;
-  --cdd-bg: #fbf4e9;
-  --cdd-surface: #fffaf2;
-  --cdd-text: #392a21;
-  --cdd-muted: #715d50;
-  --cdd-primary: #965025;
-  --cdd-border: #e6d4bf;
+  --cdd-bg: #f7efe3; --cdd-surface: #fffaf2; --cdd-elevated: #fdf3e4;
+  --cdd-nav: #ead9c4; --cdd-text: #3d2a20; --cdd-muted: #765e50;
+  --cdd-primary: #9b4b22; --cdd-primary-text: #ffffff; --cdd-border: #d9c3aa;
+  --cdd-input: #fffdf8; --cdd-danger: #a52f28; --cdd-shadow: rgb(91 55 31 / 14%);
 }
-
 [data-theme="fresh"] {
   color-scheme: light;
-  --cdd-bg: #eaf7f8;
-  --cdd-surface: #ffffff;
-  --cdd-text: #153344;
-  --cdd-muted: #496b78;
-  --cdd-primary: #087d92;
-  --cdd-border: #bddfe4;
+  --cdd-bg: #e5f6f7; --cdd-surface: #f8ffff; --cdd-elevated: #edfafa;
+  --cdd-nav: #cdebed; --cdd-text: #123845; --cdd-muted: #4b6f79;
+  --cdd-primary: #08788c; --cdd-primary-text: #ffffff; --cdd-border: #a9d7dc;
+  --cdd-input: #ffffff; --cdd-danger: #b22c3c; --cdd-shadow: rgb(8 85 101 / 13%);
+}
+
+[data-theme] {
+  --bs-body-bg: var(--cdd-bg); --bs-body-color: var(--cdd-text);
+  --bs-primary: var(--cdd-primary); --bs-link-color: var(--cdd-primary);
+  --bs-border-color: var(--cdd-border); --bs-secondary-color: var(--cdd-muted);
+  --bs-tertiary-bg: var(--cdd-elevated); --bs-emphasis-color: var(--cdd-text);
 }

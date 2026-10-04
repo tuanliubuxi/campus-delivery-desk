@@ -1,4 +1,4 @@
-{# Shared authenticated shell, navigation, theme controls, and global assets. #}
+{# Shared authenticated shell, grouped navigation, theme controls, and global assets. #}
 {% load static %}
 <!doctype html>
 <html lang="zh-CN" data-theme="{{ effective_theme|default:'light' }}">
@@ -8,11 +8,11 @@
   <meta name="theme-color" content="#2456a6">
   <link rel="manifest" href="{% url 'pwa-manifest' %}">
   <link rel="icon" href="{% static 'pwa/icon.svg' %}" type="image/svg+xml">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+  <script defer src="{% static 'vendor/htmx/htmx.min.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
   <script defer src="{% static 'js/app.js' %}"></script>
   <script defer src="{% static 'js/resilience.js' %}"></script>
   <title>{% block title %}校驿{% endblock %}</title>
@@ -21,68 +21,28 @@
       data-heartbeat-url="{% url 'accounts:heartbeat' %}"
       data-theme-url="{% url 'accounts:theme-preference' %}"
       data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
-  <div class="cdd-offline-banner" data-cdd-offline-banner role="status" hidden>
-    当前网络不可用：不能提交业务操作；页面中的文本和已选图片会保留供重试。
-  </div>
+  <div class="cdd-offline-banner" data-cdd-offline-banner role="status" hidden>当前网络不可用：不能提交业务操作；页面中的文本和已选图片会保留供重试。</div>
   {% if user.is_authenticated %}
-  <nav class="navbar cdd-nav border-bottom mb-3">
-    <div class="container-fluid gap-2">
-      <a class="navbar-brand fw-bold" href="{% url 'home' %}">校驿</a>
-      <div class="d-flex align-items-center gap-2 ms-auto flex-wrap justify-content-end">
-        {% if user.is_admin %}
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:new' %}">录单</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:quick-complete' %}">快速补录</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:history' %}">订单</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'dashboard:global-search' %}">搜索</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'dashboard:reports' %}">经营分析</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:user-list' %}">人员</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'config_center:index' %}">配置中心</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'agents:workspace' %}">代理</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'settlements:workspace' %}">结算</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'settlements:wages' %}">收益与工资</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'exceptions:workspace' %}">异常处理</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'consolidation:manual-create' %}">归拢管理</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'operations:media' %}">媒体</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'operations:backups' %}">备份维护</a>
-        {% elif user.is_recorder %}
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:new' %}">录单</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:quick-complete' %}">快速补录</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'orders:history' %}">订单</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'dashboard:global-search' %}">搜索</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'customers:list' %}">客户</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'agents:workspace' %}">代理</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'settlements:workspace' %}">结算</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'exceptions:workspace' %}">异常处理</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'consolidation:manual-create' %}">归拢管理</a>
-        {% elif user.is_courier %}
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:task-list' %}">任务</a>
-          {% if user.accepting_business == 'EXPRESS' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:express-route-pool' %}">快递接单</a>{% else %}<a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:new-tasks' %}">接单</a>{% endif %}
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'dispatch:transfers' %}">转单</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'consolidation:courier-list' %}">归拢</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'exceptions:courier-workspace' %}">异常</a>
-          <a class="btn btn-sm btn-outline-primary" href="{% url 'dashboard:courier-statistics' %}">个人统计</a>
-        {% endif %}
-        <select class="form-select form-select-sm cdd-theme-select" aria-label="主题"
-                onchange="cddSetTheme(this.value)">
+  <header class="cdd-app-header">
+    <div class="cdd-topbar">
+      <a class="cdd-brand" href="{% url 'home' %}">校驿</a>
+      <div class="cdd-account-cluster">
+        <select class="form-select form-select-sm cdd-theme-select" aria-label="主题" onchange="cddSetTheme(this.value)">
           <option value="light" {% if effective_theme == 'light' %}selected{% endif %}>亮色</option>
           <option value="dark" {% if effective_theme == 'dark' %}selected{% endif %}>暗色</option>
           <option value="warm" {% if effective_theme == 'warm' %}selected{% endif %}>暖色</option>
           <option value="fresh" {% if effective_theme == 'fresh' %}selected{% endif %}>蓝青</option>
         </select>
-        <span>{{ user.emoji_avatar }} {{ user.display_name }}</span>
-        <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
-          <button class="btn btn-sm btn-outline-danger">退出</button>
-        </form>
+        <span class="cdd-user"><span aria-hidden="true">{{ user.emoji_avatar }}</span><span>{{ user.display_name }}</span></span>
+        <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">退出</button></form>
       </div>
     </div>
-  </nav>
+    <nav class="cdd-business-nav" aria-label="主要功能">
+      {% if user.is_admin %}{% include "includes/nav_admin.html" %}{% elif user.is_recorder %}{% include "includes/nav_recorder.html" %}{% elif user.is_courier %}{% include "includes/nav_courier.html" %}{% endif %}
+    </nav>
+  </header>
   {% endif %}
-  {% if messages %}
-  <div class="container">
-    {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}
-  </div>
-  {% endif %}
+  {% if messages %}<div class="container cdd-message-stack">{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}</div>{% endif %}
   {% block content %}{% endblock %}
 </body>
 </html>

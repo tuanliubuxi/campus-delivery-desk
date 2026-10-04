@@ -13,7 +13,9 @@ from apps.orders.models import PickupArea, SizeClass
 from .models import DestinationZone, LocationType
 
 
-class OperationFormMixin:
+class OperationForm(forms.Form):
+    """Real Django form base so the metaclass collects the idempotency field."""
+
     operation_id = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4)
 
 
@@ -28,7 +30,7 @@ def _claim_choices(form, orders):
     return choices
 
 
-class RouteClaimForm(OperationFormMixin, forms.Form):
+class RouteClaimForm(OperationForm):
     order_ids = forms.MultipleChoiceField(choices=(), widget=forms.CheckboxSelectMultiple)
     pickup_area = forms.ChoiceField(choices=PickupArea.choices, widget=forms.HiddenInput)
     destination_zone = forms.ChoiceField(
@@ -41,7 +43,7 @@ class RouteClaimForm(OperationFormMixin, forms.Form):
         self.fields["order_ids"].choices = _claim_choices(self, orders)
 
 
-class DirectClaimForm(OperationFormMixin, forms.Form):
+class DirectClaimForm(OperationForm):
     order_ids = forms.MultipleChoiceField(choices=(), widget=forms.CheckboxSelectMultiple)
 
     def __init__(self, *args, orders, **kwargs):
@@ -56,7 +58,7 @@ class ConfirmExpressSizeForm(forms.Form):
     )
 
 
-class CompleteDropForm(OperationFormMixin, BootstrapFormMixin, forms.Form):
+class CompleteDropForm(BootstrapFormMixin, OperationForm):
     order_ids = forms.MultipleChoiceField(
         choices=(),
         widget=forms.CheckboxSelectMultiple,
@@ -85,7 +87,7 @@ class CompleteDropForm(OperationFormMixin, BootstrapFormMixin, forms.Form):
         self._apply_bootstrap_classes()
 
 
-class TransferRequestForm(OperationFormMixin, BootstrapFormMixin, forms.Form):
+class TransferRequestForm(BootstrapFormMixin, OperationForm):
     to_courier = forms.ModelChoiceField(queryset=User.objects.none(), label="接收配送员")
     reason_text = forms.CharField(
         max_length=255,

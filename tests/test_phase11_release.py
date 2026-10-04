@@ -12,10 +12,13 @@ from django.core.management.base import CommandError
 from django.test import Client, override_settings
 from django.urls import reverse
 
+from apps.accounts.forms import EMOJI_CHOICES, ROLE_DEFAULT_EMOJI, UserCreateForm
 from apps.accounts.models import User
 from apps.common.enums import UserRole
+from apps.config_center.forms import SiteConfigurationForm
 from apps.config_center.models import Building, BusinessTypeConfig
 from apps.customers.models import Customer
+from apps.dispatch.forms import DirectClaimForm, RouteClaimForm
 from apps.exceptions.models import ExceptionCase
 from apps.orders.forms import TakeoutOrderForm
 from apps.orders.models import DestinationType, Order, TakeoutGate
@@ -168,6 +171,37 @@ def test_release_documents_and_responsive_contracts_exist():
     assert "seed_demo" in readme and "seed_initial_config" in readme
     assert "max-width: 100%" in css
     assert "cdd-mobile-shell" in courier_template
+
+
+def test_ui_hardening_assets_and_local_dependencies():
+    root = Path(settings.BASE_DIR)
+    base = (root / "templates/layouts/base.html").read_text(encoding="utf-8")
+    annotation = (root / "static/js/annotation.js").read_text(encoding="utf-8")
+    css = (root / "static/css/app.css").read_text(encoding="utf-8")
+    assert "cdn.jsdelivr.net" not in base
+    for asset in (
+        "static/vendor/bootstrap/bootstrap.min.css",
+        "static/vendor/htmx/htmx.min.js",
+        "static/vendor/alpine/alpine.min.js",
+        "static/vendor/chartjs/chart.umd.min.js",
+    ):
+        assert (root / asset).is_file()
+    assert "pointerdown" in annotation and "annotation-shape" in annotation
+    assert "cdd-mobile-categories" in css and "cdd-account-cluster" in css
+
+
+def test_admin_forms_use_chinese_labels_and_fixed_emoji_choices():
+    config_form = SiteConfigurationForm()
+    assert config_form.fields["express_small_price"].label == "小件快递价格（元）"
+    assert config_form.fields["lease_stale_seconds"].label == "登录租约过期判断（秒）"
+    user_form = UserCreateForm()
+    assert tuple(user_form.fields["emoji_avatar"].choices) == EMOJI_CHOICES
+    assert ROLE_DEFAULT_EMOJI[UserRole.COURIER] == "🛵"
+
+
+def test_dispatch_claim_forms_emit_operation_id():
+    assert "operation_id" in RouteClaimForm(orders=[]).fields
+    assert "operation_id" in DirectClaimForm(orders=[]).fields
 
 
 def test_offline_release_layout_and_shared_deployment_contracts():
