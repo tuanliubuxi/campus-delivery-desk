@@ -99,7 +99,8 @@ if [[ "$reuse_project" == "false" ]]; then
   mkdir -p "$stage_dir/$release_name"
   echo "[INFO] Staging private project backup, including the host virtual environment..."
   tar -C "$root_dir" \
-    --exclude='./tags' --exclude='./deployments' --exclude='./.ruff_cache' --exclude='./.pytest_cache' \
+    --exclude='./tags' --exclude='./deployments' --exclude='./tmp' \
+    --exclude='./.ruff_cache' --exclude='./.pytest_cache' --exclude='./pytest-cache-files-*' \
     --exclude='*/__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
     -cf - . | tar -C "$stage_dir/$release_name" -xf -
   tar -C "$stage_dir" -czf "$root_dir/$project_archive" "$release_name"

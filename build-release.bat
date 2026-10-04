@@ -99,7 +99,7 @@ if errorlevel 1 exit /b 1
 if not defined CDD_REUSE_PROJECT (
   mkdir "%CDD_STAGE%\%CDD_RELEASE%" >nul || exit /b 1
   echo [INFO] Staging private project backup, including the host virtual environment...
-  robocopy "." "%CDD_STAGE%\%CDD_RELEASE%" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "tags" "deployments" ".ruff_cache" ".pytest_cache" "__pycache__" "staticfiles" /XF "*.pyc" "*.pyo"
+  robocopy "." "%CDD_STAGE%\%CDD_RELEASE%" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "tags" "deployments" "tmp" ".ruff_cache" ".pytest_cache" "pytest-cache-files-*" "__pycache__" "staticfiles" /XF "*.pyc" "*.pyo"
   set "CDD_ROBOCOPY=!ERRORLEVEL!"
   if !CDD_ROBOCOPY! GEQ 8 (
     echo [ERROR] Project staging failed with robocopy code !CDD_ROBOCOPY!.

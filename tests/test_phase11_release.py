@@ -216,6 +216,9 @@ def test_offline_release_layout_and_shared_deployment_contracts():
 
     assert "tags\\%CDD_RELEASE%" in batch_builder
     assert 'release_dir="tags/${release_name}"' in shell_builder
+    assert '"tmp"' in batch_builder and '"pytest-cache-files-*"' in batch_builder
+    assert "--exclude='./tmp'" in shell_builder
+    assert "--exclude='./pytest-cache-files-*'" in shell_builder
     assert "%CDD_DEPLOYMENTS%\\%CDD_DEPLOYMENT_NAME%" in batch_runner
     assert 'for /r "tags"' in batch_runner
     assert 'deployments_dir="$root_dir/deployments"' in shell_runner
