@@ -155,12 +155,12 @@ order_ids
 courier
 final_location_text
 location_type
-near_photo(optional for luggage)
+near_photos(0..4; optional for luggage)
 far_photo(optional)
 far_annotation(optional)
 ```
 
-普通配送至少 1 张 evidence；行李上楼允许无照片。
+普通配送至少 1 张 evidence；近景最多 4 张、远景最多 1 张；行李上楼允许无照片。
 
 远景标注由前端生成派生图片，服务端保存 parent_media 关系，不覆盖原远景图。
 

@@ -10,7 +10,7 @@
     <div>原位置：{% for di in item.order.delivery_drop_items.all %}{{ di.drop.final_location_text }}{% endfor %}</div>
     <div class="d-flex gap-2 flex-wrap my-2">
       {% for drop_item in item.order.delivery_drop_items.all %}{% for evidence in drop_item.drop.evidence.all %}
-        <a href="{% url 'mediafiles:download' evidence.media_id %}">查看{{ evidence.get_role_display }}</a>
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'mediafiles:download' evidence.media_id %}">查看{{ evidence.get_role_display }}</a>
       {% endfor %}{% endfor %}
     </div>
     <div>当前：{{ item.get_found_status_display }}</div>

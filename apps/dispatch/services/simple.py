@@ -10,7 +10,7 @@ from apps.audit.services import record_event
 from apps.common.enums import BusinessType, UserRole
 from apps.mediafiles.models import DeliveryEvidence, EvidenceRole, MediaVariant
 from apps.mediafiles.services import media_absolute_path, store_delivery_image
-from apps.orders.models import DeliveryStatus, Order, RecipientKind
+from apps.orders.models import DeliveryStatus, DispatchMode, Order, RecipientKind
 from apps.settlements.services import record_pending_earning
 
 from ..models import (
@@ -203,6 +203,7 @@ def complete_delivery_drop(
     location_type,
     operation_id,
     near_photo=None,
+    near_photos=None,
     far_photo=None,
     annotated_photo=None,
 ):
@@ -223,7 +224,12 @@ def complete_delivery_drop(
         location_type=location_type,
         final_location_text=final_location_text,
     )
-    if first.business_type != BusinessType.LUGGAGE_UPSTAIRS and not (near_photo or far_photo):
+    normalized_near_photos = list(near_photos or ([] if near_photo is None else [near_photo]))
+    if len(normalized_near_photos) > 4:
+        raise ValidationError("近景照片最多上传 4 张")
+    if first.business_type != BusinessType.LUGGAGE_UPSTAIRS and not (
+        normalized_near_photos or far_photo
+    ):
         raise ValidationError("普通配送至少上传一张照片")
     if annotated_photo and not far_photo:
         raise ValidationError("标注派生图必须同时提供远景原图")
@@ -231,9 +237,10 @@ def complete_delivery_drop(
     created_media = []
     try:
         with transaction.atomic():
-            near_media = store_delivery_image(upload=near_photo) if near_photo else None
-            if near_media:
-                created_media.append(near_media)
+            near_media_items = [
+                store_delivery_image(upload=upload) for upload in normalized_near_photos
+            ]
+            created_media.extend(near_media_items)
             far_media = store_delivery_image(upload=far_photo) if far_photo else None
             if far_media:
                 created_media.append(far_media)
@@ -288,7 +295,7 @@ def complete_delivery_drop(
                     express_rounds[order.express_detail.express_round_id] = (
                         order.express_detail.express_round
                     )
-            if near_media:
+            for near_media in near_media_items:
                 DeliveryEvidence.objects.create(
                     drop=drop,
                     media=near_media,
@@ -350,6 +357,10 @@ def return_simple_order_to_pool(*, order, courier):
         delivery_status=DeliveryStatus.NEW,
         updated_at=timezone.now(),
     )
+    if order.business_type == BusinessType.EXPRESS:
+        # Returning an untouched parcel restores the courier's delivery-mode choice.
+        order.express_detail.dispatch_mode = DispatchMode.UNDECIDED
+        order.express_detail.save(update_fields=["dispatch_mode"])
     _finish_task_if_empty(assignment.task)
     order.refresh_from_db()
     record_event(actor=courier, event_type="ORDER_RETURNED_TO_POOL", entity=order)

@@ -3,6 +3,7 @@
 import secrets
 import string
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from apps.accounts.models import User
@@ -72,6 +73,44 @@ def set_user_active(*, target_user, actor, is_active):
         metadata={"is_active": is_active},
     )
     return target_user
+
+
+def _user_has_related_history(user):
+    """Any reverse relation means this identity has already entered system history."""
+    for relation in user._meta.related_objects:
+        accessor = relation.get_accessor_name()
+        if not accessor:
+            continue
+        related = getattr(user, accessor)
+        if hasattr(related, "exists") and related.exists():
+            return True
+        if not hasattr(related, "exists") and related is not None:
+            return True
+    return False
+
+
+@transaction.atomic
+def delete_unused_user(*, target_user, actor):
+    """Physically delete only a mistaken, never-used account."""
+    _require_admin(actor)
+    target_user = User.objects.get(pk=target_user.pk)
+    if target_user.pk == actor.pk:
+        raise ValidationError("不能删除当前登录账号")
+    if target_user.is_superuser:
+        raise ValidationError("超级管理员不能在此处删除")
+    if _user_has_related_history(target_user):
+        raise ValidationError("该账号已有登录或业务记录，不能删除；请改为停用")
+    record_event(
+        actor=actor,
+        event_type="USER_DELETED",
+        entity=target_user,
+        metadata={
+            "username": target_user.username,
+            "display_name": target_user.display_name,
+            "role": target_user.role,
+        },
+    )
+    target_user.delete()
 
 
 @transaction.atomic

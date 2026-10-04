@@ -10,6 +10,7 @@ from .leases import (
 )
 from .users import (
     create_user_account,
+    delete_unused_user,
     reset_user_password,
     select_accepting_business,
     set_accepting_orders,
@@ -21,6 +22,7 @@ __all__ = [
     "AccountAlreadyOnline",
     "InvalidLease",
     "create_user_account",
+    "delete_unused_user",
     "cleanup_stale_leases",
     "force_logout",
     "heartbeat",

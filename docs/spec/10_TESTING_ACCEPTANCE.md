@@ -87,7 +87,8 @@
 
 ### 普通业务
 
-- 至少 1 张照片，第二张/标注可选。
+- 至少 1 张照片；近景最多 4 张、远景最多 1 张，远景/标注可选。
+- 第 5 张近景被表单和服务层共同拒绝；结算凭证包含全部仍有效的近景以及标注远景。
 - 多订单合并到一个 DeliveryDrop 时，必须验证：同一配送员有效责任、允许完成状态、同一 Customer/ProxyRecipient、同业务类型、目的地/实际放置动作兼容、同一位置文字和照片能够真实描述全部物品。
 - 不同客户或不同实际放置位置强制拆成不同 DeliveryDrop。
 - 配送完成创建 BASE_DELIVERY `PENDING_PAYMENT` CourierEarning，`settlement_id=NULL`，并使用确定性 earning_key 保证重复提交不重复创建。

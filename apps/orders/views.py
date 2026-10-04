@@ -58,7 +58,6 @@ DETAIL_FIELDS = {
         "pickup_identifier_type",
         "pickup_identifier",
         "size_class",
-        "dispatch_mode",
     ],
     BusinessType.TAKEOUT: ["pickup_gate", "other_pickup_location", "identifier"],
     BusinessType.KFC: ["pickup_location", "pickup_code"],
@@ -125,7 +124,12 @@ def order_create(request, business_type):
     return render(
         request,
         "orders/form.html",
-        {"form": form, "business_type": business_type, "is_create": True},
+        {
+            "form": form,
+            "business_type": business_type,
+            "business_label": BusinessType(business_type).label,
+            "is_create": True,
+        },
     )
 
 
@@ -214,6 +218,7 @@ def proxy_express_create(request, recipient_id):
         {
             "form": form,
             "business_type": BusinessType.EXPRESS,
+            "business_label": BusinessType.EXPRESS.label,
             "proxy_recipient": recipient,
             "is_create": True,
         },
@@ -223,8 +228,35 @@ def proxy_express_create(request, recipient_id):
 @recorder_or_admin_required
 def order_history(request):
     query = request.GET.get("q", "").strip()
-    page = Paginator(search_orders(query), 50).get_page(request.GET.get("page"))
-    return render(request, "orders/history.html", {"page": page, "query": query})
+    business_type = request.GET.get("business_type", "")
+    delivery_status = request.GET.get("delivery_status", "")
+    if business_type not in BusinessType.values:
+        business_type = ""
+    if delivery_status not in DeliveryStatus.values:
+        delivery_status = ""
+    page = Paginator(
+        search_orders(
+            query,
+            business_type=business_type,
+            delivery_status=delivery_status,
+        ),
+        50,
+    ).get_page(request.GET.get("page"))
+    filters = request.GET.copy()
+    filters.pop("page", None)
+    return render(
+        request,
+        "orders/history.html",
+        {
+            "page": page,
+            "query": query,
+            "business_type": business_type,
+            "delivery_status": delivery_status,
+            "business_choices": BusinessType.choices,
+            "status_choices": DeliveryStatus.choices,
+            "filter_query": filters.urlencode(),
+        },
+    )
 
 
 @recorder_or_admin_required
@@ -307,7 +339,13 @@ def order_edit(request, order_id):
     return render(
         request,
         "orders/form.html",
-        {"form": form, "business_type": order.business_type, "order": order, "is_create": False},
+        {
+            "form": form,
+            "business_type": order.business_type,
+            "business_label": order.get_business_type_display(),
+            "order": order,
+            "is_create": False,
+        },
     )
 
 

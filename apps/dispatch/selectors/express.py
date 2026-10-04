@@ -42,7 +42,10 @@ def _express_pool():
 
 
 def express_route_pool(*, pickup_area="", destination_zone=""):
-    queryset = _express_pool().filter(express_detail__dispatch_mode=DispatchMode.ROUTE)
+    # New orders are visible in both delivery-choice views until one courier claims them.
+    queryset = _express_pool().filter(
+        express_detail__dispatch_mode__in=[DispatchMode.UNDECIDED, DispatchMode.ROUTE]
+    )
     if pickup_area:
         queryset = queryset.filter(express_detail__pickup_area=pickup_area)
     if destination_zone:
@@ -59,7 +62,12 @@ def express_route_pool(*, pickup_area="", destination_zone=""):
 def express_direct_pool():
     return (
         _express_pool()
-        .filter(express_detail__dispatch_mode=DispatchMode.DIRECT_CUSTOMER)
+        .filter(
+            express_detail__dispatch_mode__in=[
+                DispatchMode.UNDECIDED,
+                DispatchMode.DIRECT_CUSTOMER,
+            ]
+        )
         .order_by(
             "-is_urgent",
             "building_route_order",

@@ -10,6 +10,11 @@ urlpatterns = [
     path("recorder/proxy/", views.proxy_workspace, name="workspace"),
     path("recorder/proxy/agents/new/", views.agent_create, name="agent-create"),
     path("recorder/proxy/agents/<int:agent_id>/edit/", views.agent_edit, name="agent-edit"),
+    path(
+        "recorder/proxy/agents/<int:agent_id>/delete/",
+        views.agent_delete,
+        name="agent-delete",
+    ),
     path("recorder/proxy/batches/new/", views.batch_create, name="batch-create"),
     path("recorder/proxy/batches/<int:batch_id>/", views.batch_detail, name="batch-detail"),
     path(

@@ -38,6 +38,7 @@ from apps.dispatch.services import (
     confirm_express_size,
     create_transfer_request,
     mark_express_picked,
+    return_simple_order_to_pool,
     start_simple_delivery,
 )
 from apps.orders.models import (
@@ -180,6 +181,41 @@ def test_route_claim_allows_partial_success_and_is_idempotent(recorder, couriers
     assert repeated == result
     assert result.task.task_type == TaskType.ROUTE_BATCH
     assert result.task.route_batch.pickup_area == PickupArea.SOUTH
+
+
+@pytest.mark.django_db
+def test_new_express_mode_is_chosen_on_claim_and_reset_on_unpicked_return(
+    recorder, couriers, buildings
+):
+    courier, _ = couriers
+    building, _ = buildings
+    customer = make_customer(recorder, building)
+    order = create_express_order(
+        actor=recorder,
+        customer=customer,
+        pickup_area=PickupArea.SOUTH,
+        pickup_identifier_type=PickupIdentifierType.PICKUP_CODE,
+        pickup_identifier="MODE-1",
+        building=building,
+        floor="3",
+        room="301",
+        destination_type=DestinationType.CAMPUS_BUILDING,
+        requires_upstairs=False,
+        is_urgent=False,
+        order_note="mode",
+    )
+    assert order.express_detail.dispatch_mode == DispatchMode.UNDECIDED
+    assert express_route_pool().filter(pk=order.pk).exists()
+    assert express_direct_pool().filter(pk=order.pk).exists()
+
+    claim_direct_orders(order_ids=[order.pk], courier=courier, operation_id=uuid.uuid4())
+    order.express_detail.refresh_from_db()
+    assert order.express_detail.dispatch_mode == DispatchMode.DIRECT_CUSTOMER
+
+    order.refresh_from_db()
+    return_simple_order_to_pool(order=order, courier=courier)
+    order.express_detail.refresh_from_db()
+    assert order.express_detail.dispatch_mode == DispatchMode.UNDECIDED
 
 
 @pytest.mark.django_db

@@ -21,4 +21,5 @@ urlpatterns = [
     path("admin-console/users/<int:user_id>/force-logout/", views.force_logout_view, name="force-logout"),
     path("admin-console/users/<int:user_id>/reset-password/", views.reset_password_view, name="reset-password"),
     path("admin-console/users/<int:user_id>/toggle-active/", views.toggle_active_view, name="toggle-active"),
+    path("admin-console/users/<int:user_id>/delete/", views.delete_user_view, name="delete-user"),
 ]

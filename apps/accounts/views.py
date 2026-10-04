@@ -2,6 +2,7 @@
 
 from django.contrib import messages
 from django.contrib.auth import logout as django_logout
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -13,6 +14,7 @@ from apps.accounts.services import (
     AccountAlreadyOnline,
     InvalidLease,
     create_user_account,
+    delete_unused_user,
     force_logout,
     heartbeat,
     login_user_with_lease,
@@ -198,6 +200,19 @@ def toggle_active_view(request, user_id):
         messages.error(request, "不能停用当前登录账号")
     else:
         set_user_active(target_user=target, actor=request.user, is_active=not target.is_active)
+    return redirect("accounts:user-list")
+
+
+@require_POST
+@admin_required
+def delete_user_view(request, user_id):
+    target = get_object_or_404(User, pk=user_id)
+    try:
+        delete_unused_user(target_user=target, actor=request.user)
+    except ValidationError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "未使用账号已删除")
     return redirect("accounts:user-list")
 
 

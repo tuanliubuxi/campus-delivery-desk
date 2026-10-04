@@ -29,7 +29,7 @@
 
   function draftFields(form) {
     return [...form.elements].filter((field) => {
-      if (!field.name || field.disabled) return false;
+      if (!field.name || field.disabled || field.hasAttribute("data-cdd-draft-ignore")) return false;
       if (["password", "file", "submit", "button"].includes(field.type)) return false;
       if (field.name === "csrfmiddlewaretoken") return false;
       return field.matches("input, textarea, select");
@@ -99,7 +99,7 @@
 
     const controls = document.createElement("div");
     controls.className = "cdd-draft-controls small text-secondary mt-2";
-    controls.innerHTML = '<span>文本草稿会保存在当前设备。</span> <button type="button" class="btn btn-link btn-sm p-0">清除草稿</button>';
+    controls.innerHTML = '<span>文本草稿会保存在当前设备。</span> <button type="button" class="btn btn-sm btn-outline-secondary ms-1">清除草稿</button>';
     controls.querySelector("button").addEventListener("click", () => {
       storage("remove", key);
       controls.querySelector("span").textContent = "本地草稿已清除。";

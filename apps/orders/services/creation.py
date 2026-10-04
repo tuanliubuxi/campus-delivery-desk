@@ -261,7 +261,7 @@ def create_express_order(
     service_date=None,
     outside_pickup_location="",
     size_class=SizeClass.UNKNOWN,
-    dispatch_mode=DispatchMode.ROUTE,
+    dispatch_mode=DispatchMode.UNDECIDED,
     allow_duplicate=False,
     **common,
 ):

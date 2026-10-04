@@ -43,7 +43,7 @@
 | pickup_identifier_type | 是 | 取件码/运单号/其他 |
 | pickup_identifier | 是 | max 128/255 |
 | size_class | 是 | UNKNOWN 允许 |
-| dispatch_mode | 是 | ROUTE/DIRECT_CUSTOMER |
+| dispatch_mode | 系统 | 创建时 UNDECIDED；配送员接单时冻结为 ROUTE/DIRECT_CUSTOMER；未取件退池重置 |
 | 目的楼栋或校外地址 | 是 | 校内/校外二选一 |
 | off_campus_address | 条件 | 送校外时必填 |
 
@@ -87,9 +87,9 @@ UNKNOWN 在 Settlement 前必须被配送员确认。ExpressOrderDetail 必须�
 
 ## 10. 配送完成
 
-普通业务：至少 1 张照片 + final_location_text。
+普通业务：至少 1 张照片 + final_location_text；近景 0–4 张，远景 0–1 张。
 
-第二张远景和标注可空。
+远景和标注可空。
 
 行李：照片可空；final_location_text 可自动为“客户现场确认/送至X楼X室”，但必须有可读值。
 

@@ -13,7 +13,6 @@ from apps.customers.models import Customer
 from apps.dispatch.models import LocationType
 from apps.orders.models import (
     DestinationType,
-    DispatchMode,
     EntryMode,
     PickupArea,
     PickupIdentifierType,
@@ -104,10 +103,6 @@ class ExpressOrderForm(CommonOrderForm):
     size_class = forms.ChoiceField(
         choices=SizeClass.choices, initial=SizeClass.UNKNOWN, label="快递大小"
     )
-    dispatch_mode = forms.ChoiceField(
-        choices=DispatchMode.choices, initial=DispatchMode.ROUTE, label="配送方式"
-    )
-
     def clean(self):
         cleaned = super().clean()
         if cleaned.get("pickup_area") == PickupArea.OUTSIDE:

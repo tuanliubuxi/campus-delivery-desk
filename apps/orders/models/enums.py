@@ -65,6 +65,7 @@ class SizeClass(models.TextChoices):
 
 
 class DispatchMode(models.TextChoices):
+    UNDECIDED = "UNDECIDED", "待配送员选择"
     ROUTE = "ROUTE", "路线配送"
     DIRECT_CUSTOMER = "DIRECT_CUSTOMER", "客户直送"
 

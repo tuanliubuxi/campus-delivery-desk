@@ -3,6 +3,7 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Max
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
 from apps.agents.models import Agent, ProxyBatch, ProxyBatchStatus, ProxyRecipient
@@ -31,10 +32,25 @@ def ensure_batch_accepts_members(batch):
         raise ProxyBatchClosedError("只有录入中的代理批次可以新增临时收件人或快递")
 
 
+def _normalized_agent_name(value):
+    return " ".join(value.split()).casefold()
+
+
+def _validate_unique_agent_name(*, name, exclude_id=None):
+    normalized = _normalized_agent_name(name)
+    if not normalized:
+        raise ValidationError("代理人名称不能为空")
+    candidates = Agent.objects.exclude(pk=exclude_id).values_list("name", flat=True)
+    if any(_normalized_agent_name(candidate) == normalized for candidate in candidates):
+        raise ValidationError("已存在同名代理人，请直接使用或编辑现有记录")
+    return " ".join(name.split())
+
+
 @transaction.atomic
 def create_agent(*, actor, name, contact_text="", note=""):
     _require_operator(actor)
-    agent = Agent(name=name.strip(), contact_text=contact_text.strip(), note=note.strip())
+    name = _validate_unique_agent_name(name=name)
+    agent = Agent(name=name, contact_text=contact_text.strip(), note=note.strip())
     agent.full_clean()
     agent.save()
     record_event(
@@ -56,7 +72,7 @@ def update_agent(*, actor, agent, name, contact_text="", note="", is_active=True
         "note": agent.note,
         "is_active": agent.is_active,
     }
-    agent.name = name.strip()
+    agent.name = _validate_unique_agent_name(name=name, exclude_id=agent.pk)
     agent.contact_text = contact_text.strip()
     agent.note = note.strip()
     agent.is_active = is_active
@@ -75,6 +91,24 @@ def update_agent(*, actor, agent, name, contact_text="", note="", is_active=True
         metadata={"before": before, "after": after},
     )
     return agent
+
+
+@transaction.atomic
+def delete_agent(*, actor, agent):
+    """Delete only an unused profile; historical batches continue to protect their agent."""
+    _require_operator(actor)
+    agent = Agent.objects.get(pk=agent.pk)
+    snapshot = {"id": agent.pk, "name": agent.name}
+    record_event(
+        actor=actor,
+        event_type="AGENT_DELETED",
+        entity=agent,
+        metadata=snapshot,
+    )
+    try:
+        agent.delete()
+    except ProtectedError as exc:
+        raise ValidationError("该代理人已有批次记录，不能删除；可改为停用") from exc
 
 
 @transaction.atomic

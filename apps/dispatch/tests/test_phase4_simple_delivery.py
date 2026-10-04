@@ -37,7 +37,7 @@ from apps.dispatch.services import (
 )
 from apps.exceptions.models import ExceptionStatus
 from apps.exceptions.services import create_exception_case, resolve_exception_case
-from apps.mediafiles.models import MediaVariant
+from apps.mediafiles.models import EvidenceRole, MediaVariant
 from apps.orders.models import DeliveryStatus, DestinationType, TakeoutGate
 from apps.orders.services import (
     cancel_order,
@@ -434,6 +434,35 @@ def test_complete_delivery_view_posts_with_generated_operation_id(
     assert response.status_code == 302
     order.refresh_from_db()
     assert order.delivery_status == DeliveryStatus.DELIVERED
+
+
+@pytest.mark.django_db
+def test_complete_delivery_rejects_more_than_four_near_photos(
+    recorder, customer, building, couriers
+):
+    courier, _ = couriers
+    order = make_takeout(recorder, customer, building)
+    task = claim_simple_task(order=order, courier=courier, operation_id=uuid.uuid4())
+    mark_simple_picked(order=order, courier=courier)
+    start_simple_delivery(task=task, courier=courier)
+    with pytest.raises(ValidationError, match="最多上传 4 张"):
+        complete_delivery_drop(
+            order_ids=[order.pk],
+            courier=courier,
+            final_location_text="一楼外卖架",
+            location_type=LocationType.RACK,
+            operation_id=uuid.uuid4(),
+            near_photos=[image_upload() for _ in range(5)],
+        )
+    drop = complete_delivery_drop(
+        order_ids=[order.pk],
+        courier=courier,
+        final_location_text="一楼外卖架",
+        location_type=LocationType.RACK,
+        operation_id=uuid.uuid4(),
+        near_photos=[image_upload() for _ in range(4)],
+    )
+    assert drop.evidence.filter(role=EvidenceRole.NEAR).count() == 4
 
 
 @pytest.mark.django_db

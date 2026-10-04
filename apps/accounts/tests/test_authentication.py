@@ -4,11 +4,12 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.sessions.models import Session
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import ActiveLoginLease, User
-from apps.accounts.services import reset_user_password, set_accepting_orders
+from apps.accounts.services import delete_unused_user, reset_user_password, set_accepting_orders
 from apps.common.enums import BusinessType, UserRole
 
 
@@ -190,3 +191,25 @@ def test_normal_login_rejects_admin_role(client, admin_user):
     )
     assert response.status_code == 200
     assert not ActiveLoginLease.objects.filter(user=admin_user).exists()
+
+
+@pytest.mark.django_db
+def test_admin_can_delete_only_never_used_account(admin_user, recorder):
+    unused = User.objects.create_user(
+        username="mistake",
+        password="Strong-pass-123",
+        display_name="误建账号",
+        role=UserRole.COURIER,
+    )
+    unused_id = unused.pk
+    delete_unused_user(target_user=unused, actor=admin_user)
+    assert not User.objects.filter(pk=unused_id).exists()
+
+    ActiveLoginLease.objects.create(
+        user=recorder,
+        session_key="used-session",
+        lease_token_hash="hash",
+        expires_at=timezone.now() + timedelta(days=1),
+    )
+    with pytest.raises(ValidationError, match="已有登录或业务记录"):
+        delete_unused_user(target_user=recorder, actor=admin_user)

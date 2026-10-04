@@ -10,9 +10,10 @@
       {{ form.as_p }}
       <div class="d-flex gap-2">
         <button class="btn btn-primary cdd-touch">保存</button>
-        <a class="btn btn-link cdd-touch" href="{% url 'agents:workspace' %}">取消</a>
+        <a class="btn btn-outline-secondary cdd-touch" href="{% url 'agents:workspace' %}">取消</a>
       </div>
     </form>
+    {% if agent %}<form method="post" action="{% url 'agents:agent-delete' agent.pk %}" class="mt-2" onsubmit="return confirm('仅未产生批次记录的代理人可以删除。确认继续？')">{% csrf_token %}<button class="btn btn-outline-danger">删除</button></form>{% endif %}
   </section>
 </main>
 {% endblock %}

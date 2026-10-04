@@ -2,6 +2,7 @@
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.common.permissions import admin_required
 from apps.config_center.forms import (
@@ -29,7 +30,24 @@ from apps.config_center.services import (
 def config_index(request):
     context = configuration_center_data()
     context["buildings"] = Building.objects.all()
+    for item in context["business_configs"]:
+        item.edit_form = BusinessTypeConfigForm(instance=item)
+    for item in context["commissions"]:
+        item.edit_form = CommissionConfigForm(instance=item)
     return render(request, "config_center/index.html", context)
+
+
+@require_POST
+@admin_required
+def business_config_toggle(request, config_id):
+    config = get_object_or_404(BusinessTypeConfig, pk=config_id)
+    save_business_config(
+        actor=request.user,
+        config=config,
+        enabled=request.POST.get("enabled") == "on",
+    )
+    messages.success(request, f"{config.display_name}状态已更新")
+    return redirect("config_center:index")
 
 
 @admin_required

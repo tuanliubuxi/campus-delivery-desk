@@ -3,7 +3,7 @@
 {% block title %}任务 #{{ task.pk }} · 校驿{% endblock %}
 {% block content %}
 <main class="container py-3 cdd-mobile-shell">
-  <a href="{% url 'dispatch:task-list' %}">← 我的任务</a><h1 class="h4 mt-2">{{ task.get_business_type_display }} · 任务 #{{ task.pk }}</h1>
+  <a class="btn btn-sm btn-outline-secondary" href="{% url 'dispatch:task-list' %}">← 我的任务</a><h1 class="h4 mt-2">{{ task.get_business_type_display }} · 任务 #{{ task.pk }}</h1>
   {% for assignment in assignments %}
   <article class="cdd-card p-3 mb-3"><div class="d-flex justify-content-between"><strong>{{ assignment.order.display_id }}</strong><span>{{ assignment.order.get_delivery_status_display }}</span></div><div class="mt-2">{{ assignment.order.recipient_name_snapshot }}</div><div class="cdd-muted">{% if assignment.order.off_campus_address %}{{ assignment.order.off_campus_address }}{% else %}{{ assignment.order.building_snapshot }} {{ assignment.order.floor_snapshot }} {{ assignment.order.room_snapshot }}{% endif %}</div>
     {% if assignment.order.business_type == 'EXPRESS' %}<div class="small mt-2">{{ assignment.order.express_detail.get_pickup_area_display }}{% if assignment.order.express_detail.outside_pickup_location %} · <strong>{{ assignment.order.express_detail.outside_pickup_location }}</strong>{% endif %} · 取件标识 {{ assignment.order.express_detail.pickup_identifier }} · {{ assignment.order.express_detail.get_size_class_display }}</div>{% if assignment.order.is_urgent %}<span class="badge text-bg-danger mt-2">加急</span>{% endif %}{% endif %}
@@ -13,6 +13,6 @@
       <a class="btn btn-outline-primary" href="{% url 'dispatch:transfers' %}?order={{ assignment.order.pk }}">转单</a><a class="btn btn-outline-danger" href="{% url 'dispatch:exceptions' %}?order={{ assignment.order.pk }}">报告异常</a>
     </div>{% endif %}
   </article>{% endfor %}
-  {% if task.status == 'ACTIVE' %}<div class="d-grid gap-2"><form method="post" action="{% url 'dispatch:task-start' task.pk %}">{% csrf_token %}<button class="btn btn-warning w-100 cdd-touch">开始配送已取物品</button></form><a class="btn btn-success cdd-touch" href="{% url 'dispatch:complete' task.pk %}">完成配送</a></div>{% endif %}
+  {% if task.status == 'ACTIVE' %}<div class="d-grid gap-2">{% if can_start %}<form method="post" action="{% url 'dispatch:task-start' task.pk %}">{% csrf_token %}<button class="btn btn-warning w-100 cdd-touch">开始配送已取物品</button></form>{% endif %}{% if can_complete %}<a class="btn btn-success cdd-touch" href="{% url 'dispatch:complete' task.pk %}">完成配送</a>{% endif %}</div>{% endif %}
 </main>
 {% endblock %}

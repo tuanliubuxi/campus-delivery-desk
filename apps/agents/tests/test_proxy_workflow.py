@@ -8,13 +8,14 @@ from django.db import IntegrityError
 from django.urls import reverse
 
 from apps.accounts.models import User
-from apps.agents.models import ProxyBatch, ProxyBatchStatus, ProxyRecipient
+from apps.agents.models import Agent, ProxyBatch, ProxyBatchStatus, ProxyRecipient
 from apps.agents.selectors import search_agents, search_proxy_batches
 from apps.agents.services import (
     ProxyBatchClosedError,
     create_agent,
     create_proxy_batch,
     create_proxy_recipient,
+    delete_agent,
     update_agent,
     update_proxy_recipient,
     validate_agent_source_business_type,
@@ -88,6 +89,17 @@ def test_agent_batch_and_recipient_are_created_with_audit(recorder, building):
     assert AuditEvent.objects.filter(
         event_type="PROXY_RECIPIENT_CREATED", entity_id=recipient.pk
     ).exists()
+
+
+@pytest.mark.django_db
+def test_agent_name_is_normalized_unique_and_only_unused_agent_can_be_deleted(recorder):
+    agent = create_agent(actor=recorder, name="  校园   代理  ")
+    assert agent.name == "校园 代理"
+    with pytest.raises(ValidationError, match="同名代理人"):
+        create_agent(actor=recorder, name="校园 代理")
+    agent_id = agent.pk
+    delete_agent(actor=recorder, agent=agent)
+    assert not Agent.objects.filter(pk=agent_id).exists()
 
 
 @pytest.mark.django_db

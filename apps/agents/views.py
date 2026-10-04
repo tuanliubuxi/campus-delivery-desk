@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.agents.forms import AgentEditForm, AgentForm, ProxyBatchForm, ProxyRecipientForm
@@ -14,6 +15,7 @@ from apps.agents.services import (
     create_agent,
     create_proxy_batch,
     create_proxy_recipient,
+    delete_agent,
     reopen_proxy_batch,
     update_agent,
     update_proxy_recipient,
@@ -38,9 +40,13 @@ def proxy_workspace(request):
 def agent_create(request):
     form = AgentForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        agent = create_agent(actor=request.user, **form.cleaned_data)
-        messages.success(request, f"代理人“{agent.name}”已创建")
-        return redirect("agents:batch-create", agent=agent.pk)
+        try:
+            agent = create_agent(actor=request.user, **form.cleaned_data)
+        except ValidationError as exc:
+            form.add_error("name", exc)
+        else:
+            messages.success(request, f"代理人“{agent.name}”已创建")
+            return redirect(f"{reverse('agents:batch-create')}?agent={agent.pk}")
     return render(request, "agents/form.html", {"form": form, "title": "新建代理人"})
 
 
@@ -49,14 +55,31 @@ def agent_edit(request, agent_id):
     agent = get_object_or_404(Agent, pk=agent_id)
     form = AgentEditForm(request.POST or None, instance=agent)
     if request.method == "POST" and form.is_valid():
-        agent = update_agent(actor=request.user, agent=agent, **form.cleaned_data)
-        messages.success(request, f"代理人“{agent.name}”已更新")
-        return redirect("agents:workspace")
+        try:
+            agent = update_agent(actor=request.user, agent=agent, **form.cleaned_data)
+        except ValidationError as exc:
+            form.add_error("name", exc)
+        else:
+            messages.success(request, f"代理人“{agent.name}”已更新")
+            return redirect("agents:workspace")
     return render(
         request,
         "agents/form.html",
         {"form": form, "title": "编辑代理人", "agent": agent},
     )
+
+
+@require_POST
+@recorder_or_admin_required
+def agent_delete(request, agent_id):
+    agent = get_object_or_404(Agent, pk=agent_id)
+    try:
+        delete_agent(actor=request.user, agent=agent)
+    except ValidationError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "代理人已删除")
+    return redirect("agents:workspace")
 
 
 @recorder_or_admin_required

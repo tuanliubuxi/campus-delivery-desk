@@ -181,7 +181,7 @@ outside_pickup_location   OUTSIDE 时必填
 pickup_identifier_type    PICKUP_CODE / WAYBILL / OTHER
 pickup_identifier         必填自由文本
 size_class                UNKNOWN / SMALL / MEDIUM / LARGE / OVERSIZE
-dispatch_mode             ROUTE / DIRECT_CUSTOMER
+dispatch_mode             UNDECIDED / ROUTE / DIRECT_CUSTOMER
 
 small_price_snapshot      Decimal
 medium_price_snapshot     Decimal

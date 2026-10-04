@@ -3,11 +3,14 @@
 import shutil
 import uuid
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
+from PIL import Image
 
 from apps.accounts.models import User
 from apps.agents.models import ProxyBatchStatus
@@ -22,6 +25,8 @@ from apps.common.enums import BusinessType, UserRole
 from apps.config_center.models import Building
 from apps.customers.models import Customer
 from apps.dispatch.models import DeliveryDrop, DeliveryDropItem, LocationType
+from apps.mediafiles.models import DeliveryEvidence, EvidenceRole
+from apps.mediafiles.services import media_absolute_path, store_delivery_image
 from apps.orders.models import (
     DeliveryStatus,
     DestinationType,
@@ -130,6 +135,41 @@ def test_build_does_not_freeze_then_freeze_creates_lines_receipt_and_waiting():
     assert settlement.amount_due_snapshot == frozen_total
     assert settlement.lines.count() == 2
     assert not settlement.image_versions.filter(is_active=True).exists()
+
+
+def _uploaded_test_image(name, color):
+    buffer = BytesIO()
+    Image.new("RGB", (240, 180), color).save(buffer, format="JPEG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/jpeg")
+
+
+@pytest.mark.django_db
+def test_customer_receipt_collages_every_available_delivery_photo():
+    recorder, courier, order = make_context()
+    drop = DeliveryDrop.objects.get(items__order=order)
+    for index, color in enumerate(("red", "green", "blue"), start=1):
+        media = store_delivery_image(
+            upload=_uploaded_test_image(f"proof-{index}.jpg", color)
+        )
+        DeliveryEvidence.objects.create(
+            drop=drop,
+            media=media,
+            role=EvidenceRole.NEAR,
+        )
+
+    settlement = build_settlement(
+        order_ids=[order.pk], actor=recorder, operation_id=uuid.uuid4()
+    )
+    freeze_settlement_for_payment(settlement=settlement, actor=recorder)
+
+    version = SettlementImageVersion.objects.get(
+        settlement=settlement,
+        image_type=SettlementImageType.CUSTOMER_SETTLEMENT,
+        is_active=True,
+    )
+    with Image.open(media_absolute_path(version.media)) as receipt:
+        # Three photos require two collage rows, so the receipt grows beyond the base height.
+        assert receipt.height > 900
 
 
 @pytest.mark.django_db

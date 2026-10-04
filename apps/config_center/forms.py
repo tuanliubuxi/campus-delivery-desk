@@ -48,6 +48,8 @@ class BusinessTypeConfigForm(BootstrapFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Enable/disable has its own immediate switch on the configuration overview.
+        self.fields.pop("enabled", None)
         self._apply_bootstrap_classes()
 
 

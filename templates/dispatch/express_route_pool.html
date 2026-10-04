@@ -3,7 +3,7 @@
 {% block title %}快递路线接单 · 校驿{% endblock %}
 {% block content %}
 <main class="container py-3 cdd-mobile-shell">
-  <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">快递路线接单</h1><a href="{% url 'dispatch:task-list' %}">我的任务</a></div>
+  <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">快递路线接单</h1><a class="btn btn-sm btn-outline-secondary" href="{% url 'dispatch:task-list' %}">我的任务</a></div>
   <form method="get" class="cdd-card p-3 mb-3">
     <label class="form-label">取件区域</label><select class="form-select mb-2" name="pickup_area"><option value="SOUTH" {% if pickup_area == 'SOUTH' %}selected{% endif %}>南区</option><option value="NORTH" {% if pickup_area == 'NORTH' %}selected{% endif %}>北区</option><option value="OUTSIDE" {% if pickup_area == 'OUTSIDE' %}selected{% endif %}>校外</option></select>
     <label class="form-label">目的区域</label><select class="form-select mb-3" name="destination_zone"><option value="SOUTH" {% if destination_zone == 'SOUTH' %}selected{% endif %}>南区</option><option value="NORTH" {% if destination_zone == 'NORTH' %}selected{% endif %}>北区</option><option value="OUTSIDE" {% if destination_zone == 'OUTSIDE' %}selected{% endif %}>校外</option></select>

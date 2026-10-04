@@ -16,7 +16,7 @@
   </section>
   <div class="card mb-3"><div class="card-header">订单量趋势</div><div class="card-body cdd-chart"><canvas id="personalTrend"></canvas></div></div>
   <div class="vstack gap-2">
-    {% for order in orders %}<a class="card card-body text-decoration-none" href="{% url 'orders:detail' order.pk %}"><strong>{{ order.display_id }}</strong><span>{{ order.get_business_type_display }} · {{ order.recipient_name_snapshot }} · {{ order.sequence_date }}</span></a>{% empty %}<div class="card card-body">当前筛选暂无记录</div>{% endfor %}
+    {% for order in orders %}<article class="card card-body"><div class="d-flex justify-content-between gap-2"><div><strong>{{ order.display_id }}</strong><div>{{ order.get_business_type_display }} · {{ order.recipient_name_snapshot }} · {{ order.sequence_date }}</div></div><button class="btn btn-sm btn-outline-primary" type="button" data-cdd-modal-open="courier-order-{{ order.pk }}">查看</button></div></article><dialog class="cdd-modal" id="courier-order-{{ order.pk }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button>{% include "orders/_detail_content.html" with order=order courier_view=True %}</div></dialog>{% empty %}<div class="card card-body">当前筛选暂无记录</div>{% endfor %}
   </div>
 </main>
 {{ order_trend|json_script:"personal-chart-data" }}

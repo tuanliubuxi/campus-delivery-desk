@@ -17,13 +17,17 @@ DETAIL_RELATIONS = (
 )
 
 
-def search_orders(query=""):
+def search_orders(query="", *, business_type="", delivery_status=""):
     queryset = Order.objects.select_related(
         "customer",
         "proxy_recipient",
         "proxy_batch__agent",
         *DETAIL_RELATIONS,
     ).prefetch_related("charge_items")
+    if business_type:
+        queryset = queryset.filter(business_type=business_type)
+    if delivery_status:
+        queryset = queryset.filter(delivery_status=delivery_status)
     query = (query or "").strip()
     if not query:
         return queryset

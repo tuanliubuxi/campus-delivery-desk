@@ -91,7 +91,7 @@ Settlement.amount_due_snapshot = Σ SettlementLine.amount
 
 ## 7. 普通客户结算图
 
-显示：客户/楼栋、近景或归拢合照、可选远景标注、最终位置、件数、SettlementLine 费用明细、应付、完成时间。
+显示：客户/楼栋、全部有效近景（每次配送最多 4 张）或归拢合照、可选远景标注、最终位置、件数、SettlementLine 费用明细、应付、完成时间。不得只随机选择一张代表照片。
 
 不显示配送员姓名、内部任务、内部备注。
 

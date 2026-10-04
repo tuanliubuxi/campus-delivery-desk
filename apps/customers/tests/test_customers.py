@@ -2,6 +2,7 @@
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.common.enums import UserRole
@@ -59,3 +60,32 @@ def test_customer_snapshot_does_not_change_after_profile_update(recorder):
     assert snapshot.recipient_names == "旧收件人"
     customer.refresh_from_db()
     assert customer.wechat_nickname == "新昵称"
+
+
+@pytest.mark.django_db
+def test_customer_create_view_never_overwrites_an_existing_customer(client, recorder):
+    """Regression: the create form must not accidentally reuse the last edited instance."""
+    existing = create_customer(actor=recorder, wechat_nickname="原客户")
+    client.post(
+        reverse("accounts:login"),
+        {"role": recorder.role, "user": recorder.pk, "password": "Strong-pass-123"},
+    )
+
+    response = client.post(
+        reverse("customers:create"),
+        {
+            "wechat_nickname": "新客户",
+            "recipient_names": "",
+            "phone_suffixes": "",
+            "building": "",
+            "floor": "",
+            "room": "",
+            "long_term_note": "",
+        },
+    )
+
+    assert response.status_code == 302
+    existing.refresh_from_db()
+    assert existing.wechat_nickname == "原客户"
+    assert Customer.objects.filter(wechat_nickname="新客户").exists()
+    assert Customer.objects.count() == 2

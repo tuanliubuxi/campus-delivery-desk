@@ -3,6 +3,7 @@
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models.deletion import ProtectedError
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -11,6 +12,19 @@ from apps.customers.forms import CustomerForm
 from apps.customers.models import Customer
 from apps.customers.selectors import search_customers
 from apps.customers.services import create_customer, delete_customer, update_customer
+
+
+@recorder_or_admin_required
+def customer_profile(request, customer_id):
+    """Small same-origin payload used to prefill a new order without mutating master data."""
+    customer = get_object_or_404(Customer.objects.select_related("building"), pk=customer_id)
+    return JsonResponse(
+        {
+            "building_id": customer.building_id,
+            "floor": customer.floor,
+            "room": customer.room,
+        }
+    )
 
 
 @recorder_or_admin_required

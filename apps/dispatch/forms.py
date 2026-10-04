@@ -13,6 +13,23 @@ from apps.orders.models import PickupArea, SizeClass
 from .models import DestinationZone, LocationType
 
 
+class MultipleImageInput(forms.ClearableFileInput):
+    """File widget that keeps several delivery photos in one field."""
+
+    allow_multiple_selected = True
+
+
+class MultipleImageField(forms.ImageField):
+    widget = MultipleImageInput
+
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else ([data] if data else [])
+        cleaned = [super(MultipleImageField, self).clean(item, initial) for item in files]
+        if len(cleaned) > 4:
+            raise forms.ValidationError("近景照片最多上传 4 张。")
+        return cleaned
+
+
 class OperationForm(forms.Form):
     """Real Django form base so the metaclass collects the idempotency field."""
 
@@ -66,7 +83,11 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
     )
     location_type = forms.ChoiceField(choices=LocationType.choices, label="实际放置类型")
     final_location_text = forms.CharField(max_length=255, label="最终位置")
-    near_photo = forms.ImageField(required=False, label="近景照片")
+    near_photos = MultipleImageField(
+        required=False,
+        label="近景照片（最多 4 张）",
+        help_text="可一次选择多张；最多 4 张。",
+    )
     far_photo = forms.ImageField(required=False, label="远景照片")
     annotated_photo = forms.ImageField(
         required=False,
@@ -80,6 +101,8 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
             (str(item.order_id), item.order.display_id) for item in assignments
         ]
         self.fields["order_ids"].initial = [str(item.order_id) for item in assignments]
+        self.fields["order_ids"].widget.attrs["data-cdd-draft-ignore"] = ""
+        self.fields["operation_id"].widget.attrs["data-cdd-draft-ignore"] = ""
         phrases = " / ".join(
             QuickLocationPhrase.objects.filter(is_active=True).values_list("text", flat=True)
         )

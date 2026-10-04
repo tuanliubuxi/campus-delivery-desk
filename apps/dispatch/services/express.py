@@ -15,6 +15,7 @@ from apps.orders.models import (
     DeliveryStatus,
     DestinationType,
     DispatchMode,
+    ExpressOrderDetail,
     Order,
     SizeClass,
 )
@@ -130,7 +131,10 @@ def claim_route_orders(*, order_ids, courier, pickup_area, destination_zone, ope
                     pk__in=requested_ids,
                     business_type=BusinessType.EXPRESS,
                     delivery_status=DeliveryStatus.NEW,
-                    express_detail__dispatch_mode=DispatchMode.ROUTE,
+                    express_detail__dispatch_mode__in=[
+                        DispatchMode.UNDECIDED,
+                        DispatchMode.ROUTE,
+                    ],
                     express_detail__pickup_area=pickup_area,
                 ).select_related("express_detail")
             )
@@ -141,6 +145,10 @@ def claim_route_orders(*, order_ids, courier, pickup_area, destination_zone, ope
             if not claimed:
                 task.delete()
                 raise ValidationError("所选快递均已被接取或不属于当前路线")
+            ExpressOrderDetail.objects.filter(
+                order_id__in=claimed,
+                dispatch_mode=DispatchMode.UNDECIDED,
+            ).update(dispatch_mode=DispatchMode.ROUTE)
             RouteBatch.objects.create(
                 task=task,
                 pickup_area=pickup_area,
@@ -194,7 +202,10 @@ def claim_direct_orders(*, order_ids, courier, operation_id):
                 Order.objects.filter(
                     pk__in=requested_ids,
                     business_type=BusinessType.EXPRESS,
-                    express_detail__dispatch_mode=DispatchMode.DIRECT_CUSTOMER,
+                    express_detail__dispatch_mode__in=[
+                        DispatchMode.UNDECIDED,
+                        DispatchMode.DIRECT_CUSTOMER,
+                    ],
                 ).select_related("express_detail")
             )
             recipient_keys = {(order.customer_id, order.proxy_recipient_id) for order in selected}
@@ -214,6 +225,10 @@ def claim_direct_orders(*, order_ids, courier, operation_id):
             if not claimed:
                 task.delete()
                 raise ValidationError("所选客户直送快递均已被接取")
+            ExpressOrderDetail.objects.filter(
+                order_id__in=claimed,
+                dispatch_mode=DispatchMode.UNDECIDED,
+            ).update(dispatch_mode=DispatchMode.DIRECT_CUSTOMER)
             unavailable = tuple(sorted(requested_ids - set(claimed)))
             record_event(
                 actor=courier,

@@ -81,10 +81,22 @@ def task_detail(request, task_id):
         task = courier_task_detail(request.user, task_id)
     except DeliveryTask.DoesNotExist:
         task = get_object_or_404(DeliveryTask, pk=task_id, courier=request.user)
+    assignments = list(sorted_task_assignments(task))
     return render(
         request,
         "dispatch/task_detail.html",
-        {"task": task, "assignments": sorted_task_assignments(task)},
+        {
+            "task": task,
+            "assignments": assignments,
+            "can_start": any(
+                item.is_active and item.order.delivery_status == DeliveryStatus.PICKED
+                for item in assignments
+            ),
+            "can_complete": any(
+                item.is_active and item.order.delivery_status == DeliveryStatus.DELIVERING
+                for item in assignments
+            ),
+        },
     )
 
 
@@ -242,7 +254,9 @@ def complete_task(request, task_id):
                 final_location_text=form.cleaned_data["final_location_text"],
                 location_type=form.cleaned_data["location_type"],
                 operation_id=form.cleaned_data["operation_id"],
-                near_photo=form.cleaned_data["near_photo"],
+                near_photos=(
+                    form.cleaned_data["near_photos"] or request.FILES.getlist("near_photo")
+                ),
                 far_photo=form.cleaned_data["far_photo"],
                 annotated_photo=form.cleaned_data["annotated_photo"],
             )

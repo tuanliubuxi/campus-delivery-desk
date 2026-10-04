@@ -8,6 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Receipt images contain Chinese text; install the CJK font in both amd64 and arm64 images.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml ./
 # Install the tested transitive dependency set before copying source so ordinary
 # source changes can reuse the dependency layer.

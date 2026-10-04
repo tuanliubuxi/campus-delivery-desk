@@ -82,7 +82,9 @@ def courier_statistics(request):
         {
             "form": form,
             "cards": courier_personal_cards(filters),
-            "orders": orders.order_by("-sequence_date", "-daily_sequence")[:100],
+            "orders": orders.prefetch_related("charge_items").order_by(
+                "-sequence_date", "-daily_sequence"
+            )[:100],
             "order_trend": [
                 {"label": str(row["sequence_date"]), "value": row["value"]}
                 for row in order_trend

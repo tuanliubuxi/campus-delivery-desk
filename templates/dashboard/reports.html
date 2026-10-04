@@ -58,7 +58,7 @@
         <tbody>
           {% for order in orders %}
           <tr>
-            <td><a href="{% url 'orders:detail' order.pk %}">{{ order.display_id }}</a><div class="small text-body-secondary">{{ order.fixed_id }}</div></td>
+            <td><a class="btn btn-sm btn-outline-primary" href="{% url 'orders:detail' order.pk %}">查看 {{ order.display_id }}</a><div class="small text-body-secondary">{{ order.fixed_id }}</div></td>
             <td>{{ order.sequence_date }}</td><td>{{ order.get_business_type_display }}</td><td>{{ order.recipient_name_snapshot }}</td>
             <td>{{ order.get_source_type_display }}{% if order.proxy_batch_id %}<div class="small">{{ order.proxy_batch.agent.name }}</div>{% endif %}</td>
             <td>{{ order.zone_snapshot|default:order.off_campus_address }}</td><td>{{ order.is_urgent|yesno:"是,否" }}</td><td>{{ order.requires_upstairs|yesno:"是,否" }}</td>
