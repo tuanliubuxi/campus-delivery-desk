@@ -20,7 +20,7 @@ from .forms import (
     RefundForm,
     WageCalculatorForm,
 )
-from .models import ChargeItem, Settlement
+from .models import ChargeItem, Settlement, WageCalculationRun
 from .selectors import settlement_charge_items, settlement_preview_total
 from .services import (
     add_draft_charge,
@@ -28,9 +28,11 @@ from .services import (
     calculate_wages,
     confirm_settlement,
     freeze_settlement_for_payment,
+    overlapping_wage_runs,
     rebuild_settlement_artifacts,
     record_refund,
     reverse_settlement,
+    save_wage_calculation,
     void_draft_charge,
     void_settlement,
 )
@@ -82,6 +84,26 @@ def detail(request, settlement_id):
         ),
         pk=settlement_id,
     )
+    available_versions = []
+    seen_types = set()
+    for version in settlement.image_versions.select_related("media").order_by(
+        "image_type", "-version_no"
+    ):
+        if version.media.deleted_at:
+            continue
+        version.is_latest_available = version.image_type not in seen_types
+        seen_types.add(version.image_type)
+        available_versions.append(version)
+    available_receipts = []
+    seen_recipients = set()
+    for receipt in settlement.proxy_recipient_receipts.select_related(
+        "media", "proxy_recipient"
+    ).order_by("proxy_recipient_id", "-version_no"):
+        if receipt.media.deleted_at:
+            continue
+        receipt.is_latest_available = receipt.proxy_recipient_id not in seen_recipients
+        seen_recipients.add(receipt.proxy_recipient_id)
+        available_receipts.append(receipt)
     return render(
         request,
         "settlements/detail.html",
@@ -93,6 +115,11 @@ def detail(request, settlement_id):
             "reason_form": ReasonForm(),
             "operation_form": OperationForm(),
             "financial_action_form": FinancialActionForm(),
+            "available_versions": available_versions,
+            "available_receipts": available_receipts,
+            "deleted_version_count": settlement.image_versions.filter(
+                media__deleted_at__isnull=False
+            ).count(),
             "refund_form": RefundForm(),
         },
     )
@@ -228,6 +255,7 @@ def wages(request):
     """Admin-only calculator; it computes suggestions and never marks wages as paid."""
     form = WageCalculatorForm(request.POST or None)
     calculation = None
+    overlaps = []
     if request.method == "POST" and form.is_valid():
         allocations = {}
         for key, value in request.POST.items():
@@ -246,6 +274,25 @@ def wages(request):
                     mode=form.cleaned_data["mode"],
                     manual_allocations=allocations,
                 )
+                overlaps = list(
+                    overlapping_wage_runs(
+                        period_start=form.cleaned_data["period_start"],
+                        period_end=form.cleaned_data["period_end"],
+                    )[:10]
+                )
+                if request.POST.get("save_result"):
+                    if overlaps and not form.cleaned_data["confirm_overlap"]:
+                        messages.warning(
+                            request,
+                            "所选日期与既有工资计算记录重叠；核对后勾选确认再保存",
+                        )
+                    else:
+                        save_wage_calculation(
+                            calculation=calculation,
+                            actor=request.user,
+                            operation_id=form.cleaned_data["operation_id"],
+                        )
+                        messages.success(request, "工资计算结果已保存；这不表示工资已经发放")
             except ValidationError as exc:
                 messages.error(request, str(exc))
     return render(
@@ -254,6 +301,8 @@ def wages(request):
         {
             "form": form,
             "calculation": calculation,
+            "overlaps": overlaps,
+            "saved_runs": WageCalculationRun.objects.select_related("created_by")[:30],
             "couriers": User.objects.filter(role=UserRole.COURIER, is_active=True),
         },
     )

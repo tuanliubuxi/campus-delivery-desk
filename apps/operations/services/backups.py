@@ -23,7 +23,6 @@ from apps.audit.services import record_event
 from apps.config_center.models import (
     Building,
     BusinessTypeConfig,
-    CommissionConfig,
     QuickLocationPhrase,
     SiteConfiguration,
 )
@@ -81,7 +80,6 @@ def _configuration_snapshot():
     return {
         "site_configuration": site_fields,
         "business_types": list(BusinessTypeConfig.objects.values()),
-        "commissions": list(CommissionConfig.objects.values()),
         "buildings": list(Building.objects.values()),
         "quick_location_phrases": list(QuickLocationPhrase.objects.values()),
     }

@@ -193,7 +193,7 @@ def test_ui_hardening_assets_and_local_dependencies():
 def test_admin_forms_use_chinese_labels_and_fixed_emoji_choices():
     config_form = SiteConfigurationForm()
     assert config_form.fields["express_small_price"].label == "小件快递价格（元）"
-    assert config_form.fields["lease_stale_seconds"].label == "登录租约过期判断（秒）"
+    assert config_form.fields["lease_stale_seconds"].label == "异设备接管判定窗口（秒）"
     user_form = UserCreateForm()
     assert tuple(user_form.fields["emoji_avatar"].choices) == EMOJI_CHOICES
     assert ROLE_DEFAULT_EMOJI[UserRole.COURIER] == "🛵"

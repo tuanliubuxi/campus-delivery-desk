@@ -5,7 +5,6 @@ from django.core.management.base import BaseCommand
 from apps.config_center.models import (
     Building,
     BusinessTypeConfig,
-    CommissionConfig,
     QuickLocationPhrase,
     SiteConfiguration,
 )
@@ -47,11 +46,6 @@ class Command(BaseCommand):
                     "urgent_fee": urgent_fee,
                 },
             )
-            for source in ("BASE_DELIVERY", "UPSTAIRS", "MANUAL_EXTRA"):
-                CommissionConfig.objects.get_or_create(
-                    business_type=business_type,
-                    earning_source=source,
-                )
         for sort_order, phrase in enumerate(
             ("快递架", "外卖架", "左侧", "右侧", "顶层", "最底层", "靠墙"), start=1
         ):

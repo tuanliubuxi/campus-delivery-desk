@@ -16,6 +16,7 @@ from apps.agents.services import (
     create_proxy_batch,
     create_proxy_recipient,
     delete_agent,
+    delete_proxy_recipient,
     reopen_proxy_batch,
     update_agent,
     update_proxy_recipient,
@@ -196,3 +197,19 @@ def recipient_edit(request, recipient_id):
         "agents/recipient_form.html",
         {"batch": recipient.proxy_batch, "form": form, "recipient": recipient},
     )
+
+
+@require_POST
+@recorder_or_admin_required
+def recipient_delete(request, recipient_id):
+    recipient = get_object_or_404(
+        ProxyRecipient.objects.select_related("proxy_batch"), pk=recipient_id
+    )
+    batch_id = recipient.proxy_batch_id
+    try:
+        delete_proxy_recipient(actor=request.user, recipient=recipient)
+    except (ValidationError, ValueError) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "空临时收件人已删除")
+    return redirect("agents:batch-detail", batch_id=batch_id)

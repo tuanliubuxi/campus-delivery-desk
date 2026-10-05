@@ -8,13 +8,13 @@
     <input class="form-control" name="q" value="{{ query }}" placeholder="固定/动态订单号、收件人、尾号、取件标识" autofocus>
     <button class="btn btn-primary">搜索</button>
   </form>
-  <div class="list-group">
+  <div class="list-group cdd-scroll-region">
     {% for order in orders %}
-    <a class="list-group-item list-group-item-action" href="{% url 'orders:detail' order.pk %}">
+    <article class="list-group-item">
       <div class="d-flex justify-content-between gap-2"><strong>{{ order.display_id }}</strong><span>{{ order.get_delivery_status_display }}</span></div>
       <div>{{ order.get_business_type_display }} · {{ order.recipient_name_snapshot }} · {{ order.sequence_date }}</div>
-      <small class="text-body-secondary">固定编号 {{ order.fixed_id }}</small>
-    </a>
+      <small class="text-body-secondary">固定编号 {{ order.fixed_id }}</small><button class="btn btn-sm btn-outline-primary mt-2" type="button" data-cdd-modal-open="search-order-{{ order.pk }}">查看</button><dialog class="cdd-modal" id="search-order-{{ order.pk }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close>×</button>{% include "orders/_detail_content.html" with order=order in_modal=True %}</div></dialog>
+    </article>
     {% empty %}{% if query %}<div class="card card-body text-body-secondary">没有匹配订单</div>{% endif %}{% endfor %}
   </div>
 </main>

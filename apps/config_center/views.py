@@ -8,20 +8,17 @@ from apps.common.permissions import admin_required
 from apps.config_center.forms import (
     BuildingForm,
     BusinessTypeConfigForm,
-    CommissionConfigForm,
     SiteConfigurationForm,
 )
 from apps.config_center.models import (
     Building,
     BusinessTypeConfig,
-    CommissionConfig,
     SiteConfiguration,
 )
 from apps.config_center.selectors import configuration_center_data
 from apps.config_center.services import (
     save_building,
     save_business_config,
-    save_commission,
     save_site_configuration,
 )
 
@@ -32,8 +29,6 @@ def config_index(request):
     context["buildings"] = Building.objects.all()
     for item in context["business_configs"]:
         item.edit_form = BusinessTypeConfigForm(instance=item)
-    for item in context["commissions"]:
-        item.edit_form = CommissionConfigForm(instance=item)
     return render(request, "config_center/index.html", context)
 
 
@@ -85,18 +80,3 @@ def building_edit(request, building_id=None):
         messages.success(request, "楼栋配置已保存")
         return redirect("config_center:index")
     return render(request, "config_center/form.html", {"form": form, "title": "楼栋配置"})
-
-
-@admin_required
-def commission_edit(request, commission_id):
-    commission = get_object_or_404(CommissionConfig, pk=commission_id)
-    form = CommissionConfigForm(request.POST or None, instance=commission)
-    if request.method == "POST" and form.is_valid():
-        save_commission(
-            actor=request.user,
-            commission=commission,
-            rate=form.cleaned_data["commission_rate"],
-        )
-        messages.success(request, "分成比例已保存；未来订单会保存当时快照")
-        return redirect("config_center:index")
-    return render(request, "config_center/form.html", {"form": form, "title": "编辑分成比例"})

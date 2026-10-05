@@ -233,7 +233,8 @@ def test_unified_filters_use_typed_upstairs_and_courier_truth(reporting_facts):
     assert list(filtered_orders(DashboardFilters(upstairs=False))) == [facts["other_order"]]
     cards = dashboard_cards(DashboardFilters(upstairs=True))
     assert cards["settled_income"] == Decimal("6.00")
-    assert cards["courier_earnings"] == Decimal("3.00")
+    # The dashboard reports owned revenue facts; wage percentage is applied only in the calculator.
+    assert cards["courier_earnings"] == Decimal("6.00")
 
 
 @pytest.mark.django_db

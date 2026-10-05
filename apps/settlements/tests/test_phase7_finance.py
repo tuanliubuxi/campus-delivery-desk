@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.common.enums import BusinessType, UserRole
-from apps.config_center.models import Building, CommissionConfig, EarningSource
+from apps.config_center.models import Building, SiteConfiguration
 from apps.customers.models import Customer
 from apps.dispatch.models import DeliveryDrop, DeliveryDropItem, LocationType
 from apps.orders.models import (
@@ -35,6 +35,7 @@ from apps.settlements.models import (
     FinancialAdjustment,
     SettlementLine,
     SettlementStatus,
+    WageCalculationRun,
 )
 from apps.settlements.services import (
     add_draft_charge,
@@ -45,6 +46,7 @@ from apps.settlements.services import (
     record_pending_earning,
     record_refund,
     reverse_settlement,
+    save_wage_calculation,
 )
 
 
@@ -59,17 +61,9 @@ def isolated_media(settings):
 
 
 def _set_commissions():
-    rates = {
-        EarningSource.BASE_DELIVERY: Decimal("0.5000"),
-        EarningSource.UPSTAIRS: Decimal("0.2500"),
-        EarningSource.MANUAL_EXTRA: Decimal("0.4000"),
-    }
-    for source, rate in rates.items():
-        CommissionConfig.objects.update_or_create(
-            business_type=BusinessType.EXPRESS,
-            earning_source=source,
-            defaults={"commission_rate": rate},
-        )
+    config = SiteConfiguration.load()
+    config.default_wage_rate = Decimal("0.5000")
+    config.save()
 
 
 def _waiting_settlement(*, with_extras=True):
@@ -163,7 +157,9 @@ def test_confirm_is_idempotent_and_splits_sources_with_snapshots():
 @pytest.mark.django_db
 def test_unconfigured_commission_allows_settlement_but_blocks_only_ratio_wages():
     recorder, admin, courier, order, settlement = _waiting_settlement(with_extras=False)
-    CommissionConfig.objects.filter(business_type=BusinessType.EXPRESS).update(commission_rate=None)
+    config = SiteConfiguration.load()
+    config.default_wage_rate = None
+    config.save()
     confirm_settlement(settlement=settlement, actor=recorder)
     settlement.refresh_from_db()
     order.refresh_from_db()
@@ -178,7 +174,7 @@ def test_unconfigured_commission_allows_settlement_but_blocks_only_ratio_wages()
     assert earning.suggested_wage_amount is None
 
     day = timezone.localdate(settlement.settled_at)
-    with pytest.raises(ValidationError, match="无法计算比例工资"):
+    with pytest.raises(ValidationError, match="默认计薪比例"):
         calculate_wages(period_start=day, period_end=day, mode="RATIO")
     manual = calculate_wages(
         period_start=day,
@@ -189,7 +185,7 @@ def test_unconfigured_commission_allows_settlement_but_blocks_only_ratio_wages()
     assert manual.lines[0].final_amount == Decimal("1.00")
     _set_commissions()
     ratio = calculate_wages(period_start=day, period_end=day, mode="RATIO")
-    assert ratio.lines[0].final_amount == Decimal("1.38")
+    assert ratio.lines[0].final_amount == Decimal("1.75")
 
 
 @pytest.mark.django_db
@@ -285,7 +281,7 @@ def test_refund_is_append_only_and_wage_modes_use_pool_and_locked_amount():
     day = timezone.localdate(settlement.settled_at)
     ratio = calculate_wages(period_start=day, period_end=day, mode="RATIO")
     assert ratio.locked_amount == Decimal("2.00")
-    assert ratio.lines[0].final_amount == Decimal("3.78")
+    assert ratio.lines[0].final_amount == Decimal("4.25")
     manual = calculate_wages(
         period_start=day,
         period_end=day,
@@ -300,4 +296,31 @@ def test_refund_is_append_only_and_wage_modes_use_pool_and_locked_amount():
             period_end=day,
             mode="MANUAL",
             manual_allocations={courier.pk: manual.manual_allocatable_remaining + Decimal("0.01")},
+        )
+
+
+@pytest.mark.django_db
+def test_ratio_wages_prefer_courier_override_and_saved_period_cannot_repeat():
+    _set_commissions()
+    recorder, admin, courier, order, settlement = _waiting_settlement(with_extras=False)
+    courier.wage_rate_override = Decimal("0.7500")
+    courier.save(update_fields=["wage_rate_override"])
+    confirm_settlement(settlement=settlement, actor=recorder)
+    day = timezone.localdate(settlement.settled_at)
+
+    calculation = calculate_wages(period_start=day, period_end=day, mode="RATIO")
+    assert calculation.lines[0].effective_rate == Decimal("0.7500")
+    assert calculation.lines[0].final_amount == Decimal("2.63")
+
+    run = save_wage_calculation(
+        calculation=calculation,
+        actor=admin,
+        operation_id=uuid.uuid4(),
+    )
+    assert WageCalculationRun.objects.filter(pk=run.pk).exists()
+    with pytest.raises(ValidationError, match="相同日期范围和计算模式已经保存过"):
+        save_wage_calculation(
+            calculation=calculation,
+            actor=admin,
+            operation_id=uuid.uuid4(),
         )

@@ -580,27 +580,24 @@ status                    PENDING_PAYMENT / SETTLED / REVERSED
 created_at
 ```
 
-CourierEarning 按收益来源拆行，正常业务收益的粒度为“Settlement × Order（如适用）× Courier × source/source ChargeItem”，而不是把一个订单所有收益混成一条。配送完成时创建 BASE_DELIVERY `PENDING_PAYMENT` 归属记录，`settlement_id=NULL`；结算确认时按 SettlementLine/ChargeItem 来源生成或完成 UPSTAIRS、CUSTOMER_EXTRA、MANUAL_EXTRA 等收益行。
+CourierEarning 按收益来源拆行，正常业务收益的粒度为“Settlement × Order（如适用）× Courier × source/source ChargeItem”，而不是把一个订单所有收益混成一条。配送完成时创建 BASE_DELIVERY `PENDING_PAYMENT` 归属记录，`settlement_id=NULL`；结算确认时按 SettlementLine/ChargeItem 来源生成或完成 UPSTAIRS、CUSTOMER_EXTRA、MANUAL_EXTRA 等收益行。历史 `commission_rate_snapshot/suggested_wage_amount` 字段仅保留既有事实兼容；新规则在工资计算时读取配送员个人覆盖比例或系统默认比例，不回写历史收益行。
 
 `earning_key` 必须是确定性的，避免 SQLite nullable UNIQUE 语义导致重复。例如基础归属可使用 `base:{order_id}:{courier_id}:initial`；结算派生可包含 settlement/order/charge_item/courier。Settlement 撤销时原记录转为 REVERSED；再次结算创建新 CourierEarning，不复用旧记录。
 
-## 18. WageCalculationSnapshot（可选但建议）
+## 18. WageCalculationRun
 
 工资计算器不表示“已发工资”，但可保存一次计算结果便于复核：
 
 ```text
-id
+id / operation_id unique
 period_start / period_end
 mode                      RATIO / MANUAL
-available_pool_snapshot
-locked_amount_snapshot
-allocatable_remaining_snapshot
-total_allocated
+result_snapshot           JSON，含池金额、有效比例与逐人结果
 created_by
 created_at
 ```
 
-明细表记录每个成员建议/手工金额，其中强制归属费用（如 CUSTOMER_EXTRA）单独记录为 locked amount。
+预览不创建记录；保存时写入不可变快照。相同 `period_start + period_end + mode` 唯一；部分周期重叠允许在明确提示并二次确认后保存。强制归属费用（如 CUSTOMER_EXTRA）单独记录为 locked amount。
 
 ## 19. 异常、图片保护、审计与运维
 

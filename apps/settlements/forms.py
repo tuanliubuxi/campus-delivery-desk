@@ -12,8 +12,13 @@ from apps.orders.models import ExpressRound, Order
 from .models import ChargeType
 
 
+class SettlementOrderChoiceField(forms.ModelMultipleChoiceField):
+    def label_from_instance(self, order):
+        return f"{order.display_id} · {order.recipient_name_snapshot} · {order.get_business_type_display()}"
+
+
 class BuildSettlementForm(forms.Form):
-    orders = forms.ModelMultipleChoiceField(queryset=Order.objects.none(), label="已送达订单")
+    orders = SettlementOrderChoiceField(queryset=Order.objects.none(), label="已送达订单")
     operation_id = forms.UUIDField(widget=forms.HiddenInput)
 
     def __init__(self, *args, **kwargs):
@@ -111,6 +116,15 @@ class WageCalculatorForm(forms.Form):
     period_start = forms.DateField(label="开始日期", widget=forms.DateInput(attrs={"type": "date"}))
     period_end = forms.DateField(label="结束日期", widget=forms.DateInput(attrs={"type": "date"}))
     mode = forms.ChoiceField(choices=MODE_CHOICES, label="计算模式")
+    operation_id = forms.UUIDField(widget=forms.HiddenInput)
+    confirm_overlap = forms.BooleanField(
+        required=False,
+        label="我已核对重叠周期，仍保存本次计算结果",
+    )
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("initial", {})["operation_id"] = uuid.uuid4()
+        super().__init__(*args, **kwargs)
 
     def clean(self):
         cleaned = super().clean()

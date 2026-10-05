@@ -5,7 +5,7 @@
 <main class="container py-4">
   <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
     <div>
-      <a href="{% url 'agents:workspace' %}" class="small">← 返回代理批次</a>
+      <a href="{% url 'agents:workspace' %}" class="btn btn-sm btn-outline-secondary">返回代理批次</a>
       <h1 class="h3 mt-2 mb-1">{{ batch.agent.name }} · {{ batch.display_code }}</h1>
       <div class="cdd-muted">{{ batch.get_status_display }} · 仅限快递 · {{ batch.batch_date }}</div>
     </div>
@@ -41,18 +41,22 @@
           <dt class="col-4">尾号</dt><dd class="col-8">{{ recipient.phone_suffixes|default:"—" }}</dd>
           <dt class="col-4">房间</dt><dd class="col-8">{{ recipient.floor|default:"" }} {{ recipient.room|default:"—" }}</dd>
         </dl>
-        {% if recipient.note %}<p class="small border-top pt-2 mb-0">{{ recipient.note }}</p>{% endif %}
+        {% if recipient.note %}<p class="small border-top pt-2 mb-0 cdd-clamp" title="{{ recipient.note }}">{{ recipient.note }}</p>{% endif %}
+        <details class="mt-3"><summary class="cdd-summary">快递订单（{{ recipient.orders.count }}）</summary><div class="cdd-recipient-orders mt-2">
+          {% for order in recipient.orders.all %}<article class="cdd-compact-row"><div><strong>{{ order.display_id }}</strong><div class="small cdd-muted">{{ order.get_delivery_status_display }}{% if order.express_detail %} · {{ order.express_detail.get_pickup_area_display }} · {{ order.express_detail.pickup_identifier }}{% endif %}</div></div><div class="cdd-action-row"><button class="btn btn-sm btn-outline-primary" type="button" data-cdd-modal-open="proxy-order-{{ order.pk }}">查看</button>{% if order.delivery_status == 'NEW' %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'orders:edit' order.pk %}">编辑</a><button class="btn btn-sm btn-outline-danger" type="button" data-cdd-modal-open="cancel-order-{{ order.pk }}">取消</button>{% endif %}</div></article><dialog class="cdd-modal" id="proxy-order-{{ order.pk }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close>×</button>{% include "orders/_detail_content.html" with order=order in_modal=True %}</div></dialog>{% if order.delivery_status == 'NEW' %}<dialog class="cdd-modal" id="cancel-order-{{ order.pk }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close>×</button><h2 class="h5">取消 {{ order.display_id }}</h2><form method="post" action="{% url 'orders:cancel' order.pk %}" data-cdd-require-input>{% csrf_token %}<label class="form-label">取消原因</label><textarea class="form-control" name="reason" required></textarea><div class="cdd-action-row mt-3"><button class="btn btn-danger" disabled data-cdd-confirm-submit>确认取消</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>返回</button></div></form></div></dialog>{% endif %}{% empty %}<p class="small cdd-muted">尚未录入快递。</p>{% endfor %}
+        </div></details>
         {% if batch.accepts_new_members %}
         <div class="d-flex gap-2 mt-3">
           <a class="btn btn-sm btn-primary" href="{% url 'orders:proxy-express-create' recipient.pk %}">录入快递</a>
           <a class="btn btn-sm btn-outline-secondary" href="{% url 'agents:recipient-edit' recipient.pk %}">编辑资料</a>
         </div>
         {% endif %}
+        {% if batch.accepts_new_members and not recipient.orders.exists and not recipient.receipts.exists %}<form method="post" action="{% url 'agents:recipient-delete' recipient.pk %}" class="mt-2" onsubmit="return confirm('确认删除这个空临时收件人？')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">删除空收件人</button></form>{% endif %}
         <form method="post" action="{% url 'agents:recipient-generate-receipt' recipient.pk %}" class="mt-2">
           {% csrf_token %}<button class="btn btn-sm btn-outline-primary">生成客户凭证</button>
         </form>
-        {% for receipt in recipient.receipts.all %}{% if receipt.is_active %}
-          <a class="small d-block mt-2" href="{% url 'mediafiles:download' receipt.media_id %}">下载凭证 v{{ receipt.version_no }}{% if not receipt.show_price %}（无价格）{% endif %}</a>
+        {% for receipt in recipient.receipts.all %}{% if receipt.is_active and not receipt.media.deleted_at %}
+          <a class="btn btn-sm btn-outline-primary mt-2" href="{% url 'mediafiles:download' receipt.media_id %}">下载凭证 v{{ receipt.version_no }}{% if not receipt.show_price %}（无价格）{% endif %}</a>
         {% endif %}{% endfor %}
       </article>
     </div>

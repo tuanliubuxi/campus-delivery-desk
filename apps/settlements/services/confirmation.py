@@ -10,7 +10,6 @@ from django.utils import timezone
 from apps.agents.models import ProxyBatch, ProxyBatchStatus
 from apps.audit.services import record_event
 from apps.common.enums import UserRole
-from apps.config_center.models import CommissionConfig
 from apps.orders.models import Order, OrderSettlementStatus
 from apps.settlements.models import (
     AdjustmentType,
@@ -40,13 +39,6 @@ BASE_CHARGE_TYPES = {
 
 def _money(value):
     return Decimal(value).quantize(MONEY, rounding=ROUND_HALF_UP)
-
-
-def _commission_rate(*, business_type, source_type):
-    config = CommissionConfig.objects.filter(
-        business_type=business_type, earning_source=source_type
-    ).first()
-    return config.commission_rate if config else None
 
 
 def _settle_earning(*, earning, settlement, amount_base, rate):
@@ -95,13 +87,6 @@ def confirm_settlement(*, settlement, actor):
         .filter(settlement_orders__settlement=settlement)
         .prefetch_related("delivery_drop_items__drop__courier")
     )
-    base_rate = _commission_rate(
-        business_type=settlement.business_type,
-        source_type=EarningSourceType.BASE_DELIVERY,
-    )
-    upstairs_rate = None
-    manual_rate = None
-
     for order in orders:
         courier = _final_courier(order)
         base_amount = sum(
@@ -138,7 +123,7 @@ def confirm_settlement(*, settlement, actor):
             earning=pending,
             settlement=settlement,
             amount_base=base_amount,
-            rate=base_rate,
+            rate=None,
         )
 
     for line in lines:
@@ -148,11 +133,7 @@ def confirm_settlement(*, settlement, actor):
         if line.charge_type == ChargeType.UPSTAIRS and line.order_id:
             source_type = EarningSourceType.UPSTAIRS
             courier = _final_courier(next(order for order in orders if order.pk == line.order_id))
-            upstairs_rate = upstairs_rate or _commission_rate(
-                business_type=settlement.business_type,
-                source_type=EarningSourceType.UPSTAIRS,
-            )
-            rate = upstairs_rate
+            rate = None
         elif line.charge_type == ChargeType.CUSTOMER_EXTRA:
             source_type = EarningSourceType.CUSTOMER_EXTRA
             courier = line.beneficiary_courier
@@ -163,11 +144,7 @@ def confirm_settlement(*, settlement, actor):
         ):
             source_type = EarningSourceType.MANUAL_EXTRA
             courier = line.beneficiary_courier
-            manual_rate = manual_rate or _commission_rate(
-                business_type=settlement.business_type,
-                source_type=EarningSourceType.MANUAL_EXTRA,
-            )
-            rate = manual_rate
+            rate = None
         if source_type is None:
             continue
         if courier is None:

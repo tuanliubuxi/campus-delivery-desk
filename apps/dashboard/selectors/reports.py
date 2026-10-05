@@ -207,7 +207,7 @@ def dashboard_cards(filters):
         value=Coalesce(Sum("amount"), ZERO_MONEY)
     )["value"]
     earning_total = _earnings_for_order_ids(order_ids).filter(status=EarningStatus.SETTLED).aggregate(
-        value=Coalesce(Sum("suggested_wage_amount"), ZERO_MONEY)
+        value=Coalesce(Sum("amount_base"), ZERO_MONEY)
     )["value"]
     settled_count = settlements.filter(status=SettlementStatus.SETTLED).count()
     return {
@@ -265,7 +265,7 @@ def dashboard_charts(filters):
         "income_trend": [{"label": str(row["day"] or "未确认"), "value": row["value"]} for row in income_rows],
         "order_trend": [{"label": str(row["sequence_date"]), "value": row["value"]} for row in order_rows],
         "business_income": _series(lines, "settlement__business_type", value_field="amount"),
-        "courier_contribution": _series(earnings, "courier__display_name", value_field="suggested_wage_amount"),
+        "courier_contribution": _series(earnings, "courier__display_name", value_field="amount_base"),
         "size_distribution": _series(orders, "express_detail__size_class"),
         "route_distribution": _series(orders, "express_detail__dispatch_mode"),
         "building_distribution": _series(orders, "building_snapshot", limit=20),
@@ -303,10 +303,10 @@ def courier_personal_cards(filters):
     order_ids = orders.values_list("id", flat=True)
     earnings = _earnings_for_order_ids(order_ids).filter(courier_id=filters.courier_id)
     settled = earnings.filter(status=EarningStatus.SETTLED).aggregate(
-        value=Coalesce(Sum("suggested_wage_amount"), ZERO_MONEY)
+        value=Coalesce(Sum("amount_base"), ZERO_MONEY)
     )["value"]
     pending = earnings.filter(status=EarningStatus.PENDING_PAYMENT).aggregate(
-        value=Coalesce(Sum("suggested_wage_amount"), ZERO_MONEY)
+        value=Coalesce(Sum("amount_base"), ZERO_MONEY)
     )["value"]
     return {
         "order_count": orders.count(),

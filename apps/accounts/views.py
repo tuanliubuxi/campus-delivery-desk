@@ -3,12 +3,18 @@
 from django.contrib import messages
 from django.contrib.auth import logout as django_logout
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.accounts.forms import BusinessSelectionForm, LoginForm, UserCreateForm
+from apps.accounts.forms import (
+    BusinessSelectionForm,
+    LoginForm,
+    UserCreateForm,
+    WageRateOverrideForm,
+)
 from apps.accounts.models import User
 from apps.accounts.services import (
     AccountAlreadyOnline,
@@ -24,7 +30,9 @@ from apps.accounts.services import (
     set_accepting_orders,
     set_user_active,
     set_user_theme,
+    set_wage_rate_override,
 )
+from apps.audit.models import AuditEvent
 from apps.common.enums import UserRole
 from apps.common.permissions import admin_required, courier_required
 from apps.config_center.models import BusinessTypeConfig, SiteConfiguration
@@ -159,6 +167,7 @@ def user_list(request):
         item.current_lease = lease
         item.online_state = "offline"
         item.online_label = "离线"
+        item.wage_rate_form = WageRateOverrideForm(instance=item)
         if lease and lease.is_fresh(stale_seconds=config.lease_stale_seconds, now=now):
             lag = (now - lease.last_seen_at).total_seconds()
             item.online_state = "delayed" if lag > config.heartbeat_interval_seconds * 2 else "online"
@@ -214,6 +223,62 @@ def delete_user_view(request, user_id):
     else:
         messages.success(request, "未使用账号已删除")
     return redirect("accounts:user-list")
+
+
+@require_POST
+@admin_required
+def wage_rate_override_view(request, user_id):
+    target = get_object_or_404(User, pk=user_id, role=UserRole.COURIER)
+    form = WageRateOverrideForm(request.POST, instance=target)
+    if form.is_valid():
+        try:
+            set_wage_rate_override(
+                target_user=target,
+                actor=request.user,
+                rate=form.cleaned_data["wage_rate_override"],
+            )
+        except ValidationError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, f"{target.display_name} 的个人计薪比例已更新")
+    else:
+        messages.error(request, "个人计薪比例格式无效，应为 0 至 1")
+    return redirect("accounts:user-list")
+
+
+@admin_required
+def login_history(request, user_id):
+    target = get_object_or_404(User, pk=user_id)
+    page = Paginator(target.login_leases.select_related("revoked_by"), 50).get_page(
+        request.GET.get("page")
+    )
+    return render(request, "accounts/login_history.html", {"target": target, "page": page})
+
+
+@admin_required
+def audit_logs(request):
+    events = AuditEvent.objects.select_related("actor")
+    event_type = request.GET.get("event_type", "").strip()
+    query = request.GET.get("q", "").strip()
+    if event_type:
+        events = events.filter(event_type=event_type)
+    if query:
+        from django.db.models import Q
+
+        events = events.filter(
+            Q(actor__display_name__icontains=query)
+            | Q(actor__username__icontains=query)
+            | Q(entity_id__icontains=query)
+        )
+    page = Paginator(events, 100).get_page(request.GET.get("page"))
+    event_types = AuditEvent.objects.order_by("event_type").values_list(
+        "event_type", flat=True
+    ).distinct()
+    return render(
+        request,
+        "accounts/audit_logs.html",
+        {"page": page, "event_types": event_types, "event_type": event_type, "query": query},
+    )
 
 
 def session_context(request):

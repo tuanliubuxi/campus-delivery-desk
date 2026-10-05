@@ -4,13 +4,15 @@
 
 使用 Django Session + HttpOnly Cookie。
 
+登录 Cookie 采用 30 天滚动有效期：同一有效会话持续使用或心跳成功时续期；主动退出、管理员强制下线、账号停用、口令重置或租约被新设备接管后不得自动恢复。
+
 密码由系统生成随机口令交给用户，数据库只存 Argon2/PBKDF2 等安全哈希。不开公开注册，不要求首次改密，不做失败登录限流。
 
 ## 2. 单账号单活跃会话
 
 使用 ActiveLoginLease，而不是简单 `online=true`。
 
-建议参数：heartbeat 30s，stale timeout 150s。
+建议参数：heartbeat 30s，异设备接管判定窗口 150s。该窗口不是登录有效期；原浏览器持有的完整会话仍按 30 天滚动有效期恢复，除非已被接管或明确撤销。
 
 登录：fresh lease → 拒绝；stale → revoke 后允许新登录。
 
@@ -19,6 +21,8 @@
 关闭标签时 `sendBeacon` 可尝试 logout/release，但不能依赖成功。
 
 管理员可强制下线；停用账号和重置密码也应使现有 Session/lease 失效。
+
+每次成功登录保留时间、IP、User-Agent 和可由 User-Agent 推断的系统/浏览器摘要。设备真实名称和地理位置不作为 V1 要求。管理员可按人员查看登录历史，并在系统日志中筛选登录及其他审计事件。
 
 ## 3. 角色权限
 

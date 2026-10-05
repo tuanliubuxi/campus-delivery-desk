@@ -22,7 +22,7 @@
       <form method="post" action="{% url 'operations:recovery-check' %}">{% csrf_token %}<button class="btn btn-outline-primary">立即检查</button></form>
     </div></div></div>
   </div>
-  <div class="card mb-4"><div class="card-header">备份记录</div><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <div class="card mb-4"><div class="card-header">备份记录</div><div class="table-responsive cdd-scroll-region"><table class="table table-sm align-middle mb-0">
     <thead><tr><th>时间/类型</th><th>状态</th><th>大小</th><th>照片归档</th><th>操作</th></tr></thead><tbody>
     {% for backup in backups %}<tr>
       <td>{{ backup.created_at }}<div class="small">{{ backup.get_backup_type_display }} · {{ backup.storage_name }}</div></td>
@@ -38,6 +38,6 @@
       </div></td>
     </tr>{% empty %}<tr><td colspan="5" class="text-center py-4">暂无备份</td></tr>{% endfor %}
     </tbody></table></div></div>
-  <div class="card"><div class="card-header">最近任务</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>任务</th><th>幂等键</th><th>状态</th><th>开始/结束</th><th>结果</th></tr></thead><tbody>{% for job in jobs %}<tr><td>{{ job.get_job_name_display }}</td><td>{{ job.idempotency_key }}</td><td>{{ job.get_status_display }}</td><td>{{ job.started_at }}<br>{{ job.finished_at|default:"-" }}</td><td>{{ job.result_summary }}{{ job.error_summary }}</td></tr>{% empty %}<tr><td colspan="5">暂无任务</td></tr>{% endfor %}</tbody></table></div></div>
+  <div class="card"><div class="card-header">最近任务</div><div class="table-responsive cdd-scroll-region"><table class="table table-sm mb-0"><thead><tr><th>任务</th><th>幂等键</th><th>状态</th><th>开始/结束</th><th>结果</th></tr></thead><tbody>{% for job in jobs %}<tr><td>{{ job.get_job_name_display }}</td><td><span class="cdd-ellipsis" title="{{ job.idempotency_key }}">{{ job.idempotency_key }}</span></td><td>{{ job.get_status_display }}</td><td>{{ job.started_at }}<br>{{ job.finished_at|default:"-" }}</td><td><span class="cdd-clamp">{{ job.error_summary|default:"任务已完成，详细结果见恢复检查提示或系统日志。" }}</span></td></tr>{% empty %}<tr><td colspan="5">暂无任务</td></tr>{% endfor %}</tbody></table></div></div>
 </main>
 {% endblock %}

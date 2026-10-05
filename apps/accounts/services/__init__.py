@@ -16,6 +16,7 @@ from .users import (
     set_accepting_orders,
     set_user_active,
     set_user_theme,
+    set_wage_rate_override,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "set_accepting_orders",
     "set_user_theme",
     "set_user_active",
+    "set_wage_rate_override",
 ]

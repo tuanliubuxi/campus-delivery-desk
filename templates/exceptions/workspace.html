@@ -5,10 +5,10 @@
 <main class="container py-3 {% if user.is_courier %}cdd-mobile-shell{% endif %}">
   <h1 class="h3">异常与处理</h1>
   <div class="row g-4"><section class="col-lg-5">
-    <form method="post" enctype="multipart/form-data" class="card card-body" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="exception-{% if user.is_courier %}courier{% else %}desk{% endif %}">{% csrf_token %}
-      <h2 class="h5">报告异常</h2>{{ form.as_p }}<button class="btn btn-danger">建立异常</button>
+    <form method="post" enctype="multipart/form-data" class="card card-body" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="exception-{% if user.is_courier %}courier{% else %}desk{% endif %}">{% csrf_token %}{{ form.operation_id }}
+      <h2 class="h5">报告异常</h2>{% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}<p class="cdd-muted small">从订单、任务、配送记录或归拢轮次中至少选择一项。</p><div class="row g-2">{% for field in form %}{% if field.name == 'order' or field.name == 'task' or field.name == 'drop' or field.name == 'consolidation_round' %}<div class="col-12 col-md-6"><label class="form-label">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}</div><div class="mt-3"><label class="form-label">{{ form.reason_code.label }}</label>{{ form.reason_code }}<div class="form-text">{{ form.reason_code.help_text }}</div>{{ form.reason_code.errors }}</div><div class="mt-3"><label class="form-label">{{ form.reason_text.label }}</label>{{ form.reason_text }}{{ form.reason_text.errors }}</div><div class="mt-3"><label class="form-label">{{ form.attachments.label }}</label>{{ form.attachments }}{{ form.attachments.errors }}</div>{% if user.is_courier %}{{ form.blocks_consolidation }}{{ form.blocks_settlement }}{{ form.delivery_evidence }}{{ form.media_evidence }}{% else %}<details class="mt-3"><summary class="cdd-summary">高级关联与阻塞设置</summary><div class="mt-2">{{ form.blocks_consolidation.as_field_group }}{{ form.blocks_settlement.as_field_group }}{{ form.delivery_evidence.as_field_group }}{{ form.media_evidence.as_field_group }}</div></details>{% endif %}<button class="btn btn-danger mt-3">建立异常</button>
     </form>
-  </section><section class="col-lg-7">
+  </section><section class="col-lg-7"><div class="cdd-scroll-region">
     {% for case in page %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
       <div class="d-flex justify-content-between gap-2"><strong>#{{ case.id }} · {{ case.reason_code }}</strong><span>{{ case.get_status_display }}</span></div>
       <div>{{ case.reason_text|truncatechars:100 }}</div><div class="mt-2">
@@ -19,7 +19,7 @@
       {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}">上一页</a></li>{% endif %}
       <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
       {% if page.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}">下一页</a></li>{% endif %}
-    </ul></nav>{% endif %}
+    </ul></nav>{% endif %}</div>
   </section></div>
 </main>
 {% endblock %}

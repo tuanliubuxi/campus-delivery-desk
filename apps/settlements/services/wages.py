@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 
 from apps.accounts.models import User
+from apps.audit.services import record_event
 from apps.common.enums import UserRole
-from apps.config_center.models import CommissionConfig
-from apps.settlements.models import EarningSourceType
+from apps.config_center.models import SiteConfiguration
+from apps.settlements.models import EarningSourceType, WageCalculationRun
 from apps.settlements.selectors.wages import (
     courier_earning_totals,
     settled_earnings,
@@ -30,6 +32,7 @@ class WageLine:
     wage_adjustment: Decimal
     manual_amount: Decimal
     final_amount: Decimal
+    effective_rate: Decimal | None = None
     warning: str = ""
 
 
@@ -51,22 +54,19 @@ def calculate_wages(*, period_start, period_end, mode, manual_allocations=None):
         raise ValidationError("开始日期不能晚于结束日期")
     if mode not in {"RATIO", "MANUAL"}:
         raise ValidationError("未知工资计算模式")
-    if mode == "RATIO":
-        missing_pairs = set(
-            settled_earnings(period_start=period_start, period_end=period_end)
-            .exclude(source_type=EarningSourceType.CUSTOMER_EXTRA)
-            .filter(commission_rate_snapshot__isnull=True)
-            .values_list("settlement__business_type", "source_type")
+    default_rate = SiteConfiguration.load().default_wage_rate
+    if mode == "RATIO" and default_rate is None:
+        needs_default = settled_earnings(
+            period_start=period_start, period_end=period_end
+        ).exclude(source_type=EarningSourceType.CUSTOMER_EXTRA).filter(
+            courier__wage_rate_override__isnull=True
         )
-        configured_pairs = set(
-            CommissionConfig.objects.exclude(commission_rate__isnull=True).values_list(
-                "business_type", "earning_source"
-            )
-        )
-        if missing_pairs - configured_pairs:
-            raise ValidationError("所选周期存在尚未配置分成比例的普通收益，无法计算比例工资")
+        if needs_default.exists():
+            raise ValidationError("系统默认计薪比例尚未配置，且所选周期有配送员未设置个人比例")
     pool = wage_pool_totals(period_start=period_start, period_end=period_end)
-    aggregates = courier_earning_totals(period_start=period_start, period_end=period_end)
+    aggregates = courier_earning_totals(
+        period_start=period_start, period_end=period_end, default_rate=default_rate
+    )
     couriers = {courier.pk: courier for courier in User.objects.filter(role=UserRole.COURIER)}
     allocations = {
         int(courier_id): _money(value)
@@ -93,6 +93,9 @@ def calculate_wages(*, period_start, period_end, mode, manual_allocations=None):
                 "locked": Decimal("0.00"),
                 "ratio_suggested": Decimal("0.00"),
                 "wage_adjustment": Decimal("0.00"),
+                "effective_rate": couriers[courier_id].wage_rate_override
+                if couriers[courier_id].wage_rate_override is not None
+                else default_rate,
             },
         )
         manual = (
@@ -111,6 +114,7 @@ def calculate_wages(*, period_start, period_end, mode, manual_allocations=None):
                 wage_adjustment=_money(data["wage_adjustment"]),
                 manual_amount=_money(manual),
                 final_amount=final,
+                effective_rate=data.get("effective_rate"),
                 warning=warning,
             )
         )
@@ -124,3 +128,51 @@ def calculate_wages(*, period_start, period_end, mode, manual_allocations=None):
         current_manual_total=_money(manual_total),
         lines=tuple(lines),
     )
+
+
+def overlapping_wage_runs(*, period_start, period_end):
+    return WageCalculationRun.objects.filter(
+        period_start__lte=period_end,
+        period_end__gte=period_start,
+    )
+
+
+@transaction.atomic
+def save_wage_calculation(*, calculation, actor, operation_id):
+    """Persist one immutable result so later ranges can be checked explicitly."""
+    if WageCalculationRun.objects.filter(
+        period_start=calculation.period_start,
+        period_end=calculation.period_end,
+        mode=calculation.mode,
+    ).exists():
+        raise ValidationError("相同日期范围和计算模式已经保存过，请查看原记录")
+    snapshot = {
+        "available_pool": str(calculation.available_pool),
+        "locked_amount": str(calculation.locked_amount),
+        "manual_allocatable_remaining": str(calculation.manual_allocatable_remaining),
+        "lines": [
+            {
+                "courier_id": line.courier.pk,
+                "courier": line.courier.display_name,
+                "ordinary_direct": str(line.ordinary_direct),
+                "locked_amount": str(line.locked_amount),
+                "wage_adjustment": str(line.wage_adjustment),
+                "effective_rate": str(line.effective_rate) if line.effective_rate is not None else None,
+                "final_amount": str(line.final_amount),
+            }
+            for line in calculation.lines
+        ],
+    }
+    try:
+        run = WageCalculationRun.objects.create(
+            operation_id=operation_id,
+            period_start=calculation.period_start,
+            period_end=calculation.period_end,
+            mode=calculation.mode,
+            result_snapshot=snapshot,
+            created_by=actor,
+        )
+    except IntegrityError as exc:
+        raise ValidationError("相同日期范围和计算模式已经保存过") from exc
+    record_event(actor=actor, event_type="WAGE_CALCULATION_SAVED", entity=run)
+    return run

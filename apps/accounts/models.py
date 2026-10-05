@@ -1,10 +1,12 @@
 """User identity, role, and active-login lease persistence models."""
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager as DjangoUserManager
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -33,6 +35,14 @@ class User(AbstractUser):
         blank=True,
     )
     ui_theme = models.CharField(max_length=16, choices=Theme.choices, blank=True, default="")
+    wage_rate_override = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))],
+        help_text="仅配送员可设置；留空时继承系统默认计薪比例。",
+    )
     objects = UserManager()
 
     class Meta:
@@ -44,7 +54,11 @@ class User(AbstractUser):
                     | (Q(accepting_orders=False) & Q(accepting_business__isnull=True))
                 ),
                 name="account_non_courier_not_accepting",
-            )
+            ),
+            models.CheckConstraint(
+                condition=Q(role=UserRole.COURIER) | Q(wage_rate_override__isnull=True),
+                name="account_non_courier_no_wage_override",
+            ),
         ]
 
     def __str__(self):
@@ -81,6 +95,9 @@ class ActiveLoginLease(models.Model):
         related_name="revoked_login_leases",
     )
     revoke_reason = models.CharField(max_length=160, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    device_summary = models.CharField(max_length=160, blank=True)
 
     class Meta:
         constraints = [

@@ -22,6 +22,7 @@ from .settlement import (
     SettlementLine,
     SettlementOrder,
 )
+from .wage import WageCalculationRun
 
 __all__ = [
     "AdjustmentType",
@@ -43,4 +44,5 @@ __all__ = [
     "SettlementPartyType",
     "SettlementStatus",
     "ProxyRecipientReceipt",
+    "WageCalculationRun",
 ]

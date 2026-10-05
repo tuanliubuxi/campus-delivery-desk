@@ -3,10 +3,13 @@
 {% block content %}
 <main class="container py-4">
   <h1 class="h3">管理员工作台</h1>
-  <div class="row g-3 mt-1">
+  <p class="cdd-muted">集中查看人员、风险与系统维护状态；详细业务数据仍在对应功能页面处理。</p><div class="row g-3 mt-1">
     <div class="col-md-4"><a class="cdd-card cdd-dashboard-link p-4 d-block" href="{% url 'accounts:user-list' %}">人员与会话</a></div>
     <div class="col-md-4"><a class="cdd-card cdd-dashboard-link p-4 d-block" href="{% url 'customers:list' %}">客户档案</a></div>
     <div class="col-md-4"><a class="cdd-card cdd-dashboard-link p-4 d-block" href="{% url 'config_center:index' %}">配置中心</a></div>
+    <div class="col-md-4"><a class="cdd-card cdd-dashboard-link p-4 d-block" href="{% url 'accounts:audit-logs' %}">系统日志</a></div>
+    <div class="col-md-4"><a class="cdd-card cdd-dashboard-link p-4 d-block" href="{% url 'exceptions:workspace' %}">待处理异常</a></div>
+    <div class="col-md-4"><a class="cdd-card cdd-dashboard-link p-4 d-block" href="{% url 'operations:backups' %}">备份与维护</a></div>
   </div>
 </main>
 {% endblock %}

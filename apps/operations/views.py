@@ -181,7 +181,18 @@ def maintenance_disable(request):
 @admin_required
 def recovery_check(request):
     run = run_startup_recovery_check(idempotency_key=f"manual:{uuid.uuid4()}")
-    messages.success(request, f"恢复检查完成：{run.result_summary}")
+    result = run.result_summary or {}
+    status = "备份已逾期，请尽快创建备份" if result.get("backup_overdue") else "备份状态正常"
+    messages.success(
+        request,
+        "恢复检查完成：中断任务 {abandoned} 个；失效登录占用 {leases} 个；"
+        "临时文件 {tmp} 个；{status}。".format(
+            abandoned=result.get("abandoned_jobs", 0),
+            leases=result.get("stale_leases", 0),
+            tmp=result.get("tmp_deleted", 0),
+            status=status,
+        ),
+    )
     return redirect("operations:backups")
 
 

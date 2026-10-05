@@ -59,34 +59,6 @@ class BusinessTypeConfig(models.Model):
         return self.display_name
 
 
-class EarningSource(models.TextChoices):
-    BASE_DELIVERY = "BASE_DELIVERY", "基础配送"
-    UPSTAIRS = "UPSTAIRS", "上楼服务"
-    MANUAL_EXTRA = "MANUAL_EXTRA", "人工额外服务"
-
-
-class CommissionConfig(models.Model):
-    # A null rate is the required initial state and blocks only ratio-mode wage calculation.
-    business_type = models.CharField(max_length=24, choices=BusinessType.choices)
-    earning_source = models.CharField(max_length=24, choices=EarningSource.choices)
-    commission_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=4,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))],
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["business_type", "earning_source"],
-                name="config_unique_business_earning_commission",
-            )
-        ]
-        ordering = ["business_type", "earning_source"]
-
-
 class SiteConfiguration(models.Model):
     """Typed singleton configuration; core business values are intentionally not JSON."""
 
@@ -144,6 +116,14 @@ class SiteConfiguration(models.Model):
     )
     media_retention_days = models.PositiveSmallIntegerField(
         default=30, validators=[MinValueValidator(1), MaxValueValidator(3650)]
+    )
+    default_wage_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))],
+        help_text="所有配送员默认继承此比例；留空时仅阻止比例工资计算。",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

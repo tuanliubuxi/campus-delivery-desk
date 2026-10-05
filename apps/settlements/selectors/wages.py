@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from apps.config_center.models import CommissionConfig
 from apps.settlements.models import (
     AdjustmentType,
     ChargeType,
@@ -57,15 +56,9 @@ def settled_earnings(*, period_start, period_end):
     ).select_related("courier", "settlement")
 
 
-def courier_earning_totals(*, period_start, period_end):
+def courier_earning_totals(*, period_start, period_end, default_rate=None):
     """Aggregate direct ordinary, locked, and ratio suggestions by courier."""
     rows = {}
-    # A rate configured after settlement may calculate a previously unavailable suggestion
-    # without rewriting the immutable settlement or the original empty earning snapshot.
-    current_rates = {
-        (item.business_type, item.earning_source): item.commission_rate
-        for item in CommissionConfig.objects.exclude(commission_rate__isnull=True)
-    }
     for earning in settled_earnings(period_start=period_start, period_end=period_end):
         row = rows.setdefault(
             earning.courier_id,
@@ -75,19 +68,17 @@ def courier_earning_totals(*, period_start, period_end):
                 "locked": Decimal("0.00"),
                 "ratio_suggested": Decimal("0.00"),
                 "wage_adjustment": Decimal("0.00"),
+                "effective_rate": earning.courier.wage_rate_override
+                if earning.courier.wage_rate_override is not None
+                else default_rate,
             },
         )
         if earning.source_type == EarningSourceType.CUSTOMER_EXTRA:
             row["locked"] += earning.suggested_wage_amount or Decimal("0.00")
         else:
             row["ordinary_direct"] += earning.amount_base or Decimal("0.00")
-            suggested = earning.suggested_wage_amount
-            if suggested is None and earning.amount_base is not None:
-                rate = current_rates.get(
-                    (earning.settlement.business_type, earning.source_type)
-                )
-                if rate is not None:
-                    suggested = earning.amount_base * rate
+            rate = row["effective_rate"]
+            suggested = earning.amount_base * rate if rate is not None else None
             row["ratio_suggested"] += suggested or Decimal("0.00")
     adjustments = FinancialAdjustment.objects.filter(
         settlement__status=SettlementStatus.SETTLED,
@@ -106,6 +97,9 @@ def courier_earning_totals(*, period_start, period_end):
                 "locked": Decimal("0.00"),
                 "ratio_suggested": Decimal("0.00"),
                 "wage_adjustment": Decimal("0.00"),
+                "effective_rate": adjustment.wage_courier.wage_rate_override
+                if adjustment.wage_courier.wage_rate_override is not None
+                else default_rate,
             },
         )
         row["wage_adjustment"] += adjustment.wage_amount

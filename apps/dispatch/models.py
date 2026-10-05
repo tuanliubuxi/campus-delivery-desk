@@ -72,6 +72,9 @@ class DeliveryTask(models.Model):
     class Meta:
         ordering = ["-accepted_at", "-id"]
 
+    def __str__(self):
+        return f"任务 #{self.pk} · {self.get_business_type_display()} · {self.courier}"
+
 
 class RouteBatch(models.Model):
     """Pickup-area route metadata kept separate from the generic delivery task."""

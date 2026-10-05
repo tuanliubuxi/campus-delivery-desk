@@ -22,10 +22,26 @@ body {
 }
 
 .cdd-card {
+  position: relative;
   background: var(--cdd-surface);
   border: 1px solid var(--cdd-border);
   border-radius: 0.75rem;
 }
+
+a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
+.btn:hover:not(:disabled), .cdd-dashboard-link:hover { transform: translateY(-1px); }
+.btn:active:not(:disabled), .cdd-dashboard-link:active { transform: translateY(0); }
+.btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--cdd-focus) 70%, transparent); outline-offset: 2px; }
+.cdd-action-row { display: flex; flex-wrap: nowrap; align-items: center; gap: .55rem; }
+.cdd-action-row > * { flex: 0 0 auto; margin: 0; }
+.cdd-scroll-region { max-height: min(62vh, 720px); overflow: auto; scrollbar-gutter: stable; }
+.cdd-scroll-region thead th { position: sticky; top: 0; z-index: 2; background: var(--cdd-elevated); }
+.cdd-ellipsis { display: block; max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cdd-clamp { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.cdd-break-text, .cdd-log-detail { overflow-wrap: anywhere; white-space: pre-wrap; }
+.cdd-summary { cursor: pointer; color: var(--cdd-primary); font-weight: 700; }
+.cdd-recipient-orders { max-height: 16rem; overflow: auto; }
+.cdd-compact-row { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .55rem 0; border-bottom: 1px solid var(--cdd-border); }
 
 .cdd-muted {
   color: var(--cdd-muted);
@@ -58,6 +74,7 @@ body {
   color: var(--cdd-text);
   border-color: var(--cdd-border);
 }
+.form-select { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .form-control:focus, .form-select:focus {
   background-color: var(--cdd-input);
   color: var(--cdd-text);
@@ -127,7 +144,9 @@ body {
 .cdd-file-item::marker { color: var(--cdd-muted); font-variant-numeric: tabular-nums; }
 .cdd-file-item > span { display: inline-block; max-width: calc(100% - 3rem); overflow: hidden; text-overflow: ellipsis; vertical-align: middle; white-space: nowrap; }
 .cdd-file-item .btn { float: right; min-width: 2rem; min-height: 2rem; padding: 0; }
-.cdd-roster-pane { height: min(70vh, 680px); overflow: auto; }
+.cdd-roster-create, .cdd-roster-list { height: min(70vh, 680px); }
+.cdd-roster-create { overflow: visible; }
+.cdd-roster-list { overflow: auto; }
 .cdd-person-cell { max-width: 12rem; }
 .cdd-person-cell > span, .cdd-person-cell > div { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cdd-switch { display: inline-flex; align-items: center; cursor: pointer; }
@@ -147,6 +166,10 @@ body {
 .cdd-settlement-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--cdd-border); border-radius: .8rem; background: var(--cdd-elevated); }
 .cdd-settlement-total { display: grid; text-align: right; }
 .cdd-settlement-total strong { font-size: 1.8rem; color: var(--cdd-primary); }
+.cdd-settlement-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(20rem, .75fr); align-items: start; gap: 1.25rem; }
+.cdd-settlement-layout.is-final { grid-template-columns: 1fr; }
+.cdd-settlement-layout.is-final > aside { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: start; gap: 1rem; }
+.cdd-settlement-layout.is-final > aside > * { margin-bottom: 0 !important; }
 
 .cdd-login-shell {
   width: auto;
@@ -212,7 +235,17 @@ body {
   .cdd-cat-customer { background: color-mix(in srgb, #a27018 18%, var(--cdd-surface)); }
   .cdd-courier-status { margin-left: .25rem; font-size: .75rem; }
   .cdd-roster-pane { height: auto; max-height: 65vh; }
+  .cdd-roster-create { height: auto; overflow: visible; }
+  .cdd-roster-list { height: auto; max-height: none; overflow: visible; }
   .cdd-settlement-heading { align-items: flex-start; }
+  .cdd-settlement-layout { grid-template-columns: 1fr; }
+  .cdd-scroll-region { max-height: none; overflow-y: visible; }
+  .cdd-action-row { width: 100%; overflow-x: auto; padding-bottom: .2rem; }
+  .cdd-compact-row { align-items: flex-start; flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 .cdd-chart {
   min-height: 18rem;

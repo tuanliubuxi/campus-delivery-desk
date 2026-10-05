@@ -31,6 +31,34 @@ def _token_hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _client_metadata(request):
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    ip_address = (forwarded.split(",")[0].strip() if forwarded else request.META.get("REMOTE_ADDR")) or None
+    user_agent = request.META.get("HTTP_USER_AGENT", "")[:1000]
+    lowered = user_agent.lower()
+    if "android" in lowered:
+        platform = "Android"
+    elif "iphone" in lowered or "ipad" in lowered:
+        platform = "iOS/iPadOS"
+    elif "windows" in lowered:
+        platform = "Windows"
+    elif "linux" in lowered:
+        platform = "Linux"
+    else:
+        platform = "未知系统"
+    if "edg/" in lowered:
+        browser = "Edge"
+    elif "firefox/" in lowered:
+        browser = "Firefox"
+    elif "chrome/" in lowered:
+        browser = "Chrome"
+    elif "safari/" in lowered:
+        browser = "Safari"
+    else:
+        browser = "未知浏览器"
+    return ip_address, user_agent, f"{platform} · {browser}"
+
+
 def _revoke(lease, *, actor, reason, now=None):
     """Revoke the lease and delete its server-side Django Session in the same workflow."""
     if lease.revoked_at is not None:
@@ -58,6 +86,7 @@ def login_user_with_lease(*, request, user):
     django_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     request.session.save()
     token = secrets.token_urlsafe(32)
+    ip_address, user_agent, device_summary = _client_metadata(request)
     try:
         # The nested savepoint lets us translate a concurrent UNIQUE collision cleanly.
         with transaction.atomic():
@@ -67,6 +96,9 @@ def login_user_with_lease(*, request, user):
                 lease_token_hash=_token_hash(token),
                 last_seen_at=now,
                 expires_at=now + timedelta(seconds=request.session.get_expiry_age()),
+                ip_address=ip_address,
+                user_agent=user_agent,
+                device_summary=device_summary,
             )
     except IntegrityError as exc:
         request.session.flush()
@@ -74,7 +106,12 @@ def login_user_with_lease(*, request, user):
     request.session["login_lease_id"] = lease.pk
     request.session["login_lease_token"] = token
     request.session.modified = True
-    record_event(actor=user, event_type="LOGIN", entity=user, metadata={"lease_id": lease.pk})
+    record_event(
+        actor=user,
+        event_type="LOGIN",
+        entity=user,
+        metadata={"lease_id": lease.pk, "ip_address": ip_address, "device": device_summary},
+    )
     return lease
 
 
@@ -121,12 +158,17 @@ def heartbeat(*, request):
             _revoke(lease, actor=None, reason="SESSION_EXPIRED", now=now)
         raise InvalidLease("登录会话已过期")
     # Conditional update prevents a force-logout/new-login race from reviving a lease.
+    request.session.set_expiry(60 * 60 * 24 * 30)
+    request.session.modified = True
+    expires_at = now + timedelta(days=30)
     updated = ActiveLoginLease.objects.filter(pk=lease.pk, revoked_at__isnull=True).update(
-        last_seen_at=now
+        last_seen_at=now,
+        expires_at=expires_at,
     )
     if updated != 1:
         raise InvalidLease("登录租约已失效")
     lease.last_seen_at = now
+    lease.expires_at = expires_at
     return lease
 
 

@@ -44,10 +44,17 @@ def login(client, user, role=None):
 
 @pytest.mark.django_db
 def test_first_login_creates_lease_and_fresh_second_login_is_rejected(client, recorder):
-    response = login(client, recorder)
+    response = client.post(
+        reverse("accounts:login"),
+        {"role": recorder.role, "user": recorder.pk, "password": "Strong-pass-123"},
+        HTTP_USER_AGENT="Mozilla/5.0 (Windows NT 10.0) Edg/140.0",
+        HTTP_X_FORWARDED_FOR="192.168.2.14",
+    )
     assert response.status_code == 302
     lease = ActiveLoginLease.objects.get(user=recorder, revoked_at__isnull=True)
     assert lease.session_key == client.session.session_key
+    assert str(lease.ip_address) == "192.168.2.14"
+    assert lease.device_summary == "Windows · Edge"
 
     from django.test import Client
 
@@ -97,11 +104,13 @@ def test_heartbeat_refreshes_current_lease(client, recorder):
     login(client, recorder)
     lease = ActiveLoginLease.objects.get(user=recorder, revoked_at__isnull=True)
     previous = timezone.now() - timedelta(seconds=30)
-    ActiveLoginLease.objects.filter(pk=lease.pk).update(last_seen_at=previous)
+    old_expiry = timezone.now() + timedelta(days=1)
+    ActiveLoginLease.objects.filter(pk=lease.pk).update(last_seen_at=previous, expires_at=old_expiry)
     response = client.post(reverse("accounts:heartbeat"))
     assert response.status_code == 200
     lease.refresh_from_db()
     assert lease.last_seen_at > previous
+    assert lease.expires_at > timezone.now() + timedelta(days=29)
 
 
 @pytest.mark.django_db

@@ -25,7 +25,7 @@
   {% if agents %}
   <section class="mb-4" aria-labelledby="agents-heading">
     <h2 id="agents-heading" class="h5">代理人</h2>
-    <div class="row g-3">
+    <div class="row g-3 cdd-scroll-region">
       {% for agent in agents %}
       <div class="col-12 col-md-6 col-xl-4">
         <article class="cdd-card p-3 h-100">
@@ -48,7 +48,7 @@
 
   <section aria-labelledby="batches-heading">
     <h2 id="batches-heading" class="h5">代理批次</h2>
-    <div class="row g-3">
+    <div class="row g-3 cdd-scroll-region">
       {% for batch in batch_page %}
       <div class="col-12 col-md-6 col-xl-4">
         <article class="cdd-card p-3 h-100">
@@ -58,7 +58,7 @@
           </div>
           <div class="mt-2">批次 {{ batch.display_code }}</div>
           <div class="cdd-muted small">临时收件人 {{ batch.recipient_count }} 人 · 创建人 {{ batch.created_by|default:"系统" }}</div>
-          {% if batch.note %}<p class="small mt-2 mb-0">{{ batch.note }}</p>{% endif %}
+          {% if batch.note %}<p class="small mt-2 mb-0 cdd-clamp" title="{{ batch.note }}">{{ batch.note }}</p>{% endif %}
           <a class="btn btn-sm btn-primary mt-3" href="{% url 'agents:batch-detail' batch.pk %}">进入批次</a>
         </article>
       </div>

@@ -13,5 +13,4 @@ urlpatterns = [
     path("admin-console/config/business/<int:config_id>/toggle/", views.business_config_toggle, name="business-toggle"),
     path("admin-console/config/buildings/new/", views.building_edit, name="building-create"),
     path("admin-console/config/buildings/<int:building_id>/", views.building_edit, name="building-edit"),
-    path("admin-console/config/commissions/<int:commission_id>/", views.commission_edit, name="commission-edit"),
 ]

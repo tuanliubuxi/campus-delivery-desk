@@ -3,7 +3,7 @@
 {% block title %}新增临时收件人 · 校驿{% endblock %}
 {% block content %}
 <main class="container py-4" style="max-width: 760px">
-  <a href="{% url 'agents:batch-detail' batch.pk %}" class="small">← 返回批次</a>
+  <a href="{% url 'agents:batch-detail' batch.pk %}" class="btn btn-sm btn-outline-secondary">返回批次</a>
   <h1 class="h3 mt-2">{% if recipient %}编辑{% else %}新增{% endif %}临时收件人</h1>
   <p class="cdd-muted">{{ batch.agent.name }} · {{ batch.display_code }}。资料只属于本批次，不会进入正式客户库。</p>
   {% if batch.accepts_new_members %}
@@ -11,8 +11,9 @@
     <form method="post">
       {% csrf_token %}
       {{ form.as_p }}
-      <button class="btn btn-primary cdd-touch">保存并返回批次</button>
+      <div class="cdd-action-row justify-content-center"><button class="btn btn-primary cdd-touch">保存并返回批次</button><a class="btn btn-outline-secondary cdd-touch" href="{% url 'agents:batch-detail' batch.pk %}">取消</a>{% if recipient and not recipient.orders.exists and not recipient.receipts.exists %}<button class="btn btn-outline-danger cdd-touch" type="submit" form="recipient-delete-form">删除</button>{% endif %}</div>
     </form>
+    {% if recipient and not recipient.orders.exists and not recipient.receipts.exists %}<form id="recipient-delete-form" method="post" action="{% url 'agents:recipient-delete' recipient.pk %}" onsubmit="return confirm('确认删除这个空临时收件人？')">{% csrf_token %}</form>{% endif %}
   </section>
   {% else %}
   <div class="alert alert-warning">该批次已冻结，不能新增临时收件人。</div>

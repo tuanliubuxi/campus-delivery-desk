@@ -413,10 +413,10 @@ manual_allocatable_remaining = 880
 
 `calculate_wages(filters, mode)`：
 
-- RATIO：普通业务收益按业务分成快照计算，强制归属收益直接加入对应人员；
+- RATIO：普通业务收益按配送员有效比例（个人覆盖优先，否则系统默认）计算，强制归属收益直接加入对应人员；
 - MANUAL：管理员分配剩余可人工分配池，强制归属部分不可转给别人。
 
-比例配置初始为空。缺少比例不得阻止业务、结算确认或 CourierEarning 收益归属；对应收益行保留空的比例/建议工资快照。只有 RATIO 工资计算遇到所选周期内缺少比例快照的普通收益时拒绝，并提示管理员补配置。CUSTOMER_EXTRA 始终按 100% 快照归 beneficiary courier，不依赖普通比例配置。
+系统默认比例初始为空，配送员个人比例允许为空并继承默认值。缺少有效比例不得阻止业务、结算确认或 CourierEarning 收益归属；只有 RATIO 工资计算遇到所选周期内无有效比例的配送员普通收益时拒绝。CUSTOMER_EXTRA 始终按 100% 归 beneficiary courier，不依赖普通比例配置。
 
 MANUAL 硬约束 `sum(manual_allocations) <= manual_allocatable_remaining`。个人最终工资高于本人直接产生的普通配送收益只返回 warning，不阻塞。
 

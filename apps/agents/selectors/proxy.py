@@ -47,7 +47,7 @@ def search_proxy_batches(query=""):
 def proxy_batch_detail(batch_id):
     recipients = (
         ProxyRecipient.objects.select_related("building")
-        .prefetch_related("receipts__media")
+        .prefetch_related("receipts__media", "orders__express_detail")
         .order_by("created_at", "id")
     )
     return (

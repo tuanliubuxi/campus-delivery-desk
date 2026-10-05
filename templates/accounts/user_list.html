@@ -5,20 +5,22 @@
   <h1 class="h3">人员与会话</h1>
   {% if generated_password %}<div class="alert alert-warning">新账号口令：<strong>{{ generated_password }}</strong>（仅本页显示，请安全交付）</div>{% endif %}
   <div class="row g-4 cdd-roster-layout">
-    <section class="col-lg-4"><div class="cdd-card p-3 cdd-roster-pane"><h2 class="h5">创建账号</h2>
+    <section class="col-lg-4"><div class="cdd-card p-3 cdd-roster-create"><h2 class="h5">创建账号</h2>
       <p class="small cdd-muted">内部用户名用于系统唯一识别；显示名用于登录选择和页面展示，两项都必须填写。</p>
       <form method="post" id="user-create-form">{% csrf_token %}
         <div class="row g-2"><div class="col-12"><label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>{{ form.username }}{{ form.username.errors }}</div><div class="col-7"><label class="form-label" for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>{{ form.display_name }}{{ form.display_name.errors }}</div><div class="col-5"><label class="form-label" for="{{ form.role.id_for_label }}">{{ form.role.label }}</label>{{ form.role }}{{ form.role.errors }}</div><div class="col-12"><label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>{{ form.password }}{{ form.password.errors }}</div></div>
         <fieldset class="mt-3"><legend class="form-label">Emoji 头像</legend>{{ form.emoji_avatar }}{{ form.emoji_avatar.errors }}</fieldset>
         <button class="btn btn-primary w-100 mt-3 cdd-touch">创建账号</button></form>
     </div></section>
-    <section class="col-lg-8"><div class="cdd-card cdd-roster-pane cdd-roster-table table-responsive"><table class="table mb-0 align-middle">
+    <section class="col-lg-8"><div class="cdd-card cdd-roster-list cdd-roster-table table-responsive"><table class="table mb-0 align-middle">
       <thead><tr><th>人员</th><th>角色</th><th>账号</th><th>在线状态</th><th>操作</th></tr></thead><tbody>
       {% for item in users %}<tr><td class="cdd-person-cell"><span title="{{ item.display_name }}">{{ item.emoji_avatar }} {{ item.display_name }}</span><div class="small cdd-muted" title="{{ item.username }}">{{ item.username }}</div></td><td>{{ item.get_role_display }}</td><td>{% if item.is_active %}启用{% else %}停用{% endif %}</td><td><span class="cdd-presence cdd-presence--{{ item.online_state }}" aria-hidden="true"></span>{{ item.online_label }}{% if item.current_lease %}<div class="small cdd-muted">{{ item.current_lease.last_seen_at|date:"m-d H:i:s" }}</div>{% endif %}</td><td><div class="d-flex flex-wrap gap-1">
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:login-history' item.id %}">登录历史</a>
         <form method="post" action="{% url 'accounts:force-logout' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">强制下线</button></form>
         <form method="post" action="{% url 'accounts:reset-password' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">重置口令</button></form>
         <form method="post" action="{% url 'accounts:toggle-active' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">{% if item.is_active %}停用{% else %}启用{% endif %}</button></form>
         {% if item.id != request.user.id %}<form method="post" action="{% url 'accounts:delete-user' item.id %}" onsubmit="return confirm('仅从未登录且没有业务记录的账号可以删除。确认继续？')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">删除</button></form>{% endif %}
+        {% if item.is_courier %}<button class="btn btn-sm btn-outline-success" type="button" data-cdd-modal-open="wage-rate-{{ item.pk }}">计薪比例</button><dialog class="cdd-modal" id="wage-rate-{{ item.pk }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close>×</button><h2 class="h5">{{ item.display_name }}的计薪比例</h2><p class="cdd-muted">当前：{% if item.wage_rate_override is None %}继承系统默认比例{% else %}{{ item.wage_rate_override }}{% endif %}</p><form method="post" action="{% url 'accounts:wage-rate' item.pk %}">{% csrf_token %}{{ item.wage_rate_form.as_p }}<div class="cdd-action-row"><button class="btn btn-success">保存</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>{% endif %}
       </div></td></tr>{% empty %}<tr><td colspan="4">暂无账号</td></tr>{% endfor %}
       </tbody></table></div></section>
   </div>

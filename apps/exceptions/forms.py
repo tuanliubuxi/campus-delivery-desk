@@ -41,7 +41,11 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
     consolidation_round = forms.ModelChoiceField(
         queryset=ConsolidationRound.objects.none(), required=False, label="关联归拢轮次"
     )
-    reason_code = forms.CharField(max_length=40, label="异常类型代码")
+    reason_code = forms.CharField(
+        max_length=40,
+        label="异常类型",
+        help_text="例如：无法联系、物品缺失、地址有误、配送受阻。",
+    )
     reason_text = forms.CharField(label="异常说明", widget=forms.Textarea(attrs={"rows": 3}))
     blocks_consolidation = forms.BooleanField(required=False, label="阻塞归拢")
     blocks_settlement = forms.BooleanField(required=False, label="阻塞结算")
@@ -96,6 +100,10 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
             # Couriers report facts; recorder/admin decide exceptional business blocking.
             self.fields["blocks_consolidation"].widget = forms.HiddenInput()
             self.fields["blocks_settlement"].widget = forms.HiddenInput()
+            # Existing evidence is discovered from the selected business object during review;
+            # couriers should not have to understand internal evidence row identifiers.
+            self.fields["delivery_evidence"].widget = forms.MultipleHiddenInput()
+            self.fields["media_evidence"].widget = forms.MultipleHiddenInput()
         self._apply_bootstrap_classes()
 
     def clean(self):

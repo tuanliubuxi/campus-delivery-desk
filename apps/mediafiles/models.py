@@ -77,3 +77,7 @@ class DeliveryEvidence(models.Model):
                 name="mediafiles_unique_drop_media_evidence",
             )
         ]
+
+    def __str__(self):
+        order = self.order.display_id if self.order_id else f"配送 #{self.drop_id}"
+        return f"{order} · {self.get_role_display()}照片"

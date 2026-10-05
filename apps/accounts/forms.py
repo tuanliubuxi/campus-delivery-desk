@@ -83,3 +83,15 @@ class BusinessSelectionForm(BootstrapFormMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._apply_bootstrap_classes()
+
+
+class WageRateOverrideForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["wage_rate_override"]
+        labels = {"wage_rate_override": "个人计薪比例（0 至 1）"}
+        help_texts = {"wage_rate_override": "留空时继承系统默认比例。"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._apply_bootstrap_classes()

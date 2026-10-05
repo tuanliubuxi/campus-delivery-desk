@@ -3,8 +3,9 @@
 import secrets
 import string
 
-from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 
 from apps.accounts.models import User
 from apps.accounts.services.leases import revoke_all_user_leases
@@ -81,7 +82,10 @@ def _user_has_related_history(user):
         accessor = relation.get_accessor_name()
         if not accessor:
             continue
-        related = getattr(user, accessor)
+        try:
+            related = getattr(user, accessor)
+        except ObjectDoesNotExist:
+            continue
         if hasattr(related, "exists") and related.exists():
             return True
         if not hasattr(related, "exists") and related is not None:
@@ -110,7 +114,28 @@ def delete_unused_user(*, target_user, actor):
             "role": target_user.role,
         },
     )
-    target_user.delete()
+    try:
+        target_user.delete()
+    except (ProtectedError, IntegrityError) as exc:
+        raise ValidationError("该账号已被业务或审计记录引用，不能删除；请改为停用") from exc
+
+
+@transaction.atomic
+def set_wage_rate_override(*, target_user, actor, rate):
+    _require_admin(actor)
+    if not target_user.is_courier:
+        raise ValidationError("只有配送员可以设置个人计薪比例")
+    before = target_user.wage_rate_override
+    target_user.wage_rate_override = rate
+    target_user.full_clean()
+    target_user.save(update_fields=["wage_rate_override"])
+    record_event(
+        actor=actor,
+        event_type="COURIER_WAGE_RATE_CHANGED",
+        entity=target_user,
+        metadata={"before": str(before) if before is not None else None, "after": str(rate) if rate is not None else None},
+    )
+    return target_user
 
 
 @transaction.atomic

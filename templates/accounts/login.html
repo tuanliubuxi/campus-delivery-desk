@@ -19,9 +19,9 @@
       <button class="btn btn-primary w-100 cdd-touch">登录</button>
     </form>
     {% if admin_login %}
-      <a class="small d-block mt-3" href="{% url 'accounts:login' %}">返回普通入口</a>
+      <a class="btn btn-sm btn-outline-secondary mt-3" href="{% url 'accounts:login' %}">返回普通入口</a>
     {% else %}
-      <a class="small cdd-admin-corner" href="{% url 'accounts:admin-login' %}">管理员入口</a>
+      <a class="btn btn-sm btn-outline-secondary cdd-admin-corner" href="{% url 'accounts:admin-login' %}">管理员入口</a>
     {% endif %}
   </section>
 </main>

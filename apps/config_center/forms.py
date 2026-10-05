@@ -6,7 +6,6 @@ from apps.common.forms import BootstrapFormMixin
 from apps.config_center.models import (
     Building,
     BusinessTypeConfig,
-    CommissionConfig,
     SiteConfiguration,
 )
 
@@ -73,25 +72,16 @@ class SiteConfigurationForm(BootstrapFormMixin, forms.ModelForm):
             "default_theme": "系统默认主题",
             "kfc_open_weekday": "周四业务开放星期值",
             "heartbeat_interval_seconds": "登录心跳间隔（秒）",
-            "lease_stale_seconds": "登录租约过期判断（秒）",
+            "lease_stale_seconds": "异设备接管判定窗口（秒）",
             "media_retention_days": "普通图片保留天数",
+            "default_wage_rate": "配送员默认计薪比例（0 至 1）",
         }
         help_texts = {
             "kfc_open_weekday": "1 代表周一，4 代表周四，7 代表周日。",
-            "lease_stale_seconds": "用于判断是否允许其他设备接管账号；必须大于心跳间隔。",
+            "lease_stale_seconds": "仅用于判断另一台设备能否接管账号，不是登录有效期；登录采用 30 天滚动有效期。必须大于心跳间隔。",
             "media_retention_days": "异常保护和结算历史等特殊保留规则仍优先适用。",
+            "default_wage_rate": "所有配送员默认继承；个人比例可在“人员与会话”中覆盖。留空只会阻止比例工资计算。",
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._apply_bootstrap_classes()
-
-
-class CommissionConfigForm(BootstrapFormMixin, forms.ModelForm):
-    class Meta:
-        model = CommissionConfig
-        fields = ["commission_rate"]
-        labels = {"commission_rate": "分成比例（0 至 1）"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

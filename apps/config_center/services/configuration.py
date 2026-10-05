@@ -8,7 +8,6 @@ from apps.common.enums import BusinessType
 from apps.config_center.models import (
     Building,
     BusinessTypeConfig,
-    CommissionConfig,
     SiteConfiguration,
 )
 
@@ -78,20 +77,3 @@ def save_site_configuration(*, actor, config, **data):
         metadata={"before": before, "after": _json_values(config)},
     )
     return config
-
-
-@transaction.atomic
-def save_commission(*, actor, commission, rate):
-    _require_admin(actor)
-    commission = CommissionConfig.objects.get(pk=commission.pk)
-    before = str(commission.commission_rate)
-    commission.commission_rate = rate
-    commission.full_clean()
-    commission.save(update_fields=["commission_rate"])
-    record_event(
-        actor=actor,
-        event_type="COMMISSION_CONFIG_CHANGED",
-        entity=commission,
-        metadata={"before": before, "after": str(rate)},
-    )
-    return commission

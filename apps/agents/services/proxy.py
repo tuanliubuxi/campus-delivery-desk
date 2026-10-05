@@ -112,6 +112,19 @@ def delete_agent(*, actor, agent):
 
 
 @transaction.atomic
+def delete_proxy_recipient(*, actor, recipient):
+    """Delete only an empty recipient while its batch is still open."""
+    _require_operator(actor)
+    recipient = ProxyRecipient.objects.select_related("proxy_batch").get(pk=recipient.pk)
+    ensure_batch_accepts_members(recipient.proxy_batch)
+    if recipient.orders.exists() or recipient.receipts.exists():
+        raise ValidationError("该临时收件人已有订单或凭证，不能删除；请取消可取消的订单")
+    snapshot = {"id": recipient.pk, "name": recipient.display_name, "batch": recipient.proxy_batch_id}
+    record_event(actor=actor, event_type="PROXY_RECIPIENT_DELETED", entity=recipient, metadata=snapshot)
+    recipient.delete()
+
+
+@transaction.atomic
 def create_proxy_batch(*, actor, agent, batch_date, note=""):
     _require_operator(actor)
     validate_agent_source_business_type(BusinessType.EXPRESS)
