@@ -12,7 +12,7 @@
     {% for order in orders %}
     <article class="list-group-item">
       <div class="d-flex justify-content-between gap-2"><strong>{{ order.display_id }}</strong><span>{{ order.get_delivery_status_display }}</span></div>
-      <div>{{ order.get_business_type_display }} · {{ order.recipient_name_snapshot }} · {{ order.sequence_date }}</div>
+      <div class="cdd-ellipsis" title="{{ order.recipient_name_snapshot }}">{{ order.get_business_type_display }} · {{ order.recipient_name_snapshot }} · {{ order.sequence_date }}</div>
       <small class="text-body-secondary">固定编号 {{ order.fixed_id }}</small><button class="btn btn-sm btn-outline-primary mt-2" type="button" data-cdd-modal-open="search-order-{{ order.pk }}">查看</button><dialog class="cdd-modal" id="search-order-{{ order.pk }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close>×</button>{% include "orders/_detail_content.html" with order=order in_modal=True %}</div></dialog>
     </article>
     {% empty %}{% if query %}<div class="card card-body text-body-secondary">没有匹配订单</div>{% endif %}{% endfor %}

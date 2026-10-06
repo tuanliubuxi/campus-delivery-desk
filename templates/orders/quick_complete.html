@@ -4,7 +4,7 @@
 {% block content %}
 <main class="container py-3"><h1 class="h3">快速完成与历史补录</h1>
 {% if businesses %}<p>先选择业务类型，再填写完整订单和实际完成信息。</p><div class="row g-3">
-  {% for business in businesses %}<div class="col-12 col-sm-6 col-lg-4"><a class="card h-100 text-decoration-none" style="border-color: {{ business.color }}" href="?business_type={{ business.business_type }}"><div class="card-body"><div class="fs-2">{{ business.icon|default:"📦" }}</div><h2 class="h5 text-body">{{ business.display_name }}</h2></div></a></div>{% endfor %}
+  {% for business in businesses %}<div class="col-12 col-sm-6 col-lg-4"><a class="card h-100 text-decoration-none" style="border-color: {{ business.color }}" href="?business_type={{ business.business_type }}"><div class="card-body"><div class="fs-2">{{ business.icon|default:"📦" }}</div><h2 class="h5 text-body cdd-ellipsis" title="{{ business.display_name }}">{{ business.display_name }}</h2></div></a></div>{% endfor %}
 </div>{% else %}<form method="post" enctype="multipart/form-data" class="row g-4" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="quick-complete-{{ business_type }}">{% csrf_token %}<input type="hidden" name="business_type" value="{{ business_type }}">
   <section class="col-lg-7"><div class="card card-body"><h2 class="h5">订单业务字段</h2>{{ order_form.as_p }}</div></section>
   <aside class="col-lg-5"><div class="card card-body"><h2 class="h5">实际完成事实</h2>{{ completion_form.as_p }}<button class="btn btn-primary">创建已完成订单</button></div></aside>

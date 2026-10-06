@@ -5,6 +5,7 @@ from datetime import timedelta
 import pytest
 from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError
+from django.db import OperationalError
 from django.urls import reverse
 from django.utils import timezone
 
@@ -222,3 +223,46 @@ def test_admin_can_delete_only_never_used_account(admin_user, recorder):
     )
     with pytest.raises(ValidationError, match="已有登录或业务记录"):
         delete_unused_user(target_user=recorder, actor=admin_user)
+
+
+@pytest.mark.django_db
+def test_unused_account_delete_retries_sqlite_lock_and_keeps_audit(admin_user, monkeypatch):
+    from apps.accounts.services import users as user_services
+    from apps.audit.models import AuditEvent
+
+    target = User.objects.create_user(
+        username="retry-delete", display_name="待删除配送员", role=UserRole.COURIER
+    )
+    original = user_services._delete_unused_user_once
+    attempts = []
+
+    def one_locked_attempt(**kwargs):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise OperationalError("database is locked")
+        return original(**kwargs)
+
+    monkeypatch.setattr(user_services, "_delete_unused_user_once", one_locked_attempt)
+    monkeypatch.setattr(user_services.time, "sleep", lambda _seconds: None)
+    delete_unused_user(target_user=target, actor=admin_user)
+    assert len(attempts) == 2
+    assert not User.objects.filter(pk=target.pk).exists()
+    assert AuditEvent.objects.filter(event_type="USER_DELETED", entity_id=target.pk).count() == 1
+
+
+@pytest.mark.django_db
+def test_unused_account_delete_reports_persistent_sqlite_lock(admin_user, monkeypatch):
+    from apps.accounts.services import users as user_services
+
+    target = User.objects.create_user(
+        username="busy-delete", display_name="数据库忙", role=UserRole.COURIER
+    )
+    monkeypatch.setattr(
+        user_services,
+        "_delete_unused_user_once",
+        lambda **_kwargs: (_ for _ in ()).throw(OperationalError("database is locked")),
+    )
+    monkeypatch.setattr(user_services.time, "sleep", lambda _seconds: None)
+    with pytest.raises(ValidationError, match="数据库正忙"):
+        delete_unused_user(target_user=target, actor=admin_user)
+    assert User.objects.filter(pk=target.pk).exists()

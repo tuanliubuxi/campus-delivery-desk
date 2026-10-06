@@ -9,7 +9,7 @@
   </div>
   <div class="row g-3">
     {% for business in businesses %}
-    <div class="col-12 col-sm-6 col-lg-4"><a class="card h-100 text-decoration-none" style="border-color: {{ business.color }}" href="{% url 'orders:create' business.business_type %}{% if continuous_customer %}?customer={{ continuous_customer.pk }}{% endif %}"><div class="card-body"><div class="fs-2">{{ business.icon|default:"📦" }}</div><h2 class="h5 text-body">{{ business.display_name }}</h2></div></a></div>
+    <div class="col-12 col-sm-6 col-lg-4"><a class="card h-100 text-decoration-none" style="border-color: {{ business.color }}" href="{% url 'orders:create' business.business_type %}{% if continuous_customer %}?customer={{ continuous_customer.pk }}{% endif %}"><div class="card-body"><div class="fs-2">{{ business.icon|default:"📦" }}</div><h2 class="h5 text-body cdd-ellipsis" title="{{ business.display_name }}">{{ business.display_name }}</h2></div></a></div>
     {% empty %}<p class="text-muted">当前没有启用的业务。</p>{% endfor %}
   </div>
 </main>

@@ -3,6 +3,7 @@
 import uuid
 
 from django import forms
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.agents.models import ProxyRecipient
@@ -123,7 +124,12 @@ class WageCalculatorForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault("initial", {})["operation_id"] = uuid.uuid4()
+        initial = kwargs.setdefault("initial", {})
+        initial["operation_id"] = uuid.uuid4()
+        if not args or args[0] is None:
+            today = timezone.localdate()
+            initial.setdefault("period_start", today)
+            initial.setdefault("period_end", today)
         super().__init__(*args, **kwargs)
 
     def clean(self):

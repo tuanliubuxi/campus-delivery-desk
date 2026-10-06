@@ -5,7 +5,7 @@
 <main class="container-fluid px-3 px-lg-4 pb-5">
   <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
     <div><h1 class="h3 mb-1">经营分析</h1><p class="text-body-secondary mb-0">卡片、图表、明细与 Excel 使用同一组筛选条件。</p></div>
-    <a class="btn btn-success" href="{% url 'dashboard:export-excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">导出 Excel</a>
+    <a class="btn btn-success" href="{% url 'dashboard:export-excel' %}?{{ form.data.urlencode }}">导出 Excel</a>
   </div>
 
   <details class="card mb-3" open>
@@ -21,7 +21,7 @@
         {% endfor %}
         <div class="col-12 d-flex gap-2 align-items-end">
           <button class="btn btn-primary" type="submit">应用筛选</button>
-          <a class="btn btn-outline-secondary" href="{% url 'dashboard:reports' %}">清空</a>
+          <a class="btn btn-outline-secondary" href="{% url 'dashboard:reports' %}?clear=1">清空</a>
         </div>
       </form>
       {% for error in form.non_field_errors %}<div class="alert alert-danger mt-3 mb-0">{{ error }}</div>{% endfor %}
@@ -59,9 +59,9 @@
           {% for order in orders %}
           <tr>
             <td><button class="btn btn-sm btn-outline-primary" type="button" data-cdd-modal-open="report-order-{{ order.pk }}">查看 {{ order.display_id }}</button><div class="small text-body-secondary">{{ order.fixed_id }}</div><dialog class="cdd-modal" id="report-order-{{ order.pk }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close>×</button>{% include "orders/_detail_content.html" with order=order in_modal=True %}</div></dialog></td>
-            <td>{{ order.sequence_date }}</td><td>{{ order.get_business_type_display }}</td><td>{{ order.recipient_name_snapshot }}</td>
-            <td>{{ order.get_source_type_display }}{% if order.proxy_batch_id %}<div class="small">{{ order.proxy_batch.agent.name }}</div>{% endif %}</td>
-            <td>{{ order.zone_snapshot|default:order.off_campus_address }}</td><td>{{ order.is_urgent|yesno:"是,否" }}</td><td>{{ order.requires_upstairs|yesno:"是,否" }}</td>
+            <td>{{ order.sequence_date }}</td><td>{{ order.get_business_type_display }}</td><td><span class="cdd-ellipsis" title="{{ order.recipient_name_snapshot }}">{{ order.recipient_name_snapshot }}</span></td>
+            <td>{{ order.get_source_type_display }}{% if order.proxy_batch_id %}<div class="small cdd-ellipsis" title="{{ order.proxy_batch.agent.name }}">{{ order.proxy_batch.agent.name }}</div>{% endif %}</td>
+            <td><span class="cdd-ellipsis" title="{{ order.zone_snapshot }}">{{ order.zone_snapshot|default:order.off_campus_address }}</span></td><td>{{ order.is_urgent|yesno:"是,否" }}</td><td>{{ order.requires_upstairs|yesno:"是,否" }}</td>
             <td>{{ order.get_delivery_status_display }}</td><td>{{ order.get_settlement_status_display }}</td>
           </tr>
           {% empty %}<tr><td colspan="10" class="text-center text-body-secondary py-4">当前筛选没有订单</td></tr>{% endfor %}

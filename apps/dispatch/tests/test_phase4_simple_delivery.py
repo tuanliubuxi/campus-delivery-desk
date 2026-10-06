@@ -403,6 +403,10 @@ def test_task_action_pages_render_for_owner(client, recorder, customer, building
     order = make_takeout(recorder, customer, building)
     task = claim_simple_task(order=order, courier=courier, operation_id=uuid.uuid4())
     login(client, courier)
+    # A normal customer order has no proxy_recipient; the task summary must still render.
+    task_response = client.get(reverse("dispatch:task-list"))
+    assert task_response.status_code == 200
+    assert "小陈" in task_response.content.decode()
     assert client.get(reverse("dispatch:task-detail", args=[task.pk])).status_code == 200
     complete_response = client.get(reverse("dispatch:complete", args=[task.pk]))
     assert complete_response.status_code == 200

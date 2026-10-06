@@ -30,10 +30,10 @@
       <div class="col-12 col-md-6 col-xl-4">
         <article class="cdd-card p-3 h-100">
           <div class="d-flex justify-content-between gap-2">
-            <strong>{{ agent.name }}</strong>
+            <strong class="cdd-flex-ellipsis" title="{{ agent.name }}">{{ agent.name }}</strong>
             <span class="badge text-bg-{% if agent.is_active %}success{% else %}secondary{% endif %}">{% if agent.is_active %}启用{% else %}停用{% endif %}</span>
           </div>
-          <div class="cdd-muted small mt-2">{{ agent.contact_text|default:"未填写联系方式" }}</div>
+          <div class="cdd-muted small mt-2 cdd-ellipsis" title="{{ agent.contact_text }}">{{ agent.contact_text|default:"未填写联系方式" }}</div>
           <div class="small mt-2">批次：{{ agent.batch_count }}</div>
           <div class="d-flex gap-2 mt-3">
             <a class="btn btn-sm btn-outline-secondary" href="{% url 'agents:agent-edit' agent.pk %}">编辑</a>
@@ -53,11 +53,11 @@
       <div class="col-12 col-md-6 col-xl-4">
         <article class="cdd-card p-3 h-100">
           <div class="d-flex justify-content-between gap-2">
-            <strong>{{ batch.agent.name }}</strong>
+            <strong class="cdd-flex-ellipsis" title="{{ batch.agent.name }}">{{ batch.agent.name }}</strong>
             <span class="badge text-bg-{% if batch.status == 'OPEN' %}primary{% elif batch.status == 'CANCELED' %}secondary{% else %}warning{% endif %}">{{ batch.get_status_display }}</span>
           </div>
           <div class="mt-2">批次 {{ batch.display_code }}</div>
-          <div class="cdd-muted small">临时收件人 {{ batch.recipient_count }} 人 · 创建人 {{ batch.created_by|default:"系统" }}</div>
+          <div class="cdd-muted small cdd-ellipsis">临时收件人 {{ batch.recipient_count }} 人 · 创建人 {{ batch.created_by|default:"系统" }}</div>
           {% if batch.note %}<p class="small mt-2 mb-0 cdd-clamp" title="{{ batch.note }}">{{ batch.note }}</p>{% endif %}
           <a class="btn btn-sm btn-primary mt-3" href="{% url 'agents:batch-detail' batch.pk %}">进入批次</a>
         </article>

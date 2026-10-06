@@ -12,7 +12,7 @@
       <div class="mb-3"><label for="id_user">人员</label>
         <select class="form-select" name="user" id="id_user" required>
           <option value="">请选择人员</option>
-          {% for person in login_users %}<option value="{{ person.id }}" data-role="{{ person.role }}" {% if form.data.user == person.id|stringformat:'s' %}selected{% endif %}>{{ person.emoji_avatar }} {{ person.display_name }}</option>{% endfor %}
+          {% for person in login_users %}<option value="{{ person.id }}" data-role="{{ person.role }}" title="{{ person.display_name }}" {% if form.data.user == person.id|stringformat:'s' %}selected{% endif %}>{{ person.emoji_avatar }} {{ person.display_name|truncatechars:24 }}</option>{% endfor %}
         </select>{{ form.user.errors }}
       </div>
       <div class="mb-3">{{ form.password.label_tag }}{{ form.password }}{{ form.password.errors }}</div>

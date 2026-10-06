@@ -42,6 +42,10 @@ document.querySelectorAll("dialog.cdd-modal").forEach((dialog) => {
     if (event.target === dialog) dialog.close();
   });
 });
+// Flash messages survive redirects; open them after the page is ready without losing focus context.
+document.querySelectorAll("dialog.cdd-modal[data-cdd-auto-open]").forEach((dialog) => {
+  if (dialog.showModal) dialog.showModal();
+});
 document.querySelectorAll("form[data-cdd-confirm-value], form[data-cdd-require-input]").forEach((form) => {
   const field = form.querySelector("input[name='confirmation'], textarea[name='reason']");
   const submit = form.querySelector("[data-cdd-confirm-submit]");

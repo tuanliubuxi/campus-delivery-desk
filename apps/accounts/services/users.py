@@ -2,9 +2,10 @@
 
 import secrets
 import string
+import time
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.db.models.deletion import ProtectedError
 
 from apps.accounts.models import User
@@ -93,9 +94,23 @@ def _user_has_related_history(user):
     return False
 
 
-@transaction.atomic
 def delete_unused_user(*, target_user, actor):
     """Physically delete only a mistaken, never-used account."""
+    # SQLite WAL has one writer; retry a short lock conflict with a fresh transaction.
+    for delay in (0.05, 0.15, 0.3, None):
+        try:
+            return _delete_unused_user_once(target_user=target_user, actor=actor)
+        except OperationalError as exc:
+            if "database is locked" not in str(exc).lower():
+                raise
+            if delay is None:
+                raise ValidationError("数据库正忙，账号未删除，请稍后重试") from exc
+            time.sleep(delay)
+
+
+@transaction.atomic
+def _delete_unused_user_once(*, target_user, actor):
+    """Check history, append the audit fact and delete in one rollback-safe attempt."""
     _require_admin(actor)
     target_user = User.objects.get(pk=target_user.pk)
     if target_user.pk == actor.pk:

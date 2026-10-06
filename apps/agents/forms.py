@@ -1,6 +1,7 @@
 """Recorder forms for agent profiles, batches, and temporary recipients."""
 
 from django import forms
+from django.utils import timezone
 
 from apps.agents.models import Agent, ProxyBatch, ProxyRecipient
 from apps.common.forms import BootstrapFormMixin
@@ -48,6 +49,8 @@ class ProxyBatchForm(BootstrapFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["agent"].queryset = Agent.objects.filter(is_active=True)
+        if not self.is_bound:
+            self.fields["batch_date"].initial = timezone.localdate
         self._apply_bootstrap_classes()
 
 

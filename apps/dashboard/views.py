@@ -3,6 +3,7 @@
 from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from apps.common.permissions import admin_required, courier_required, recorder_or_admin_required
 from apps.dashboard.forms import DashboardFilterForm
@@ -20,7 +21,12 @@ from apps.orders.selectors.orders import search_orders
 
 def _validated_filters(request, *, courier_id=None, include_courier=True):
     """Return one validated DTO; invalid queries fall back to an empty result-safe form."""
-    form = DashboardFilterForm(request.GET, include_courier=include_courier)
+    # Only a first visit defaults to today. Explicit ?clear=1 preserves the all-history view.
+    data = request.GET.copy()
+    if not data:
+        today = timezone.localdate().isoformat()
+        data.update({"date_from": today, "date_to": today})
+    form = DashboardFilterForm(data, include_courier=include_courier)
     if form.is_valid():
         return form, DashboardFilters.from_cleaned_data(form.cleaned_data, courier_id=courier_id)
     return form, DashboardFilters(courier_id=courier_id)

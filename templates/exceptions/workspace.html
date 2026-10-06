@@ -11,7 +11,7 @@
   </section><section class="col-lg-7"><div class="cdd-scroll-region">
     {% for case in page %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
       <div class="d-flex justify-content-between gap-2"><strong>#{{ case.id }} · {{ case.reason_code }}</strong><span>{{ case.get_status_display }}</span></div>
-      <div>{{ case.reason_text|truncatechars:100 }}</div><div class="mt-2">
+      <div class="cdd-clamp" title="{{ case.reason_text }}">{{ case.reason_text }}</div><div class="mt-2">
       {% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %}
       {% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}</div>
     </a>{% empty %}<p class="text-secondary">暂无可见异常。</p>{% endfor %}
