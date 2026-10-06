@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "campus-delivery-desk"
-version = "0.3.0"
+version = "0.3.1"
 description = "Self-hosted campus delivery operations desk"
 requires-python = ">=3.12"
 dependencies = [

@@ -278,7 +278,7 @@ def mark_express_picked(*, order, courier):
 
 
 @transaction.atomic
-def confirm_express_size(*, order, courier, size_class):
+def confirm_express_size(*, order, courier, size_class, confirmation_note=""):
     _require_courier(courier)
     if size_class not in {
         SizeClass.SMALL,
@@ -300,7 +300,8 @@ def confirm_express_size(*, order, courier, size_class):
             return detail
         raise ValidationError("快递大小已经确认，不能无痕改写")
     detail.size_class = size_class
-    detail.save(update_fields=["size_class"])
+    detail.size_confirmation_note = confirmation_note.strip()
+    detail.save(update_fields=["size_class", "size_confirmation_note"])
     prices = {
         SizeClass.SMALL: detail.small_price_snapshot,
         SizeClass.MEDIUM: detail.medium_price_snapshot,
@@ -340,6 +341,10 @@ def confirm_express_size(*, order, courier, size_class):
         actor=courier,
         event_type="EXPRESS_SIZE_CONFIRMED",
         entity=order,
-        metadata={"size_class": size_class, "snapshot_price": str(prices[size_class])},
+        metadata={
+            "size_class": size_class,
+            "snapshot_price": str(prices[size_class]),
+            "confirmation_note": detail.size_confirmation_note,
+        },
     )
     return detail

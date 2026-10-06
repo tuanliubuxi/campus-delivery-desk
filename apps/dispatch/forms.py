@@ -97,12 +97,29 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
 
     def __init__(self, *args, assignments, **kwargs):
         super().__init__(*args, **kwargs)
+        self.unknown_size_fields = []
         self.fields["order_ids"].choices = [
             (str(item.order_id), item.order.display_id) for item in assignments
         ]
         self.fields["order_ids"].initial = [str(item.order_id) for item in assignments]
         self.fields["order_ids"].widget.attrs["data-cdd-draft-ignore"] = ""
         self.fields["operation_id"].widget.attrs["data-cdd-draft-ignore"] = ""
+        for item in assignments:
+            detail = getattr(item.order, "express_detail", None)
+            if detail and detail.size_class == SizeClass.UNKNOWN:
+                self.fields[f"size_class_{item.order_id}"] = forms.ChoiceField(
+                    label=f"{item.order.display_id} 的实际大小",
+                    choices=[choice for choice in SizeClass.choices if choice[0] != SizeClass.UNKNOWN],
+                )
+                self.fields[f"size_note_{item.order_id}"] = forms.CharField(
+                    label="大小说明 / 价格建议（可选）",
+                    max_length=255,
+                    required=False,
+                    help_text="仅供录单员参考；基础价仍按录单时的价格快照自动计算。",
+                )
+                self.unknown_size_fields.append(
+                    (self[f"size_class_{item.order_id}"], self[f"size_note_{item.order_id}"])
+                )
         phrases = " / ".join(
             QuickLocationPhrase.objects.filter(is_active=True).values_list("text", flat=True)
         )

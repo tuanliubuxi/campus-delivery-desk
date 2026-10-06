@@ -37,6 +37,24 @@ from apps.common.enums import UserRole
 from apps.common.permissions import admin_required, courier_required
 from apps.config_center.models import BusinessTypeConfig, SiteConfiguration
 
+AUDIT_EVENT_LABELS = {
+    "DELIVERY_DROP_COMPLETED": "完成配送",
+    "EXPRESS_SIZE_CONFIRMED": "确认快递大小",
+    "EXPRESS_PICKED": "确认已取件",
+    "ORDER_PICKED": "确认已取件",
+    "SIMPLE_DELIVERY_STARTED": "开始配送",
+    "SIMPLE_TASK_CLAIMED": "接取任务",
+    "EXPRESS_ROUTE_CLAIMED": "路线接单",
+    "EXPRESS_DIRECT_CLAIMED": "客户直送接单",
+}
+AUDIT_ENTITY_LABELS = {
+    "orders.Order": "订单",
+    "dispatch.DeliveryTask": "配送任务",
+    "dispatch.DeliveryDrop": "配送记录",
+    "settlements.Settlement": "结算",
+    "accounts.User": "人员账号",
+}
+
 
 def _dashboard_url(user):
     if user.role == UserRole.COURIER:
@@ -271,13 +289,21 @@ def audit_logs(request):
             | Q(entity_id__icontains=query)
         )
     page = Paginator(events, 100).get_page(request.GET.get("page"))
+    for event in page:
+        event.display_event_type = AUDIT_EVENT_LABELS.get(event.event_type, "业务操作")
+        event.display_entity = f"{AUDIT_ENTITY_LABELS.get(event.entity_type, '业务对象')} #{event.entity_id}"
     event_types = AuditEvent.objects.order_by("event_type").values_list(
         "event_type", flat=True
     ).distinct()
     return render(
         request,
         "accounts/audit_logs.html",
-        {"page": page, "event_types": event_types, "event_type": event_type, "query": query},
+        {
+            "page": page,
+            "event_types": [(value, AUDIT_EVENT_LABELS.get(value, "业务操作")) for value in event_types],
+            "event_type": event_type,
+            "query": query,
+        },
     )
 
 

@@ -116,6 +116,16 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-nav-group--system { --group: #697386; } .cdd-nav-group--customer { --group: #a27018; }
 .cdd-mobile-categories { display: none; }
 .cdd-courier-status { margin-left: auto; display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .65rem; border-radius: 999px; background: var(--cdd-surface); white-space: nowrap; }
+.cdd-courier-status-copy { display: grid; line-height: 1.08; }
+.cdd-task-counts { display: flex; flex-wrap: wrap; gap: .65rem; font-size: .82rem; color: var(--cdd-muted); }
+.cdd-task-counts span { display: inline-flex; align-items: center; gap: .3rem; }
+.cdd-task-counts .cdd-status-dot { width: .5rem; height: .5rem; box-shadow: none; }
+.cdd-dot-new { background: #5c85b9; }.cdd-dot-picked { background: #dc922e; }.cdd-dot-delivering { background: #7b5ab5; }
+.cdd-task-card { border-left: .3rem solid var(--cdd-primary); }
+.cdd-task-order { padding: .72rem 0; border-bottom: 1px solid var(--cdd-border); }
+.cdd-task-primary { margin-top: .2rem; font-size: 1.02rem; font-weight: 650; }
+.cdd-task-status { color: var(--cdd-muted); font-size: .82rem; white-space: nowrap; }
+.cdd-task-order summary { color: var(--cdd-primary); cursor: pointer; font-size: .84rem; margin-top: .35rem; }
 .cdd-status-dot { width: .65rem; height: .65rem; border-radius: 50%; background: #8793a5; box-shadow: 0 0 0 3px color-mix(in srgb, #8793a5 22%, transparent); }
 .cdd-status-dot.is-online { background: #20a467; box-shadow: 0 0 0 3px color-mix(in srgb, #20a467 25%, transparent); }
 .cdd-message-stack { padding-top: 1rem; }
@@ -178,11 +188,11 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 }
 
 .cdd-admin-corner {
-  display: block;
+  display: flex;
+  justify-content: flex-end;
   margin-top: 2rem;
-  text-align: right;
-  color: var(--cdd-muted);
 }
+.cdd-admin-corner .btn { min-width: 7.25rem; }
 
 .cdd-theme-select {
   width: 6.5rem;

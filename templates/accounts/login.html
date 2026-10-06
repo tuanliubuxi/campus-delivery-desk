@@ -21,7 +21,7 @@
     {% if admin_login %}
       <a class="btn btn-sm btn-outline-secondary mt-3" href="{% url 'accounts:login' %}">返回普通入口</a>
     {% else %}
-      <a class="btn btn-sm btn-outline-secondary cdd-admin-corner" href="{% url 'accounts:admin-login' %}">管理员入口</a>
+      <div class="cdd-admin-corner"><a class="btn btn-sm btn-outline-secondary" href="{% url 'accounts:admin-login' %}">管理员入口</a></div>
     {% endif %}
   </section>
 </main>

@@ -32,6 +32,8 @@ class ExpressOrderDetail(models.Model):
         default=SizeClass.UNKNOWN,
         db_index=True,
     )
+    # A courier may leave a field observation, while the price remains snapshot-based.
+    size_confirmation_note = models.CharField(max_length=255, blank=True)
     dispatch_mode = models.CharField(
         max_length=20,
         choices=DispatchMode.choices,

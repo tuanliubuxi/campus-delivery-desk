@@ -19,8 +19,9 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce, TruncDate
 
+from apps.common.enums import BusinessType
 from apps.exceptions.models import ExceptionCase
-from apps.orders.models import DeliveryStatus, Order
+from apps.orders.models import DeliveryStatus, DispatchMode, Order, SizeClass
 from apps.settlements.models import (
     AdjustmentType,
     ChargeItem,
@@ -36,6 +37,14 @@ from apps.settlements.models import (
 
 MONEY_FIELD = DecimalField(max_digits=14, decimal_places=2)
 ZERO_MONEY = Value(Decimal("0.00"), output_field=MONEY_FIELD)
+CHART_LABELS = {
+    **dict(BusinessType.choices),
+    **dict(SizeClass.choices),
+    **dict(DispatchMode.choices),
+    **dict(ChargeType.choices),
+    "DIRECT": "普通客户",
+    "AGENT": "代理来源",
+}
 
 
 def _optional_bool(value):
@@ -246,6 +255,8 @@ def _series(queryset, label_field, *, value_field=None, limit=None):
     rows = rows.order_by(label_field)
     if limit:
         rows = rows[:limit]
+    for row in rows:
+        row[label_field] = CHART_LABELS.get(row[label_field], row[label_field])
     return [{"label": str(row[label_field] or "未填写"), "value": row["value"]} for row in rows]
 
 

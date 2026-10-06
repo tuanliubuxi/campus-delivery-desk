@@ -28,6 +28,8 @@ def simple_task_pool(courier):
 def courier_tasks(courier, *, active_only=True):
     queryset = DeliveryTask.objects.filter(courier=courier).prefetch_related(
         "assignments__order__customer",
+        "assignments__order__proxy_recipient",
+        "assignments__order__express_detail",
     )
     if active_only:
         queryset = queryset.filter(status=TaskStatus.ACTIVE)

@@ -107,6 +107,18 @@
     form.appendChild(controls);
 
     if (!form.matches("[data-cdd-resilient-submit]")) return;
+    const completionStatusUrl = form.dataset.cddCompletionStatusUrl;
+    const reconcile = async () => {
+      if (!completionStatusUrl) return false;
+      const operationId = form.querySelector('[name="operation_id"]')?.value;
+      if (!operationId) return false;
+      const response = await fetch(`${completionStatusUrl}?operation_id=${encodeURIComponent(operationId)}`, {credentials: "same-origin"});
+      const result = await response.json();
+      if (result.state !== "completed") return false;
+      storage("remove", key);
+      window.location.assign(result.redirect_url);
+      return true;
+    };
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const submitter = event.submitter;
@@ -138,6 +150,7 @@
           window.location.assign(response.url);
           return;
         }
+        if (response.status >= 500 && await reconcile()) return;
         const responseText = await response.text();
         const parsed = new DOMParser().parseFromString(responseText, "text/html");
         const errors = [...parsed.querySelectorAll(".errorlist, .alert-danger")]
@@ -150,6 +163,13 @@
         else status.textContent = "提交未成功；表单和图片仍保留，请检查必填项后重试。";
       } catch (_error) {
         status.className = "alert alert-warning mt-3";
+        // A proxy timeout can happen after the server committed the idempotent delivery.
+        // Reconcile before the user tries a second submission.
+        try {
+          if (await reconcile()) return;
+        } catch (_ignored) {
+          // Keep the original retry guidance below when the tunnel is still unavailable.
+        }
         status.textContent = "网络连接失败，表单和已选图片仍保留；恢复网络后可直接重试。";
       } finally {
         buttons.forEach((button) => (button.disabled = false));

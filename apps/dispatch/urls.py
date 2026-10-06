@@ -12,6 +12,7 @@ urlpatterns = [
     path("courier/tasks/<int:task_id>/", views.task_detail, name="task-detail"),
     path("courier/tasks/<int:task_id>/start-delivery/", views.task_start, name="task-start"),
     path("courier/tasks/<int:task_id>/complete/", views.complete_task, name="complete"),
+    path("courier/tasks/<int:task_id>/completion-status/", views.completion_status, name="completion-status"),
     path(
         "courier/express/route-pool/",
         views.express_route_pool_view,

@@ -4,6 +4,7 @@ import uuid
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -22,7 +23,7 @@ from .forms import (
     RouteClaimForm,
     TransferRequestForm,
 )
-from .models import Assignment, DeliveryTask, TransferRequest
+from .models import Assignment, DeliveryDrop, DeliveryTask, TransferRequest
 from .selectors import (
     courier_task_detail,
     courier_tasks,
@@ -49,10 +50,16 @@ from .services import (
 
 @courier_required
 def task_list(request):
+    tasks = list(courier_tasks(request.user))
+    task_status_counts = {status: 0 for status in DeliveryStatus.values}
+    for task in tasks:
+        for assignment in task.assignments.all():
+            if assignment.is_active:
+                task_status_counts[assignment.order.delivery_status] += 1
     return render(
         request,
         "dispatch/task_list.html",
-        {"tasks": courier_tasks(request.user)},
+        {"tasks": tasks, "task_status_counts": task_status_counts},
     )
 
 
@@ -248,6 +255,16 @@ def complete_task(request, task_id):
     )
     if request.method == "POST" and form.is_valid():
         try:
+            for assignment in assignments:
+                order = assignment.order
+                detail = getattr(order, "express_detail", None)
+                if detail and detail.size_class == "UNKNOWN":
+                    confirm_express_size(
+                        order=order,
+                        courier=request.user,
+                        size_class=form.cleaned_data[f"size_class_{order.pk}"],
+                        confirmation_note=form.cleaned_data[f"size_note_{order.pk}"],
+                    )
             drop = complete_delivery_drop(
                 order_ids=[int(value) for value in form.cleaned_data["order_ids"]],
                 courier=request.user,
@@ -255,7 +272,9 @@ def complete_task(request, task_id):
                 location_type=form.cleaned_data["location_type"],
                 operation_id=form.cleaned_data["operation_id"],
                 near_photos=(
-                    form.cleaned_data["near_photos"] or request.FILES.getlist("near_photo")
+                    form.cleaned_data["near_photos"]
+                    or request.FILES.getlist("near_photos")
+                    or request.FILES.getlist("near_photo")
                 ),
                 far_photo=form.cleaned_data["far_photo"],
                 annotated_photo=form.cleaned_data["annotated_photo"],
@@ -266,6 +285,24 @@ def complete_task(request, task_id):
             messages.success(request, f"配送记录 #{drop.pk} 已完成")
             return redirect("dispatch:task-list")
     return render(request, "dispatch/complete.html", {"task": task, "form": form})
+
+
+@courier_required
+def completion_status(request, task_id):
+    """Tell a disconnected client whether its idempotent delivery POST committed."""
+    del task_id  # URL scope is intentional; ownership is checked on the DeliveryDrop.
+    try:
+        operation_id = uuid.UUID(request.GET.get("operation_id", ""))
+    except (TypeError, ValueError):
+        return JsonResponse({"state": "invalid"}, status=400)
+    drop = DeliveryDrop.objects.filter(
+        operation_id=operation_id, courier=request.user
+    ).first()
+    if not drop:
+        return JsonResponse({"state": "pending"})
+    return JsonResponse(
+        {"state": "completed", "drop_id": drop.pk, "redirect_url": reverse("dispatch:task-list")}
+    )
 
 
 @require_POST
