@@ -347,7 +347,12 @@ def login_history(request, user_id):
     page = Paginator(target.login_leases.select_related("revoked_by"), 50).get_page(
         request.GET.get("page")
     )
-    return render(request, "accounts/login_history.html", {"target": target, "page": page})
+    template = (
+        "accounts/_login_history_content.html"
+        if request.headers.get("X-CDD-Modal") == "1"
+        else "accounts/login_history.html"
+    )
+    return render(request, template, {"target": target, "page": page})
 
 
 @admin_required

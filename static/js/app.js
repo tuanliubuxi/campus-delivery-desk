@@ -28,6 +28,24 @@ function cddCookie(name) {
 
 // Native dialogs keep small edit/preview actions on the current page and inherit live themes.
 document.addEventListener("click", (event) => {
+  const remoteOpener = event.target.closest("[data-cdd-remote-modal]");
+  if (remoteOpener) {
+    const dialog = document.getElementById(remoteOpener.dataset.cddRemoteModal);
+    if (dialog?.showModal) {
+      dialog.showModal();
+      loadRemoteModal(dialog, remoteOpener.dataset.cddModalUrl);
+    }
+    return;
+  }
+  const remotePage = event.target.closest("[data-cdd-remote-page]");
+  if (remotePage) {
+    const dialog = remotePage.closest("dialog");
+    if (dialog?.dataset.cddModalUrl) {
+      event.preventDefault();
+      loadRemoteModal(dialog, new URL(remotePage.getAttribute("href"), dialog.dataset.cddModalUrl).href);
+    }
+    return;
+  }
   const opener = event.target.closest("[data-cdd-modal-open]");
   if (opener) {
     const dialog = document.getElementById(opener.dataset.cddModalOpen);
@@ -37,6 +55,19 @@ document.addEventListener("click", (event) => {
   const closer = event.target.closest("[data-cdd-modal-close]");
   if (closer) closer.closest("dialog")?.close();
 });
+async function loadRemoteModal(dialog, url) {
+  const content = dialog.querySelector("[data-cdd-remote-content]");
+  if (!content) return;
+  dialog.dataset.cddModalUrl = url;
+  content.textContent = "正在加载登录历史……";
+  try {
+    const response = await fetch(url, {credentials: "same-origin", headers: {"X-CDD-Modal": "1"}});
+    if (!response.ok || response.redirected) throw new Error("无法读取登录历史");
+    content.innerHTML = await response.text();
+  } catch (_error) {
+    content.textContent = "登录历史暂时无法加载，请稍后重试。";
+  }
+}
 document.querySelectorAll("dialog.cdd-modal").forEach((dialog) => {
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();

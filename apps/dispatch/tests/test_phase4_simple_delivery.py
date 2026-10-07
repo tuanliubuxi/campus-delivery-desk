@@ -416,6 +416,23 @@ def test_task_action_pages_render_for_owner(client, recorder, customer, building
 
 
 @pytest.mark.django_db
+def test_task_list_groups_same_customer_but_keeps_each_task_link(client, recorder, customer, building, couriers):
+    courier, _ = couriers
+    first = make_takeout(recorder, customer, building, identifier="GROUP-A")
+    second = make_takeout(recorder, customer, building, identifier="GROUP-B")
+    first_task = claim_simple_task(order=first, courier=courier, operation_id=uuid.uuid4())
+    second_task = claim_simple_task(order=second, courier=courier, operation_id=uuid.uuid4())
+    login(client, courier)
+    response = client.get(reverse("dispatch:task-list"))
+    html = response.content.decode()
+    assert html.count('class="cdd-card p-3 cdd-task-card"') == 1
+    assert "2 单" in html
+    assert html.count('class="cdd-recipient-badge') == 1
+    assert reverse("dispatch:task-detail", args=[first_task.pk]) in html
+    assert reverse("dispatch:task-detail", args=[second_task.pk]) in html
+
+
+@pytest.mark.django_db
 def test_complete_delivery_view_posts_with_generated_operation_id(
     client, recorder, customer, building, couriers
 ):
@@ -438,6 +455,32 @@ def test_complete_delivery_view_posts_with_generated_operation_id(
     assert response.status_code == 302
     order.refresh_from_db()
     assert order.delivery_status == DeliveryStatus.DELIVERED
+
+
+@pytest.mark.django_db
+def test_complete_delivery_retry_and_status_confirm_committed_operation(
+    client, recorder, customer, building, couriers
+):
+    courier, _ = couriers
+    order = make_takeout(recorder, customer, building, identifier="RETRY-DROP")
+    task = advance_to_delivering(order, courier)
+    login(client, courier)
+    operation_id = str(uuid.uuid4())
+    complete_url = reverse("dispatch:complete", args=[task.pk])
+    payload = {
+        "operation_id": operation_id,
+        "order_ids": [str(order.pk)],
+        "location_type": LocationType.RACK,
+        "final_location_text": "一楼外卖架",
+    }
+    first = client.post(complete_url, {**payload, "near_photo": image_upload()})
+    assert first.status_code == 302
+    status = client.get(reverse("dispatch:completion-status", args=[task.pk]), {"operation_id": operation_id})
+    assert status.json()["state"] == "completed"
+    retry = client.post(complete_url, payload)
+    assert retry.status_code == 302
+    assert retry.url == reverse("dispatch:task-list")
+    assert CourierEarning.objects.filter(order=order, courier=courier).count() == 1
 
 
 @pytest.mark.django_db

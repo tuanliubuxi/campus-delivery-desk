@@ -12,10 +12,10 @@
         <fieldset class="mt-3"><legend class="form-label">Emoji 头像</legend>{{ form.emoji_avatar }}{{ form.emoji_avatar.errors }}</fieldset>
         <button class="btn btn-primary w-100 mt-3 cdd-touch">创建账号</button></form>
     </div></section>
-    <section class="col-lg-8"><div class="cdd-card cdd-roster-list cdd-roster-table table-responsive"><table class="table mb-0 align-middle">
+    <section class="col-lg-8"><div class="cdd-card cdd-roster-list cdd-roster-table table-responsive"><table class="table mb-0 align-middle cdd-roster-grid">
       <thead><tr><th>人员</th><th>角色</th><th>账号</th><th>在线状态</th><th>操作</th></tr></thead><tbody>
       {% for item in users %}<tr><td class="cdd-person-cell"><span title="{{ item.display_name }}">{{ item.emoji_avatar }} {{ item.display_name }}</span><div class="small cdd-muted" title="{{ item.username }}">{{ item.username }}</div></td><td>{{ item.get_role_display }}</td><td>{% if item.is_active %}启用{% else %}停用{% endif %}</td><td><span class="cdd-presence cdd-presence--{{ item.online_state }}" aria-hidden="true"></span>{{ item.online_label }}{% if item.current_lease %}<div class="small cdd-muted">{{ item.current_lease.last_seen_at|date:"m-d H:i:s" }}</div>{% endif %}</td><td><div class="d-flex flex-wrap gap-1">
-        <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:login-history' item.id %}">登录历史</a>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-cdd-remote-modal="login-history-modal" data-cdd-modal-url="{% url 'accounts:login-history' item.id %}">登录历史</button>
         <form method="post" action="{% url 'accounts:force-logout' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">强制下线</button></form>
         <form method="post" action="{% url 'accounts:reset-password' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">重置口令</button></form>
         <form method="post" action="{% url 'accounts:toggle-active' item.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">{% if item.is_active %}停用{% else %}启用{% endif %}</button></form>
@@ -24,6 +24,7 @@
       </div></td></tr>{% empty %}<tr><td colspan="4">暂无账号</td></tr>{% endfor %}
       </tbody></table></div></section>
   </div>
+  <dialog class="cdd-modal" id="login-history-modal" aria-label="人员登录历史"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭登录历史">×</button><div data-cdd-remote-content>正在加载登录历史……</div></div></dialog>
 </main>
 <script>
 document.addEventListener("DOMContentLoaded", () => {

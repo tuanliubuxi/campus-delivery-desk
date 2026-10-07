@@ -1,4 +1,4 @@
-{# Courier-owned active tasks rendered as touch-friendly cards. #}
+{# Recipient grouping is visual only; each order retains its own task and action link. #}
 {% extends "layouts/base.html" %}
 {% block title %}我的任务 · 校驿{% endblock %}
 {% block content %}
@@ -10,6 +10,27 @@
     <span><i class="cdd-status-dot cdd-dot-delivering"></i>配送中 {{ task_status_counts.DELIVERING|default:0 }}</span>
   </div>
   <div class="d-flex gap-2 mb-3"><a class="btn btn-outline-primary flex-fill" href="{% url 'dispatch:express-route-pool' %}">快递路线</a><a class="btn btn-outline-danger flex-fill" href="{% url 'dispatch:express-direct-pool' %}">客户直送</a></div>
-  <div class="d-grid gap-3">{% for task in tasks %}<article class="cdd-card p-3 cdd-task-card"><div class="d-flex justify-content-between align-items-start gap-2"><strong>{{ task.get_business_type_display }}</strong><span class="badge text-bg-primary">{{ task.get_status_display }}</span></div>{% for assignment in task.assignments.all %}{% if assignment.is_active %}<section class="cdd-task-order"><div class="d-flex justify-content-between gap-2"><strong class="cdd-flex-ellipsis" title="{{ assignment.order.recipient_name_snapshot }}">{% if assignment.order.recipient_name_snapshot %}{{ assignment.order.recipient_name_snapshot }}{% elif assignment.order.proxy_recipient_id %}{{ assignment.order.proxy_recipient.display_name }}{% else %}收件人待确认{% endif %}</strong><span class="cdd-task-status">{{ assignment.order.get_delivery_status_display }}</span></div><div class="cdd-task-primary cdd-ellipsis" title="{{ assignment.order.building_snapshot }}">{{ assignment.order.building_snapshot|default:assignment.order.zone_snapshot|default:assignment.order.off_campus_address|default:"地点待确认" }}{% if assignment.order.recipient_phone_snapshot %} · 尾号 {{ assignment.order.recipient_phone_snapshot|slice:"-4:" }}{% endif %}</div><details><summary>查看订单细节</summary><div class="small cdd-muted mt-2 cdd-break-text">订单 {{ assignment.order.display_id }}{% if assignment.order.order_note %} · 备注：{{ assignment.order.order_note }}{% endif %}{% if assignment.order.express_detail %}<br>取件标识：{{ assignment.order.express_detail.pickup_identifier }}{% endif %}</div></details></section>{% endif %}{% endfor %}<a class="btn btn-outline-primary w-100 mt-3" href="{% url 'dispatch:task-detail' task.pk %}">进入任务</a><div class="small cdd-muted mt-2">任务 #{{ task.pk }}</div></article>{% empty %}<div class="cdd-card p-4 text-center cdd-muted">暂无活跃任务。</div>{% endfor %}</div>
+  <div class="d-grid gap-3">
+    {% for group in task_groups %}
+    <article class="cdd-card p-3 cdd-task-card">
+      <div class="d-flex justify-content-between align-items-center gap-2">
+        <strong class="cdd-recipient-badge cdd-flex-ellipsis" title="{{ group.recipient_name }}">{{ group.recipient_name }}</strong>
+        <span class="small cdd-muted text-nowrap">{{ group.orders|length }} 单</span>
+      </div>
+      {% for item in group.orders %}
+      <section class="cdd-task-order">
+        <div class="d-flex justify-content-between gap-2"><strong>{{ item.task.get_business_type_display }}</strong><span class="cdd-task-status">{{ item.order.get_delivery_status_display }}</span></div>
+        <div class="cdd-task-primary cdd-ellipsis" title="{{ item.order.building_snapshot }}">{{ item.order.building_snapshot|default:item.order.zone_snapshot|default:item.order.off_campus_address|default:"地点待确认" }}</div>
+        <div class="cdd-task-identifiers">
+          {% if item.order.recipient_phone_snapshot %}<span>尾号 {{ item.order.recipient_phone_snapshot|slice:"-4:" }}</span>{% endif %}
+          {% if item.order.express_detail and item.order.express_detail.pickup_identifier %}<strong class="cdd-pickup-badge cdd-flex-ellipsis" title="{{ item.order.express_detail.pickup_identifier }}">取件标识 {{ item.order.express_detail.pickup_identifier }}</strong>{% endif %}
+        </div>
+        <details><summary>查看订单细节</summary><div class="small cdd-muted mt-2 cdd-break-text">订单 {{ item.order.display_id }} · 任务 #{{ item.task.pk }}{% if item.order.order_note %}<br>备注：{{ item.order.order_note }}{% endif %}{% if item.order.recipient_name_snapshot and item.order.recipient_name_snapshot != group.recipient_name %}<br>本单收件人：{{ item.order.recipient_name_snapshot }}{% endif %}</div></details>
+        <a class="btn btn-sm btn-outline-primary mt-2" href="{% url 'dispatch:task-detail' item.task.pk %}">进入任务</a>
+      </section>
+      {% endfor %}
+    </article>
+    {% empty %}<div class="cdd-card p-4 text-center cdd-muted">暂无活跃任务。</div>{% endfor %}
+  </div>
 </main>
 {% endblock %}

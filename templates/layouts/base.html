@@ -49,7 +49,7 @@
       <button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭提示">×</button>
       <h2 class="h5" id="cdd-feedback-title">操作结果</h2>
       <ul class="cdd-feedback-list">{% for message in messages %}<li class="cdd-feedback-item cdd-feedback-{{ message.tags|default:'info' }}">{{ message }}</li>{% endfor %}</ul>
-      <div class="cdd-action-row"><button class="btn btn-primary" type="button" data-cdd-modal-close>知道了</button></div>
+      <div class="cdd-action-row cdd-feedback-actions"><button class="btn btn-primary" type="button" data-cdd-modal-close>知道了</button></div>
     </div>
   </dialog>
   {% endif %}

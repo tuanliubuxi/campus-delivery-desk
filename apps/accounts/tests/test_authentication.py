@@ -194,6 +194,19 @@ def test_phase_one_pages_obey_role_permissions(client, admin_user, recorder):
 
 
 @pytest.mark.django_db
+def test_login_history_is_loaded_inside_user_list_modal(client, admin_user, recorder):
+    login(client, admin_user, role=UserRole.ADMIN)
+    roster = client.get(reverse("accounts:user-list")).content.decode()
+    assert 'id="login-history-modal"' in roster
+    assert 'data-cdd-remote-modal="login-history-modal"' in roster
+    url = reverse("accounts:login-history", args=[recorder.pk])
+    partial = client.get(url, HTTP_X_CDD_MODAL="1")
+    assert partial.status_code == 200
+    assert "录单员甲的登录历史" in partial.content.decode()
+    assert "<!doctype html>" not in partial.content.decode().lower()
+
+
+@pytest.mark.django_db
 def test_normal_login_rejects_admin_role(client, admin_user):
     response = client.post(
         reverse("accounts:login"),

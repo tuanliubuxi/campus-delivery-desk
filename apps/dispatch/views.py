@@ -29,6 +29,7 @@ from .selectors import (
     courier_tasks,
     express_direct_pool,
     express_route_pool,
+    group_courier_tasks_by_recipient,
     simple_task_pool,
     sorted_task_assignments,
 )
@@ -59,7 +60,7 @@ def task_list(request):
     return render(
         request,
         "dispatch/task_list.html",
-        {"tasks": tasks, "task_status_counts": task_status_counts},
+        {"task_groups": group_courier_tasks_by_recipient(tasks), "task_status_counts": task_status_counts},
     )
 
 
@@ -242,6 +243,19 @@ def order_return(request, order_id):
 @courier_required
 def complete_task(request, task_id):
     task = get_object_or_404(DeliveryTask, pk=task_id, courier=request.user)
+    if request.method == "POST":
+        # A lost redirect must not turn a committed delivery into a form error on retry.
+        try:
+            submitted_id = uuid.UUID(request.POST.get("operation_id", ""))
+        except (TypeError, ValueError):
+            submitted_id = None
+        if submitted_id and DeliveryDrop.objects.filter(
+            operation_id=submitted_id,
+            courier=request.user,
+            items__order__assignments__task=task,
+        ).exists():
+            messages.success(request, "这次配送已提交成功，无需重复上传")
+            return redirect("dispatch:task-list")
     assignments = list(
         task.assignments.filter(
             is_active=True,
@@ -290,13 +304,15 @@ def complete_task(request, task_id):
 @courier_required
 def completion_status(request, task_id):
     """Tell a disconnected client whether its idempotent delivery POST committed."""
-    del task_id  # URL scope is intentional; ownership is checked on the DeliveryDrop.
+    get_object_or_404(DeliveryTask, pk=task_id, courier=request.user)
     try:
         operation_id = uuid.UUID(request.GET.get("operation_id", ""))
     except (TypeError, ValueError):
         return JsonResponse({"state": "invalid"}, status=400)
     drop = DeliveryDrop.objects.filter(
-        operation_id=operation_id, courier=request.user
+        operation_id=operation_id,
+        courier=request.user,
+        items__order__assignments__task_id=task_id,
     ).first()
     if not drop:
         return JsonResponse({"state": "pending"})

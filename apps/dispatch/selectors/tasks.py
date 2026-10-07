@@ -38,3 +38,25 @@ def courier_tasks(courier, *, active_only=True):
 
 def courier_task_detail(courier, task_id):
     return courier_tasks(courier, active_only=False).get(pk=task_id)
+
+
+def group_courier_tasks_by_recipient(tasks):
+    """Presentation-only grouping; each assignment keeps its original task boundary."""
+    groups = {}
+    for task in tasks:
+        for assignment in task.assignments.all():
+            if not assignment.is_active:
+                continue
+            order = assignment.order
+            if order.proxy_recipient_id:
+                key = ("proxy", order.proxy_recipient_id)
+                recipient_name = order.recipient_name_snapshot or order.proxy_recipient.display_name
+            elif order.customer_id:
+                key = ("customer", order.customer_id)
+                recipient_name = order.recipient_name_snapshot or order.customer.display_name
+            else:
+                key = ("order", order.pk)
+                recipient_name = order.recipient_name_snapshot or "收件人待确认"
+            group = groups.setdefault(key, {"recipient_name": recipient_name, "orders": []})
+            group["orders"].append({"order": order, "task": task})
+    return list(groups.values())

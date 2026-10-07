@@ -34,6 +34,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--cdd-focus) 70%, transparent); outline-offset: 2px; }
 .cdd-action-row { display: flex; flex-wrap: nowrap; align-items: center; gap: .55rem; }
 .cdd-action-row > * { flex: 0 0 auto; margin: 0; }
+.cdd-feedback-actions { justify-content: center; }
 .cdd-scroll-region { max-height: min(62vh, 720px); overflow: auto; scrollbar-gutter: stable; }
 .cdd-scroll-region thead th { position: sticky; top: 0; z-index: 2; background: var(--cdd-elevated); }
 .cdd-audit-table { table-layout: fixed; min-width: 44rem; width: 100%; }
@@ -131,8 +132,11 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-task-counts .cdd-status-dot { width: .5rem; height: .5rem; box-shadow: none; }
 .cdd-dot-new { background: #5c85b9; }.cdd-dot-picked { background: #dc922e; }.cdd-dot-delivering { background: #7b5ab5; }
 .cdd-task-card { border-left: .3rem solid var(--cdd-primary); }
+.cdd-recipient-badge { max-width: min(76%, 19rem); padding: .3rem .65rem; border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 24%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-task-order { padding: .72rem 0; border-bottom: 1px solid var(--cdd-border); }
 .cdd-task-primary { margin-top: .2rem; font-size: 1.02rem; font-weight: 650; }
+.cdd-task-identifiers { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem .5rem; margin-top: .3rem; font-size: .92rem; }
+.cdd-pickup-badge { max-width: 100%; padding: .2rem .45rem; border-radius: .35rem; background: color-mix(in srgb, var(--cdd-focus) 35%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-task-status { color: var(--cdd-muted); font-size: .82rem; white-space: nowrap; }
 .cdd-task-order summary { color: var(--cdd-primary); cursor: pointer; font-size: .84rem; margin-top: .35rem; }
 .cdd-status-dot { width: .65rem; height: .65rem; border-radius: 50%; background: #8793a5; box-shadow: 0 0 0 3px color-mix(in srgb, #8793a5 22%, transparent); }
@@ -172,8 +176,17 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-roster-create, .cdd-roster-list { height: min(70vh, 680px); }
 .cdd-roster-create { overflow: visible; }
 .cdd-roster-list { overflow: auto; }
-.cdd-person-cell { max-width: 12rem; }
+.cdd-roster-grid { table-layout: fixed; min-width: 43rem; }
+.cdd-roster-grid th:nth-child(1) { width: 9rem; }
+.cdd-roster-grid th:nth-child(2) { width: 4.5rem; }
+.cdd-roster-grid th:nth-child(3) { width: 4.5rem; }
+.cdd-roster-grid th:nth-child(4) { width: 6rem; }
+.cdd-roster-grid th:nth-child(5) { width: 19rem; }
+.cdd-person-cell { max-width: 9rem; }
 .cdd-person-cell > span, .cdd-person-cell > div { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cdd-login-history-scroll { max-height: min(56vh, 28rem); overflow: auto; }
+.cdd-login-history-table { min-width: 40rem; }
+.cdd-login-history-table thead th { position: sticky; top: 0; background: var(--cdd-elevated); }
 .cdd-switch { display: inline-flex; align-items: center; cursor: pointer; }
 .cdd-switch input { position: absolute; opacity: 0; pointer-events: none; }
 .cdd-switch > span:first-of-type { position: relative; width: 3.1rem; height: 1.7rem; border-radius: 999px; background: #7d8796; transition: .2s ease; }
@@ -261,11 +274,12 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
   .cdd-courier-status { margin-left: .25rem; font-size: .75rem; }
   .cdd-roster-pane { height: auto; max-height: 65vh; }
   .cdd-roster-create { height: auto; overflow: visible; }
-  .cdd-roster-list { height: auto; max-height: none; overflow: visible; }
+  .cdd-roster-list { height: auto; max-height: none; overflow-x: auto; overflow-y: visible; }
   .cdd-settlement-heading { align-items: flex-start; }
   .cdd-settlement-layout { grid-template-columns: 1fr; }
   .cdd-scroll-region { max-height: none; overflow-y: visible; }
   .cdd-action-row { width: 100%; overflow-x: auto; padding-bottom: .2rem; }
+  .cdd-feedback-actions { overflow-x: visible; }
   .cdd-compact-row { align-items: flex-start; flex-direction: column; }
 }
 

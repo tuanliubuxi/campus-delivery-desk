@@ -15,25 +15,24 @@
     if (!blob || blob.size >= file.size) return file;
     return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, {type: "image/webp", lastModified: file.lastModified});
   }
-  document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("drop-form");
-    if (!form) return;
-    form.addEventListener("submit", async (event) => {
-      if (form.dataset.cddImagesCompressed === "1") return;
-      event.preventDefault();
-      const inputs = [...form.querySelectorAll('input[type="file"]')].filter((input) => input.files?.length);
-      if (!inputs.length) { form.dataset.cddImagesCompressed = "1"; form.requestSubmit(event.submitter); return; }
-      try {
-        for (const input of inputs) {
-          const transfer = new DataTransfer();
-          for (const file of input.files) transfer.items.add(await compress(file));
-          input.files = transfer.files;
-          input.dispatchEvent(new Event("change", {bubbles: true}));
+  // Called by the single resilient-submit handler before it creates FormData.
+  // A separate async submit listener previously let the original and compressed
+  // uploads race, causing duplicate requests and misleading network errors.
+  window.cddCompressDeliveryImages = async (form) => {
+    if (form.dataset.cddImagesCompressed === "1") return;
+    const inputs = [...form.querySelectorAll('input[type="file"]')].filter((input) => input.files?.length);
+    for (const input of inputs) {
+      const transfer = new DataTransfer();
+      for (const file of input.files) {
+        try {
+          transfer.items.add(await compress(file));
+        } catch (_error) {
+          transfer.items.add(file);
         }
-      } finally {
-        form.dataset.cddImagesCompressed = "1";
-        form.requestSubmit(event.submitter);
       }
-    }, true);
-  });
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", {bubbles: true}));
+    }
+    form.dataset.cddImagesCompressed = "1";
+  };
 })();

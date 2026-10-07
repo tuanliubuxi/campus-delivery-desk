@@ -113,6 +113,10 @@
       const operationId = form.querySelector('[name="operation_id"]')?.value;
       if (!operationId) return false;
       const response = await fetch(`${completionStatusUrl}?operation_id=${encodeURIComponent(operationId)}`, {credentials: "same-origin"});
+      if (response.redirected && new URL(response.url).pathname.startsWith("/login/")) {
+        throw new Error("login-required");
+      }
+      if (!response.ok) return false;
       const result = await response.json();
       if (result.state !== "completed") return false;
       storage("remove", key);
@@ -121,6 +125,8 @@
     };
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (form.dataset.cddSubmitting === "1") return;
+      form.dataset.cddSubmitting = "1";
       const submitter = event.submitter;
       const buttons = [...form.querySelectorAll('button:not([type]), button[type="submit"], input[type="submit"]')];
       const status = form.querySelector("[data-cdd-submit-status]") || document.createElement("div");
@@ -131,6 +137,12 @@
       status.textContent = "正在提交，请勿重复操作……";
       buttons.forEach((button) => (button.disabled = true));
       try {
+        if (await reconcile()) return;
+        if (form.id === "drop-form" && window.cddCompressDeliveryImages) {
+          status.textContent = "正在压缩照片，请勿离开页面……";
+          await window.cddCompressDeliveryImages(form);
+        }
+        status.textContent = "正在上传并提交，请勿重复操作……";
         const payload = new FormData(form);
         if (submitter?.name) payload.append(submitter.name, submitter.value);
         const response = await fetch(form.action || window.location.href, {
@@ -150,7 +162,7 @@
           window.location.assign(response.url);
           return;
         }
-        if (response.status >= 500 && await reconcile()) return;
+        if (!response.ok && await reconcile()) return;
         const responseText = await response.text();
         const parsed = new DOMParser().parseFromString(responseText, "text/html");
         const errors = [...parsed.querySelectorAll(".errorlist, .alert-danger")]
@@ -161,17 +173,22 @@
         else if (response.status === 403) status.textContent = "安全校验已失效；表单和图片仍保留，请刷新页面后重试。";
         else if (response.status >= 500) status.textContent = "服务器处理失败；表单和图片仍保留，请稍后重试或联系管理员查看日志。";
         else status.textContent = "提交未成功；表单和图片仍保留，请检查必填项后重试。";
-      } catch (_error) {
+      } catch (error) {
         status.className = "alert alert-warning mt-3";
         // A proxy timeout can happen after the server committed the idempotent delivery.
         // Reconcile before the user tries a second submission.
-        try {
-          if (await reconcile()) return;
-        } catch (_ignored) {
-          // Keep the original retry guidance below when the tunnel is still unavailable.
+        if (error.message !== "login-required") {
+          try {
+            if (await reconcile()) return;
+          } catch (_ignored) {
+            // The tunnel may still be unavailable; keep the form intact.
+          }
         }
-        status.textContent = "网络连接失败，表单和已选图片仍保留；恢复网络后可直接重试。";
+        status.textContent = error.message === "login-required"
+          ? "登录已失效；请重新登录，返回此页前不要关闭它。"
+          : "网络连接失败，提交结果尚未确认；表单和图片仍保留。恢复网络后点击提交会先核对结果，不会重复配送。";
       } finally {
+        delete form.dataset.cddSubmitting;
         buttons.forEach((button) => (button.disabled = false));
       }
     });
