@@ -31,7 +31,7 @@
         }
       }
       input.files = transfer.files;
-      input.dispatchEvent(new Event("change", {bubbles: true}));
+      input.dispatchEvent(new CustomEvent("change", {bubbles: true, detail: {cddCompressed: true}}));
     }
     form.dataset.cddImagesCompressed = "1";
   };

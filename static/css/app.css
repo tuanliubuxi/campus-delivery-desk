@@ -150,9 +150,11 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-feedback-info { border-left: .3rem solid #2aa4bd; }
 
 .cdd-annotation-tools { padding: .75rem; border: 1px solid var(--cdd-border); border-radius: .65rem; background: var(--cdd-elevated); }
+.cdd-annotation-dialog { width: min(96vw, 900px); }
 .cdd-annotation-controls { display: grid; grid-template-columns: 1fr auto 1fr; gap: .6rem; align-items: end; }
 .cdd-annotation-controls label { color: var(--cdd-muted); font-size: .82rem; }
 #annotation-canvas { display: block; touch-action: none; background: #fff; }
+.cdd-beneficiary-select { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .cdd-emoji-picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; padding: 0; list-style: none; }
 .cdd-emoji-picker > div { min-width: 0; }

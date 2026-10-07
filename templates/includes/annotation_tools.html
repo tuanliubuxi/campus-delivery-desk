@@ -1,16 +1,23 @@
-{# Shared annotation controls; defaults: circle, red, and the original 4px width. #}
-<section id="annotation-tools" class="cdd-annotation-tools mb-3" hidden>
-  <p class="small mb-2">在远景图上按住并拖动，松开后生成标记；原始照片不会被覆盖。</p>
-  <div class="cdd-annotation-controls mb-2">
-    <label>形状<select id="annotation-shape" class="form-select form-select-sm"><option value="circle" selected>圆圈</option><option value="rect">方框</option><option value="line">直线</option></select></label>
-    <label>颜色<input id="annotation-color" class="form-control form-control-color" type="color" value="#ff1f1f" title="标记颜色"></label>
-    <label>粗细<select id="annotation-width" class="form-select form-select-sm"><option value="4" selected>细</option><option value="8">中</option><option value="14">粗</option></select></label>
+{# Shared annotation dialog; defaults: circle, red, and the original 4px width. #}
+<button type="button" class="btn btn-outline-primary mt-2" id="annotation-open" hidden>标记远景照片</button>
+<dialog class="cdd-modal cdd-annotation-dialog" id="annotation-dialog" aria-labelledby="annotation-title">
+  <div class="cdd-modal-panel">
+    <h2 class="h5" id="annotation-title">标记远景照片</h2>
+    <section id="annotation-tools" class="cdd-annotation-tools">
+      <p class="small mb-2">在远景图上按住并拖动，松开后生成标记；原始照片不会被覆盖。</p>
+      <div class="cdd-annotation-controls mb-2">
+        <label>形状<select id="annotation-shape" class="form-select form-select-sm"><option value="circle" selected>圆圈</option><option value="rect">方框</option><option value="line">直线</option></select></label>
+        <label>颜色<input id="annotation-color" class="form-control form-control-color" type="color" value="#ff1f1f" title="标记颜色"></label>
+        <label>粗细<select id="annotation-width" class="form-select form-select-sm"><option value="4" selected>细</option><option value="8">中</option><option value="14">粗</option></select></label>
+      </div>
+      <canvas id="annotation-canvas" class="w-100 border rounded" aria-label="远景照片标注画布"></canvas>
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-undo">撤销</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-clear">清空</button>
+        <button type="button" class="btn btn-sm btn-primary" id="annotation-save">保存标注</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-cancel">取消</button>
+      </div>
+      <p id="annotation-status" class="small cdd-muted mt-2 mb-0" role="status"></p>
+    </section>
   </div>
-  <canvas id="annotation-canvas" class="w-100 border rounded" aria-label="远景照片标注画布"></canvas>
-  <div class="d-flex flex-wrap gap-2 mt-2">
-    <button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-undo">撤销</button>
-    <button type="button" class="btn btn-sm btn-outline-secondary" id="annotation-clear">清空</button>
-    <button type="button" class="btn btn-sm btn-primary" id="annotation-save">保存标注</button>
-  </div>
-  <p id="annotation-status" class="small cdd-muted mt-2 mb-0" role="status"></p>
-</section>
+</dialog>

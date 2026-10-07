@@ -39,6 +39,7 @@ from apps.orders.models import (
 )
 from apps.orders.services import create_express_order
 from apps.orders.services.rounds import evaluate_express_round
+from apps.settlements.forms import AddChargeForm
 from apps.settlements.models import (
     ChargeType,
     ProxyRecipientReceipt,
@@ -135,6 +136,72 @@ def test_build_does_not_freeze_then_freeze_creates_lines_receipt_and_waiting():
     assert settlement.amount_due_snapshot == frozen_total
     assert settlement.lines.count() == 2
     assert not settlement.image_versions.filter(is_active=True).exists()
+
+
+@pytest.mark.django_db
+def test_charge_form_defaults_to_only_final_courier_and_truncates_long_name():
+    recorder, courier, order = make_context()
+    courier.display_name = "配送员" + "非常长的名字" * 8
+    courier.save(update_fields=["display_name"])
+    settlement = build_settlement(order_ids=[order.pk], actor=recorder, operation_id=uuid.uuid4())
+    form = AddChargeForm(settlement=settlement)
+    field = form.fields["beneficiary_courier"]
+    assert field.initial == courier.pk
+    html = str(form["beneficiary_courier"])
+    assert f'value="{courier.pk}" selected' in html or f'value="{courier.pk}"' in html
+    assert "…" in html
+    assert f'title="{courier.display_name}"' in html
+
+
+@pytest.mark.django_db
+def test_charge_form_does_not_guess_beneficiary_for_multiple_final_couriers():
+    recorder, first_courier, first_order = make_context()
+    second_courier = User.objects.create_user(
+        username="second-final-courier", role=UserRole.COURIER
+    )
+    express_round = first_order.express_detail.express_round
+    express_round.status = "OPEN"
+    express_round.closed_at = None
+    express_round.save(update_fields=["status", "closed_at"])
+    second_order = create_express_order(
+        actor=recorder,
+        customer=first_order.customer,
+        pickup_area=PickupArea.SOUTH,
+        pickup_identifier_type=PickupIdentifierType.PICKUP_CODE,
+        pickup_identifier="SECOND-FINAL",
+        size_class=SizeClass.SMALL,
+        dispatch_mode=DispatchMode.ROUTE,
+        building=first_order.customer.building,
+        destination_type=DestinationType.CAMPUS_BUILDING,
+        requires_upstairs=False,
+        allow_duplicate=True,
+    )
+    second_order.delivery_status = DeliveryStatus.DELIVERED
+    second_order.save(update_fields=["delivery_status"])
+    DeliveryDropItem.objects.create(
+        drop=DeliveryDrop.objects.create(
+            courier=second_courier,
+            recipient_kind=RecipientKind.CUSTOMER,
+            customer=first_order.customer,
+            business_type=BusinessType.EXPRESS,
+            building_snapshot=first_order.customer.building.name,
+            location_type=LocationType.RACK,
+            final_location_text="二号架",
+            operation_id=uuid.uuid4(),
+            delivered_at=timezone.now(),
+        ),
+        order=second_order,
+    )
+    express_round.status = "CLOSED"
+    express_round.closed_at = timezone.now()
+    express_round.save(update_fields=["status", "closed_at"])
+    settlement = build_settlement(
+        order_ids=[first_order.pk, second_order.pk], actor=recorder, operation_id=uuid.uuid4()
+    )
+    form = AddChargeForm(settlement=settlement)
+    assert form.fields["beneficiary_courier"].initial is None
+    assert first_courier in form.fields["beneficiary_courier"].queryset
+    assert second_courier in form.fields["beneficiary_courier"].queryset
 
 
 def _uploaded_test_image(name, color):

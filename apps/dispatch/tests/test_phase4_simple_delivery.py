@@ -411,8 +411,22 @@ def test_task_action_pages_render_for_owner(client, recorder, customer, building
     complete_response = client.get(reverse("dispatch:complete", args=[task.pk]))
     assert complete_response.status_code == 200
     assert 'name="operation_id"' in complete_response.content.decode()
+    html = complete_response.content.decode()
+    assert 'id="annotation-open" hidden' in html
+    assert 'id="annotation-dialog"' in html
+    assert 'id="annotation-cancel"' in html
+    assert 'id="annotation-undo"' in html
+    assert 'id="annotation-clear"' in html
+    assert 'id="annotation-save"' in html
     assert client.get(reverse("dispatch:transfers") + f"?order={order.pk}").status_code == 200
     assert client.get(reverse("dispatch:exceptions") + f"?order={order.pk}").status_code == 200
+
+
+def test_image_compression_preserves_saved_far_annotation(settings):
+    compression = (Path(settings.BASE_DIR) / "static/js/image_compress.js").read_text(encoding="utf-8")
+    annotation = (Path(settings.BASE_DIR) / "static/js/annotation.js").read_text(encoding="utf-8")
+    assert "cddCompressed: true" in compression
+    assert "event.detail?.cddCompressed" in annotation
 
 
 @pytest.mark.django_db

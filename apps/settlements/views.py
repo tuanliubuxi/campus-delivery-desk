@@ -111,7 +111,7 @@ def detail(request, settlement_id):
             "settlement": settlement,
             "charges": settlement_charge_items(settlement),
             "preview_total": settlement_preview_total(settlement),
-            "charge_form": AddChargeForm(),
+            "charge_form": AddChargeForm(settlement=settlement),
             "reason_form": ReasonForm(),
             "operation_form": OperationForm(),
             "financial_action_form": FinancialActionForm(),
@@ -129,7 +129,7 @@ def detail(request, settlement_id):
 @recorder_or_admin_required
 def charge_add(request, settlement_id):
     settlement = get_object_or_404(Settlement, pk=settlement_id)
-    form = AddChargeForm(request.POST)
+    form = AddChargeForm(request.POST, settlement=settlement)
     if form.is_valid():
         try:
             add_draft_charge(settlement=settlement, actor=request.user, **form.cleaned_data)

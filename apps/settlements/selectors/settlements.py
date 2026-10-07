@@ -25,3 +25,12 @@ def settlement_preview_total(settlement):
     return settlement_charge_items(settlement).aggregate(
         total=Coalesce(Sum("amount"), Decimal("0.00"))
     )["total"]
+
+
+def settlement_final_courier_ids(settlement):
+    """Final delivery owners represented by this settlement's fixed order set."""
+    return set(
+        settlement.settlement_orders.exclude(
+            order__delivery_drop_items__drop__courier_id__isnull=True
+        ).values_list("order__delivery_drop_items__drop__courier_id", flat=True)
+    )

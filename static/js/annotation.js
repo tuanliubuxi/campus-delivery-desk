@@ -5,7 +5,9 @@ document.addEventListener("DOMContentLoaded", () => {
     || document.getElementById("id_far_annotation");
   const tools = document.getElementById("annotation-tools");
   const canvas = document.getElementById("annotation-canvas");
-  if (!farInput || !annotatedInput || !tools || !canvas) return;
+  const dialog = document.getElementById("annotation-dialog");
+  const openButton = document.getElementById("annotation-open");
+  if (!farInput || !annotatedInput || !tools || !canvas || !dialog || !openButton) return;
   const context = canvas.getContext("2d");
   const shapeInput = document.getElementById("annotation-shape");
   const colorInput = document.getElementById("annotation-color");
@@ -14,6 +16,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const actions = [];
   let baseImage = null;
   let draft = null;
+  let savedActions = [];
+  let savedFile = null;
+  let committed = false;
+
+  function restoreSavedFile() {
+    const files = new DataTransfer();
+    if (savedFile) files.items.add(savedFile);
+    annotatedInput.files = files.files;
+  }
+
+  openButton.addEventListener("click", () => {
+    if (!baseImage) return;
+    savedActions = actions.map((action) => ({...action, start: {...action.start}, end: {...action.end}}));
+    savedFile = annotatedInput.files[0] || null;
+    committed = false;
+    dialog.showModal();
+    redraw();
+  });
+  document.getElementById("annotation-cancel").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => {
+    if (committed) return;
+    actions.splice(0, actions.length, ...savedActions);
+    draft = null;
+    restoreSavedFile();
+    status.textContent = savedFile ? "已保留上次保存的标注。" : "未保存的标记已取消。";
+    redraw();
+  });
 
   const pointFromEvent = (event) => {
     const box = canvas.getBoundingClientRect();
@@ -52,20 +81,29 @@ document.addEventListener("DOMContentLoaded", () => {
     annotatedInput.value = "";
     status.textContent = message;
   }
-  farInput.addEventListener("change", () => {
+  farInput.addEventListener("change", (event) => {
+    // Replacing the same image with its compressed upload must not erase a saved annotation.
+    if (event.detail?.cddCompressed) return;
     const file = farInput.files[0];
     resetDerivedImage();
-    if (!file) { tools.hidden = true; baseImage = null; return; }
+    openButton.hidden = true;
+    baseImage = null;
+    if (!file) return;
     const image = new Image();
     const objectUrl = URL.createObjectURL(file);
     image.onload = () => {
+      if (farInput.files[0] !== file) { URL.revokeObjectURL(objectUrl); return; }
       baseImage = image;
       const scale = Math.min(1, 1200 / image.naturalWidth);
       canvas.width = Math.round(image.naturalWidth * scale);
       canvas.height = Math.round(image.naturalHeight * scale);
       redraw();
-      tools.hidden = false;
+      openButton.hidden = false;
       status.textContent = "请在图片上按住并拖动，松开后生成标记。";
+      URL.revokeObjectURL(objectUrl);
+    };
+    image.onerror = () => {
+      status.textContent = "无法读取远景照片，请重新选择图片。";
       URL.revokeObjectURL(objectUrl);
     };
     image.src = objectUrl;
@@ -105,14 +143,27 @@ document.addEventListener("DOMContentLoaded", () => {
     resetDerivedImage("标记已清空。原始远景照片仍保留。"); redraw();
   });
   document.getElementById("annotation-save").addEventListener("click", () => {
-    if (!actions.length) { status.textContent = "尚未绘制标记；请拖动绘制后再保存。"; return; }
+    if (!actions.length) {
+      if (savedFile) {
+        annotatedInput.value = "";
+        status.textContent = "已移除原有标注，远景原图仍保留。";
+        committed = true;
+        dialog.close();
+      } else {
+        status.textContent = "尚未绘制标记；请拖动绘制后再保存。";
+      }
+      return;
+    }
     redraw();
     canvas.toBlob((blob) => {
+      if (!dialog.open) return;
       if (!blob) { status.textContent = "浏览器未能生成标注图，请重试。"; return; }
       const files = new DataTransfer();
       files.items.add(new File([blob], "annotated.jpg", {type: "image/jpeg"}));
       annotatedInput.files = files.files;
       status.textContent = "标注图已保存并加入上传列表。";
+      committed = true;
+      dialog.close();
     }, "image/jpeg", 0.9);
   });
 });

@@ -3,6 +3,7 @@
 import uuid
 
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -11,6 +12,19 @@ from apps.common.enums import UserRole
 from apps.orders.models import ExpressRound, Order
 
 from .models import ChargeType
+from .selectors import settlement_final_courier_ids
+
+
+class CourierSelect(forms.Select):
+    """Keep the full name available on hover while bounding native option labels."""
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            option["attrs"]["title"] = str(label)
+            if len(str(label)) > 18:
+                option["label"] = f"{str(label)[:17]}…"
+        return option
 
 
 class SettlementOrderChoiceField(forms.ModelMultipleChoiceField):
@@ -45,7 +59,8 @@ class AddChargeForm(forms.Form):
     beneficiary_courier = forms.ModelChoiceField(
         required=False,
         queryset=User.objects.none(),
-        label="收益人（客户加价/人工额外服务）",
+        label="最终受益人（客户加价/人工额外服务）",
+        widget=CourierSelect(attrs={"class": "form-select cdd-beneficiary-select"}),
     )
     proxy_recipient = forms.ModelChoiceField(
         required=False, queryset=ProxyRecipient.objects.all(), label="代理临时收件人"
@@ -54,11 +69,14 @@ class AddChargeForm(forms.Form):
         required=False, queryset=ExpressRound.objects.all(), label="快递轮次"
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, settlement=None, **kwargs):
         super().__init__(*args, **kwargs)
+        final_ids = settlement_final_courier_ids(settlement) if settlement else set()
         self.fields["beneficiary_courier"].queryset = User.objects.filter(
-            role=UserRole.COURIER, is_active=True
-        )
+            Q(is_active=True) | Q(pk__in=final_ids), role=UserRole.COURIER
+        ).order_by("display_name", "pk")
+        if len(final_ids) == 1 and not self.is_bound:
+            self.fields["beneficiary_courier"].initial = next(iter(final_ids))
 
 
 class ReasonForm(forms.Form):
