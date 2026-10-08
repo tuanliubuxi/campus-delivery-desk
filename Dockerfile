@@ -8,9 +8,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Receipt images contain Chinese text; install the CJK font in both amd64 and arm64 images.
+# Receipt images contain Chinese text; keep the offline image compact.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && apt-get install -y --no-install-recommends fonts-wqy-microhei \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./

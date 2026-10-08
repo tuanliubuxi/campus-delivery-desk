@@ -22,7 +22,7 @@ from apps.settlements.models import (
 def _font(size):
     candidates = [
         Path("C:/Windows/Fonts/msyh.ttc"),
-        Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+        Path("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
     ]
     for path in candidates:
