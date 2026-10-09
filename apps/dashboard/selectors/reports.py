@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import (
     Case,
@@ -19,15 +19,18 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce, TruncDate
 
+from apps.accounts.models import User
 from apps.common.enums import BusinessType
+from apps.config_center.models import SiteConfiguration
 from apps.exceptions.models import ExceptionCase
-from apps.orders.models import DeliveryStatus, DispatchMode, Order, SizeClass
+from apps.orders.models import DeliveryStatus, DispatchMode, Order, OrderSettlementStatus, SizeClass
 from apps.settlements.models import (
     AdjustmentType,
     ChargeItem,
     ChargeStatus,
     ChargeType,
     CourierEarning,
+    EarningSourceType,
     EarningStatus,
     FinancialAdjustment,
     Settlement,
@@ -316,12 +319,35 @@ def courier_personal_cards(filters):
     settled = earnings.filter(status=EarningStatus.SETTLED).aggregate(
         value=Coalesce(Sum("amount_base"), ZERO_MONEY)
     )["value"]
-    pending = earnings.filter(status=EarningStatus.PENDING_PAYMENT).aggregate(
-        value=Coalesce(Sum("amount_base"), ZERO_MONEY)
-    )["value"]
+    awaiting_bill = earnings.filter(
+        status=EarningStatus.PENDING_PAYMENT,
+        order__settlement_status=OrderSettlementStatus.UNSETTLED,
+    ).values("order_id").distinct().count()
+    awaiting_customer_payment = earnings.filter(
+        status=EarningStatus.PENDING_PAYMENT,
+        order__settlement_status=OrderSettlementStatus.WAITING_PAYMENT,
+    ).values("order_id").distinct().count()
+    courier = User.objects.get(pk=filters.courier_id)
+    rate = courier.wage_rate_override
+    if rate is None:
+        rate = SiteConfiguration.load().default_wage_rate
+    ordinary = Decimal("0.00")
+    locked = Decimal("0.00")
+    for earning in earnings.filter(status=EarningStatus.SETTLED):
+        if earning.source_type == EarningSourceType.CUSTOMER_EXTRA:
+            locked += earning.amount_base or Decimal("0.00")
+        else:
+            ordinary += earning.amount_base or Decimal("0.00")
+    wage_reference = (
+        (ordinary * rate + locked).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if rate is not None else None
+    )
     return {
         "order_count": orders.count(),
         "delivered_count": orders.filter(delivery_status=DeliveryStatus.DELIVERED).count(),
         "settled_earnings": settled,
-        "pending_earnings": pending,
+        "awaiting_bill_count": awaiting_bill,
+        "awaiting_customer_payment_count": awaiting_customer_payment,
+        "ratio_wage_reference": wage_reference,
+        "effective_wage_rate": rate,
     }

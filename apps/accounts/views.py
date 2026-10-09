@@ -138,7 +138,7 @@ def _dashboard_url(user):
         return "accounts:courier-dashboard"
     if user.role == UserRole.ADMIN:
         return "accounts:admin-dashboard"
-    return "customers:list"
+    return "orders:history"
 
 
 def login_view(request, *, admin=False):

@@ -120,10 +120,11 @@ class SiteConfiguration(models.Model):
     default_wage_rate = models.DecimalField(
         max_digits=5,
         decimal_places=4,
+        default=Decimal("1.0000"),
         null=True,
         blank=True,
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))],
-        help_text="所有配送员默认继承此比例；留空时仅阻止比例工资计算。",
+        help_text="所有配送员默认继承 1.0；个人比例可单独覆盖。",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

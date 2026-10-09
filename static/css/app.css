@@ -37,6 +37,10 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-feedback-actions { justify-content: center; }
 .cdd-scroll-region { max-height: min(62vh, 720px); overflow: auto; scrollbar-gutter: stable; }
 .cdd-scroll-region thead th { position: sticky; top: 0; z-index: 2; background: var(--cdd-elevated); }
+.cdd-exception-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.cdd-exception-pane { min-width: 0; }
+.cdd-exception-list { max-height: min(62vh, 44rem); overflow-y: auto; scrollbar-gutter: stable; padding: .15rem; }
+.cdd-exception-tabs { display: none; }
 .cdd-audit-table { table-layout: fixed; min-width: 44rem; width: 100%; }
 .cdd-audit-table td, .cdd-audit-table th { min-width: 0; }
 .cdd-audit-table .cdd-audit-time { width: 10rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -130,7 +134,9 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-task-counts { display: flex; flex-wrap: wrap; gap: .65rem; font-size: .82rem; color: var(--cdd-muted); }
 .cdd-task-counts span { display: inline-flex; align-items: center; gap: .3rem; }
 .cdd-task-counts .cdd-status-dot { width: .5rem; height: .5rem; box-shadow: none; }
-.cdd-dot-new { background: #5c85b9; }.cdd-dot-picked { background: #dc922e; }.cdd-dot-delivering { background: #7b5ab5; }
+.cdd-status-dot.cdd-dot-new { background: #5c85b9; box-shadow: 0 0 0 3px color-mix(in srgb, #5c85b9 24%, transparent); }
+.cdd-status-dot.cdd-dot-picked { background: #dc922e; box-shadow: 0 0 0 3px color-mix(in srgb, #dc922e 24%, transparent); }
+.cdd-status-dot.cdd-dot-delivering { background: #8766cc; box-shadow: 0 0 0 3px color-mix(in srgb, #8766cc 24%, transparent); }
 .cdd-task-card { border-left: .3rem solid var(--cdd-primary); }
 .cdd-recipient-badge { max-width: min(76%, 19rem); padding: .3rem .65rem; border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 24%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-task-order { padding: .72rem 0; border-bottom: 1px solid var(--cdd-border); }
@@ -250,12 +256,18 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
   html,
   body {
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 }
 
 @media (max-width: 767.98px) {
-  body:has(.cdd-app-header) { padding-bottom: calc(4.35rem + env(safe-area-inset-bottom)); }
+  .cdd-exception-columns { grid-template-columns: 1fr; }
+  .cdd-exception-tabs { display: flex; gap: .5rem; }
+  .cdd-exception-tabs .btn { flex: 1 1 0; }
+  .cdd-exception-pane:not(.is-mobile-active) { display: none; }
+  .cdd-exception-list { max-height: min(60vh, 38rem); }
+  body:has(.cdd-app-header) { padding-top: var(--cdd-header-height, 7rem); padding-bottom: calc(4.35rem + env(safe-area-inset-bottom)); }
+  .cdd-app-header { position: fixed; inset: 0 0 auto; padding-top: env(safe-area-inset-top); }
   .cdd-topbar { padding-inline: .7rem; }
   .cdd-brand { font-size: 1.15rem; }
   .cdd-account-cluster { gap: .35rem; }

@@ -80,7 +80,7 @@ class SiteConfigurationForm(BootstrapFormMixin, forms.ModelForm):
             "kfc_open_weekday": "1 代表周一，4 代表周四，7 代表周日。",
             "lease_stale_seconds": "仅用于判断另一台设备能否接管账号，不是登录有效期；登录采用 30 天滚动有效期。必须大于心跳间隔。",
             "media_retention_days": "异常保护和结算历史等特殊保留规则仍优先适用。",
-            "default_wage_rate": "所有配送员默认继承；个人比例可在“人员与会话”中覆盖。留空只会阻止比例工资计算。",
+            "default_wage_rate": "默认 1.0；个人比例可在“人员与会话”中覆盖。",
         }
 
     def __init__(self, *args, **kwargs):

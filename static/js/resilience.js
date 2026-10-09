@@ -137,7 +137,13 @@
       status.textContent = "正在提交，请勿重复操作……";
       buttons.forEach((button) => (button.disabled = true));
       try {
-        if (await reconcile()) return;
+        try {
+          if (await reconcile()) return;
+        } catch (error) {
+          if (error.message === "login-required") throw error;
+          // A failed status preflight must not prevent the first upload attempt.
+          status.textContent = "状态核对暂时不可用，继续上传并提交……";
+        }
         if (form.id === "drop-form" && window.cddCompressDeliveryImages) {
           status.textContent = "正在压缩照片，请勿离开页面……";
           await window.cddCompressDeliveryImages(form);

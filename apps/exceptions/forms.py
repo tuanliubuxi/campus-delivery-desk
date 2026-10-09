@@ -4,9 +4,10 @@ import uuid
 
 from django import forms
 from django.db import models
+from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.common.enums import UserRole
+from apps.common.enums import BusinessType, UserRole
 from apps.common.forms import BootstrapFormMixin
 from apps.consolidation.models import ConsolidationRound
 from apps.dispatch.models import DeliveryDrop, DeliveryTask
@@ -112,6 +113,37 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
             cleaned.get(field) for field in ("order", "task", "drop", "consolidation_round")
         ):
             raise forms.ValidationError("至少关联订单、任务、配送记录或归拢轮次之一")
+        return cleaned
+
+
+class ExceptionFilterForm(BootstrapFormMixin, forms.Form):
+    query = forms.CharField(required=False, max_length=100, label="订单、任务或说明")
+    business_type = forms.ChoiceField(
+        required=False, label="业务", choices=[("", "全部业务"), *BusinessType.choices]
+    )
+    date_from = forms.DateField(
+        required=False, initial=timezone.localdate, label="开始日期",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+    )
+    date_to = forms.DateField(
+        required=False, initial=timezone.localdate, label="结束日期",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+    )
+    blocking = forms.ChoiceField(
+        required=False,
+        label="阻塞情况",
+        choices=[("", "全部"), ("consolidation", "阻塞归拢"), ("settlement", "阻塞结算")],
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._apply_bootstrap_classes()
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("date_from") and cleaned.get("date_to"):
+            if cleaned["date_from"] > cleaned["date_to"]:
+                raise forms.ValidationError("开始日期不能晚于结束日期")
         return cleaned
 
 

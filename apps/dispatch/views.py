@@ -4,6 +4,7 @@ import uuid
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -11,19 +12,17 @@ from django.views.decorators.http import require_POST
 
 from apps.common.enums import BusinessType
 from apps.common.permissions import courier_required
-from apps.exceptions.models import ExceptionCase
-from apps.exceptions.services import create_exception_case
+from apps.exceptions.views import workspace as exception_workspace
 from apps.orders.models import DeliveryStatus, Order, PickupArea
 
 from .forms import (
     CompleteDropForm,
     ConfirmExpressSizeForm,
     DirectClaimForm,
-    ExceptionReportForm,
     RouteClaimForm,
     TransferRequestForm,
 )
-from .models import Assignment, DeliveryDrop, DeliveryTask, TransferRequest
+from .models import DeliveryDrop, DeliveryTask, TransferRequest
 from .selectors import (
     courier_task_detail,
     courier_tasks,
@@ -269,30 +268,32 @@ def complete_task(request, task_id):
     )
     if request.method == "POST" and form.is_valid():
         try:
-            for assignment in assignments:
-                order = assignment.order
-                detail = getattr(order, "express_detail", None)
-                if detail and detail.size_class == "UNKNOWN":
-                    confirm_express_size(
-                        order=order,
-                        courier=request.user,
-                        size_class=form.cleaned_data[f"size_class_{order.pk}"],
-                        confirmation_note=form.cleaned_data[f"size_note_{order.pk}"],
-                    )
-            drop = complete_delivery_drop(
-                order_ids=[int(value) for value in form.cleaned_data["order_ids"]],
-                courier=request.user,
-                final_location_text=form.cleaned_data["final_location_text"],
-                location_type=form.cleaned_data["location_type"],
-                operation_id=form.cleaned_data["operation_id"],
-                near_photos=(
-                    form.cleaned_data["near_photos"]
-                    or request.FILES.getlist("near_photos")
-                    or request.FILES.getlist("near_photo")
-                ),
-                far_photo=form.cleaned_data["far_photo"],
-                annotated_photo=form.cleaned_data["annotated_photo"],
-            )
+            selected_ids = {int(value) for value in form.cleaned_data["order_ids"]}
+            with transaction.atomic():
+                for assignment in assignments:
+                    order = assignment.order
+                    detail = getattr(order, "express_detail", None)
+                    if detail and order.pk in selected_ids:
+                        confirm_express_size(
+                            order=order,
+                            courier=request.user,
+                            size_class=form.cleaned_data[f"size_class_{order.pk}"],
+                            confirmation_note=form.cleaned_data[f"size_note_{order.pk}"],
+                        )
+                drop = complete_delivery_drop(
+                    order_ids=sorted(selected_ids),
+                    courier=request.user,
+                    final_location_text=form.cleaned_data["final_location_text"],
+                    location_type=form.cleaned_data["location_type"],
+                    operation_id=form.cleaned_data["operation_id"],
+                    near_photos=(
+                        form.cleaned_data["near_photos"]
+                        or request.FILES.getlist("near_photos")
+                        or request.FILES.getlist("near_photo")
+                    ),
+                    far_photo=form.cleaned_data["far_photo"],
+                    annotated_photo=form.cleaned_data["annotated_photo"],
+                )
         except (ValidationError, ValueError) as exc:
             form.add_error(None, exc)
         else:
@@ -418,35 +419,5 @@ def transfer_reject(request, transfer_id):
 
 @courier_required
 def exception_list(request):
-    order = None
-    order_id = request.GET.get("order") or request.POST.get("order_id")
-    if order_id:
-        order = get_object_or_404(
-            Order,
-            pk=order_id,
-            assignments__courier=request.user,
-            assignments__is_active=True,
-        )
-    form = ExceptionReportForm(request.POST or None)
-    if request.method == "POST" and order and form.is_valid():
-        assignment = Assignment.objects.filter(order=order, is_active=True).first()
-        try:
-            if not assignment:
-                raise ValidationError("订单当前没有有效配送任务")
-            case = create_exception_case(
-                actor=request.user,
-                order=order,
-                task=assignment.task,
-                **form.cleaned_data,
-            )
-        except ValidationError as exc:
-            form.add_error(None, exc)
-        else:
-            messages.success(request, f"异常 #{case.pk} 已报告")
-            return redirect("dispatch:exceptions")
-    cases = ExceptionCase.objects.filter(created_by=request.user).select_related("order")
-    return render(
-        request,
-        "dispatch/exceptions.html",
-        {"form": form, "selected_order": order, "cases": cases},
-    )
+    # Preserve the historical URL, but use the one role-aware exception workspace.
+    return exception_workspace(request)

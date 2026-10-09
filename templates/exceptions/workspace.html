@@ -1,25 +1,55 @@
-{# Shared exception desk; services still enforce relationship and role permissions. #}
 {% extends "layouts/base.html" %}
 {% block title %}异常与处理 · 校驿{% endblock %}
 {% block content %}
 <main class="container py-3 {% if user.is_courier %}cdd-mobile-shell{% endif %}">
   <h1 class="h3">异常与处理</h1>
-  <div class="row g-4"><section class="col-lg-5">
-    <form method="post" enctype="multipart/form-data" class="card card-body" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="exception-{% if user.is_courier %}courier{% else %}desk{% endif %}">{% csrf_token %}{{ form.operation_id }}
-      <h2 class="h5">报告异常</h2>{% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}<p class="cdd-muted small">从订单、任务、配送记录或归拢轮次中至少选择一项。</p><div class="row g-2">{% for field in form %}{% if field.name == 'order' or field.name == 'task' or field.name == 'drop' or field.name == 'consolidation_round' %}<div class="col-12 col-md-6"><label class="form-label">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}</div><div class="mt-3"><label class="form-label">{{ form.reason_code.label }}</label>{{ form.reason_code }}<div class="form-text">{{ form.reason_code.help_text }}</div>{{ form.reason_code.errors }}</div><div class="mt-3"><label class="form-label">{{ form.reason_text.label }}</label>{{ form.reason_text }}{{ form.reason_text.errors }}</div><div class="mt-3"><label class="form-label">{{ form.attachments.label }}</label>{{ form.attachments }}{{ form.attachments.errors }}</div>{% if user.is_courier %}{{ form.blocks_consolidation }}{{ form.blocks_settlement }}{{ form.delivery_evidence }}{{ form.media_evidence }}{% else %}<details class="mt-3"><summary class="cdd-summary">高级关联与阻塞设置</summary><div class="mt-2">{{ form.blocks_consolidation.as_field_group }}{{ form.blocks_settlement.as_field_group }}{{ form.delivery_evidence.as_field_group }}{{ form.media_evidence.as_field_group }}</div></details>{% endif %}<button class="btn btn-danger mt-3">建立异常</button>
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <button class="btn btn-danger" type="button" data-cdd-modal-open="exception-create">建立异常</button>
+    <button class="btn btn-outline-primary" type="button" data-cdd-modal-open="exception-filter">筛选</button>
+    {% if filter_query %}<a class="btn btn-outline-secondary" href="{% if user.is_courier %}{% url 'exceptions:courier-workspace' %}{% else %}{% url 'exceptions:workspace' %}{% endif %}">清空筛选</a>{% endif %}
+  </div>
+  <div class="cdd-exception-tabs mb-3" aria-label="异常处理状态">
+    <button class="btn {% if selected_tab == 'open' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-cdd-exception-tab="open">待处理 {{ open_page.paginator.count }}</button>
+    <button class="btn {% if selected_tab == 'resolved' %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" data-cdd-exception-tab="resolved">已处理 {{ resolved_page.paginator.count }}</button>
+  </div>
+  <div class="cdd-exception-columns">
+    <section class="cdd-exception-pane {% if selected_tab == 'open' %}is-mobile-active{% endif %}" data-cdd-exception-panel="open"><h2 class="h5">待处理 <small class="cdd-muted">{{ open_page.paginator.count }}</small></h2>
+      <div class="cdd-exception-list">
+      {% for case in open_page %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
+        <div class="d-flex justify-content-between gap-2"><strong class="cdd-flex-ellipsis" title="{{ case.reason_code }}">#{{ case.id }} · {{ case.reason_code }}</strong><span class="badge text-bg-warning text-nowrap">待处理</span></div>
+        <div class="small cdd-muted">{% if case.order %}{{ case.order.display_id }}{% elif case.task %}任务 #{{ case.task_id }}{% elif case.drop %}配送 #{{ case.drop_id }}{% else %}归拢 #{{ case.consolidation_round_id }}{% endif %} · {{ case.created_at|date:"Y-m-d H:i" }}</div>
+        <div class="cdd-clamp" title="{{ case.reason_text }}">{{ case.reason_text }}</div>
+        <div class="mt-2">{% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %} {% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}</div>
+      </a>{% empty %}<p class="cdd-muted">暂无待处理异常。</p>{% endfor %}
+      </div>
+      {% if open_page.has_other_pages %}<nav aria-label="待处理异常分页" class="d-flex gap-2 mt-2">{% if open_page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=open&open_page={{ open_page.previous_page_number }}&resolved_page={{ resolved_page.number }}">上一页</a>{% endif %}<span class="small cdd-muted align-self-center">{{ open_page.number }} / {{ open_page.paginator.num_pages }}</span>{% if open_page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=open&open_page={{ open_page.next_page_number }}&resolved_page={{ resolved_page.number }}">下一页</a>{% endif %}</nav>{% endif %}
+    </section>
+    <section class="cdd-exception-pane {% if selected_tab == 'resolved' %}is-mobile-active{% endif %}" data-cdd-exception-panel="resolved"><h2 class="h5">已处理 <small class="cdd-muted">{{ resolved_page.paginator.count }}</small></h2>
+      <div class="cdd-exception-list">
+      {% for case in resolved_page %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
+        <div class="d-flex justify-content-between gap-2"><strong class="cdd-flex-ellipsis" title="{{ case.reason_code }}">#{{ case.id }} · {{ case.reason_code }}</strong><span class="badge text-bg-success text-nowrap">已处理</span></div>
+        <div class="small cdd-muted">{% if case.order %}{{ case.order.display_id }}{% elif case.task %}任务 #{{ case.task_id }}{% elif case.drop %}配送 #{{ case.drop_id }}{% else %}归拢 #{{ case.consolidation_round_id }}{% endif %} · {{ case.created_at|date:"Y-m-d H:i" }}</div>
+        <div class="cdd-clamp" title="{{ case.reason_text }}">{{ case.reason_text }}</div>
+      </a>{% empty %}<p class="cdd-muted">暂无已处理异常。</p>{% endfor %}
+      </div>
+      {% if resolved_page.has_other_pages %}<nav aria-label="已处理异常分页" class="d-flex gap-2 mt-2">{% if resolved_page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=resolved&open_page={{ open_page.number }}&resolved_page={{ resolved_page.previous_page_number }}">上一页</a>{% endif %}<span class="small cdd-muted align-self-center">{{ resolved_page.number }} / {{ resolved_page.paginator.num_pages }}</span>{% if resolved_page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=resolved&open_page={{ open_page.number }}&resolved_page={{ resolved_page.next_page_number }}">下一页</a>{% endif %}</nav>{% endif %}
+    </section>
+  </div>
+  <dialog class="cdd-modal" id="exception-create" {% if open_create_modal %}data-cdd-auto-open{% endif %} aria-labelledby="exception-create-title"><div class="cdd-modal-panel">
+    <h2 class="h5" id="exception-create-title">建立异常</h2>
+    <form method="post" enctype="multipart/form-data" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="exception-{% if user.is_courier %}courier{% else %}desk{% endif %}">{% csrf_token %}{{ form.operation_id }}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      <p class="cdd-muted small">从订单、任务、配送记录或归拢轮次中至少选择一项。</p>
+      <div class="row g-2">{% for field in form %}{% if field.name == 'order' or field.name == 'task' or field.name == 'drop' or field.name == 'consolidation_round' %}<div class="col-12 col-md-6"><label class="form-label">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}</div>
+      <div class="mt-3"><label class="form-label">{{ form.reason_code.label }}</label>{{ form.reason_code }}<div class="form-text">{{ form.reason_code.help_text }}</div>{{ form.reason_code.errors }}</div>
+      <div class="mt-3"><label class="form-label">{{ form.reason_text.label }}</label>{{ form.reason_text }}{{ form.reason_text.errors }}</div>
+      <div class="mt-3"><label class="form-label">{{ form.attachments.label }}</label>{{ form.attachments }}{{ form.attachments.errors }}</div>
+      {% if user.is_courier %}{{ form.blocks_consolidation }}{{ form.blocks_settlement }}{{ form.delivery_evidence }}{{ form.media_evidence }}{% else %}<details class="mt-3"><summary class="cdd-summary">高级关联与阻塞设置</summary><div class="mt-2">{{ form.blocks_consolidation.as_field_group }}{{ form.blocks_settlement.as_field_group }}{{ form.delivery_evidence.as_field_group }}{{ form.media_evidence.as_field_group }}</div></details>{% endif %}
+      <div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-danger" type="submit">确认建立异常</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div>
     </form>
-  </section><section class="col-lg-7"><div class="cdd-scroll-region">
-    {% for case in page %}<a class="card card-body mb-2 text-decoration-none" href="{% url 'exceptions:detail' case.id %}">
-      <div class="d-flex justify-content-between gap-2"><strong>#{{ case.id }} · {{ case.reason_code }}</strong><span>{{ case.get_status_display }}</span></div>
-      <div class="cdd-clamp" title="{{ case.reason_text }}">{{ case.reason_text }}</div><div class="mt-2">
-      {% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %}
-      {% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}</div>
-    </a>{% empty %}<p class="text-secondary">暂无可见异常。</p>{% endfor %}
-    {% if page.has_other_pages %}<nav aria-label="异常列表分页"><ul class="pagination">
-      {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}">上一页</a></li>{% endif %}
-      <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
-      {% if page.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}">下一页</a></li>{% endif %}
-    </ul></nav>{% endif %}</div>
-  </section></div>
+  </div></dialog>
+  <dialog class="cdd-modal" id="exception-filter" aria-labelledby="exception-filter-title"><div class="cdd-modal-panel"><h2 class="h5" id="exception-filter-title">筛选异常</h2>
+    <form method="get"><div class="row g-2">{% for field in filter_form %}<div class="col-12 col-sm-6"><label class="form-label">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}</div><div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-primary" type="submit">应用筛选</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form>
+  </div></dialog>
 </main>
 {% endblock %}

@@ -4,15 +4,19 @@
 {% block content %}
 <main class="container pb-5">
   <h1 class="h3">我的统计</h1>
-  <form method="get" class="card card-body mb-3"><div class="row g-2">
-    {% for field in form %}<div class="col-6 col-md-3"><label class="form-label">{{ field.label }}</label>{{ field }}</div>{% endfor %}
-    <div class="col-12"><button class="btn btn-primary">筛选</button> <a class="btn btn-outline-secondary" href="{% url 'dashboard:courier-statistics' %}">清空</a></div>
-  </div></form>
+  <button class="btn btn-outline-primary mb-3" type="button" data-cdd-modal-open="courier-stats-filter">筛选订单</button>
+  <dialog class="cdd-modal" id="courier-stats-filter" aria-labelledby="courier-filter-title"><div class="cdd-modal-panel"><h2 class="h5" id="courier-filter-title">筛选个人统计</h2><form method="get"><div class="row g-2">
+    {% for field in form %}<div class="col-6"><label class="form-label">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
+    <div class="col-12 cdd-action-row justify-content-center mt-3"><button class="btn btn-primary" type="submit">确定</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div>
+  </div></form></div></dialog>
+  <p class="small cdd-muted">默认查看今日订单；需要查看全部历史，可在筛选中清空日期。</p>
   <section class="row row-cols-2 g-3 mb-3">
     <div class="col"><div class="card h-100"><div class="card-body"><small>相关订单</small><div class="h3">{{ cards.order_count }}</div></div></div></div>
     <div class="col"><div class="card h-100"><div class="card-body"><small>已送达</small><div class="h3">{{ cards.delivered_count }}</div></div></div></div>
-    <div class="col"><div class="card h-100"><div class="card-body"><small>已结算收益归属</small><div class="h3">¥{{ cards.settled_earnings|floatformat:2 }}</div></div></div></div>
-    <div class="col"><div class="card h-100"><div class="card-body"><small>待付款收益归属</small><div class="h3">¥{{ cards.pending_earnings|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><small>已送达、待出账</small><div class="h3">{{ cards.awaiting_bill_count }} 单</div><small class="cdd-muted">金额尚未冻结</small></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><small>已出账、待客户付款</small><div class="h3">{{ cards.awaiting_customer_payment_count }} 单</div><small class="cdd-muted">未计入工资参考</small></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><small>客户已付款 · 收益归属</small><div class="h3">¥{{ cards.settled_earnings|floatformat:2 }}</div></div></div></div>
+    <div class="col"><div class="card h-100"><div class="card-body"><small>按比例计薪参考</small><div class="h3">{% if cards.ratio_wage_reference == None %}待配置{% else %}¥{{ cards.ratio_wage_reference|floatformat:2 }}{% endif %}</div><small class="cdd-muted">比例 {% if cards.effective_wage_rate == None %}未配置{% else %}{{ cards.effective_wage_rate }}{% endif %}；未计人工分配、退款扣减或实际发薪</small></div></div></div>
   </section>
   <div class="card mb-3"><div class="card-header">订单量趋势</div><div class="card-body cdd-chart"><canvas id="personalTrend"></canvas></div></div>
   <div class="vstack gap-2 cdd-scroll-region">

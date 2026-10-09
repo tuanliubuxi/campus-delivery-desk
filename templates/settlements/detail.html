@@ -3,7 +3,7 @@
 {% block content %}
 <main class="container py-3">
   <a class="btn btn-outline-secondary mb-3" href="{% url 'settlements:workspace' %}">返回结算列表</a>
-  <div class="cdd-settlement-heading"><div><h1 class="h3">结算 #{{ settlement.id }} <span class="badge text-bg-secondary">{{ settlement.get_status_display }}</span></h1><p>{{ settlement.get_party_type_display }} · {{ settlement.settlement_orders.count }} 单</p></div><div class="cdd-settlement-total"><small>{% if settlement.status == 'DRAFT' %}实时预览{% else %}冻结应收{% endif %}</small><strong>¥{% if settlement.status == 'DRAFT' %}{{ preview_total }}{% else %}{{ settlement.amount_due_snapshot }}{% endif %}</strong></div></div>
+  <div class="cdd-settlement-heading"><div><h1 class="h3">结算 #{{ settlement.id }} <span class="badge text-bg-secondary">{{ settlement.get_status_display }}</span></h1><p>{{ settlement.get_party_type_display }} · {{ settlement.settlement_orders.count }} 单</p>{% if settlement.status == 'VOIDED' and settlement.void_reason %}<p class="cdd-break-text"><strong>作废原因：</strong>{{ settlement.void_reason }}</p>{% endif %}</div><div class="cdd-settlement-total"><small>{% if settlement.status == 'DRAFT' %}实时预览{% else %}冻结应收{% endif %}</small><strong>¥{% if settlement.status == 'DRAFT' %}{{ preview_total }}{% else %}{{ settlement.amount_due_snapshot }}{% endif %}</strong></div></div>
   <div class="cdd-settlement-layout {% if settlement.status == 'SETTLED' or settlement.status == 'REVERSED' %}is-final{% endif %}"><section>
     <div class="card card-body"><h2 class="h5">费用明细</h2>
       {% for item in charges %}<div class="d-flex justify-content-between border-bottom py-2 gap-2">
@@ -14,16 +14,15 @@
         </form>{% endif %}
       </div>{% empty %}<p class="text-secondary">暂无费用项。</p>{% endfor %}
       {% if settlement.status == 'DRAFT' and preview_total < 0 %}<div class="alert alert-danger mt-3">预览金额为负，必须修正费用项后才能生成有效凭证。</div>{% endif %}
+      {% if settlement.status == 'DRAFT' %}{% for member in settlement.settlement_orders.all %}{% if member.order.express_detail.size_confirmation_note %}<p class="small cdd-muted cdd-break-text mb-1">{{ member.order.display_id }} · 配送员大小说明／价格建议：{{ member.order.express_detail.size_confirmation_note }}</p>{% endif %}{% endfor %}<p class="small cdd-muted mb-0">建议仅供参考；如需改变收费，请通过“其他增费”或“减免”建立可审计费用项。</p>{% endif %}
     </div>
-    {% if settlement.status == 'DRAFT' %}<form method="post" action="{% url 'settlements:charge-add' settlement.id %}" class="card card-body mt-3">
-      {% csrf_token %}<h2 class="h5">添加结算级费用</h2>{{ charge_form.as_p }}<button class="btn btn-outline-primary">添加费用项</button>
-    </form>{% endif %}
+    {% if settlement.status == 'DRAFT' %}<div class="mt-3"><button class="btn btn-outline-primary" type="button" data-cdd-modal-open="settlement-charge-add">添加费用项</button></div>
+    <dialog class="cdd-modal" id="settlement-charge-add" aria-labelledby="settlement-charge-title"><div class="cdd-modal-panel"><h2 class="h5" id="settlement-charge-title">添加结算级费用</h2><form method="post" action="{% url 'settlements:charge-add' settlement.id %}">{% csrf_token %}{{ charge_form.as_p }}<div class="cdd-action-row justify-content-center"><button class="btn btn-primary" type="submit">确认添加</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>{% endif %}
   </section><aside>
     {% if settlement.status == 'DRAFT' %}<form method="post" action="{% url 'settlements:freeze' settlement.id %}" class="card card-body mb-3">{% csrf_token %}
       <p>生成时重新校验 UNKNOWN、阻塞异常、订单占用及非负总额，并冻结为不可变 SettlementLine。</p><button class="btn btn-primary">生成有效结算凭证</button>
     </form>{% endif %}
-    {% if settlement.status == 'DRAFT' or settlement.status == 'WAITING_PAYMENT' %}<form method="post" action="{% url 'settlements:void' settlement.id %}" class="card card-body mb-3">{% csrf_token %}
-      {{ reason_form.as_p }}<button class="btn btn-outline-danger">废弃账单</button></form>{% endif %}
+    {% if settlement.status == 'DRAFT' or settlement.status == 'WAITING_PAYMENT' %}<div class="card card-body mb-3"><button class="btn btn-outline-danger" type="button" data-cdd-modal-open="settlement-void">废弃账单</button></div><dialog class="cdd-modal" id="settlement-void" aria-labelledby="settlement-void-title"><div class="cdd-modal-panel"><h2 class="h5" id="settlement-void-title">废弃账单</h2><form method="post" action="{% url 'settlements:void' settlement.id %}">{% csrf_token %}{{ reason_form.as_p }}<div class="cdd-action-row justify-content-center"><button class="btn btn-danger" type="submit">确认废弃</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>{% endif %}
     {% if settlement.status == 'WAITING_PAYMENT' %}<form method="post" action="{% url 'settlements:confirm' settlement.id %}" class="card card-body mb-3">{% csrf_token %}
       {{ operation_form.as_p }}<p>仅在实际收到客户或代理付款后确认。</p><button class="btn btn-success">确认已收款</button></form>{% endif %}
     {% if settlement.status == 'SETTLED' %}

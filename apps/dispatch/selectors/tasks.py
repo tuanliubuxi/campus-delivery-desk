@@ -57,6 +57,8 @@ def group_courier_tasks_by_recipient(tasks):
             else:
                 key = ("order", order.pk)
                 recipient_name = order.recipient_name_snapshot or "收件人待确认"
-            group = groups.setdefault(key, {"recipient_name": recipient_name, "orders": []})
+            group = groups.setdefault(key, {"recipient_name": recipient_name, "orders": [], "tasks": []})
             group["orders"].append({"order": order, "task": task})
+            if all(existing.pk != task.pk for existing in group["tasks"]):
+                group["tasks"].append(task)
     return list(groups.values())

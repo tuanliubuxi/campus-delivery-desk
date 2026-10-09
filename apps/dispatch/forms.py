@@ -98,6 +98,8 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
     def __init__(self, *args, assignments, **kwargs):
         super().__init__(*args, **kwargs)
         self.unknown_size_fields = []
+        self.known_size_fields = []
+        self.size_order_ids = set()
         self.fields["order_ids"].choices = [
             (str(item.order_id), item.order.display_id) for item in assignments
         ]
@@ -106,25 +108,39 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
         self.fields["operation_id"].widget.attrs["data-cdd-draft-ignore"] = ""
         for item in assignments:
             detail = getattr(item.order, "express_detail", None)
-            if detail and detail.size_class == SizeClass.UNKNOWN:
+            if detail:
+                self.size_order_ids.add(str(item.order_id))
                 self.fields[f"size_class_{item.order_id}"] = forms.ChoiceField(
                     label=f"{item.order.display_id} 的实际大小",
-                    choices=[choice for choice in SizeClass.choices if choice[0] != SizeClass.UNKNOWN],
+                    choices=[("", "请选择实际大小"), *[choice for choice in SizeClass.choices if choice[0] != SizeClass.UNKNOWN]],
+                    required=False,
+                    initial=detail.size_class if detail.size_class != SizeClass.UNKNOWN else None,
                 )
                 self.fields[f"size_note_{item.order_id}"] = forms.CharField(
                     label="大小说明 / 价格建议（可选）",
                     max_length=255,
                     required=False,
+                    initial=detail.size_confirmation_note,
                     help_text="仅供录单员参考；基础价仍按录单时的价格快照自动计算。",
                 )
-                self.unknown_size_fields.append(
-                    (self[f"size_class_{item.order_id}"], self[f"size_note_{item.order_id}"])
-                )
+                field_pair = (self[f"size_class_{item.order_id}"], self[f"size_note_{item.order_id}"])
+                if detail.size_class == SizeClass.UNKNOWN:
+                    self.unknown_size_fields.append(field_pair)
+                else:
+                    self.known_size_fields.append(field_pair)
         phrases = " / ".join(
             QuickLocationPhrase.objects.filter(is_active=True).values_list("text", flat=True)
         )
         self.fields["final_location_text"].help_text = f"快捷参考：{phrases}"
         self._apply_bootstrap_classes()
+
+    def clean(self):
+        cleaned = super().clean()
+        selected = set(cleaned.get("order_ids") or ())
+        for order_id in selected & self.size_order_ids:
+            if not cleaned.get(f"size_class_{order_id}"):
+                self.add_error(f"size_class_{order_id}", "请确认本单的实际大小")
+        return cleaned
 
 
 class TransferRequestForm(BootstrapFormMixin, OperationForm):

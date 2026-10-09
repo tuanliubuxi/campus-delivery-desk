@@ -14,6 +14,7 @@
     <a class="card card-body mb-2 text-decoration-none" href="{% url 'settlements:detail' settlement.id %}">
       <strong>#{{ settlement.id }} · {{ settlement.get_business_type_display }}</strong>
       <span>{{ settlement.get_status_display }} · {{ settlement.settlement_orders.count }} 单</span>
+      {% if settlement.status == 'VOIDED' and settlement.void_reason %}<span class="small cdd-muted cdd-ellipsis" title="{{ settlement.void_reason }}">作废原因：{{ settlement.void_reason }}</span>{% endif %}
     </a>
     {% empty %}<div class="alert alert-light">暂无结算。</div>{% endfor %}
   </div></section>

@@ -380,7 +380,7 @@ SETTLED → REVERSED
 
 配送完成时的基础归属记录允许 `settlement_id=NULL`；确认客户结算时绑定 Settlement、写入最终金额并进入 SETTLED。
 
-普通收益在工资计算时使用配送员有效比例：个人覆盖比例优先，否则继承全局默认比例。全局默认比例初始为空；缺少有效比例不改变 CourierEarning 的归属或 SETTLED 生命周期，只在 RATIO 工资计算时阻止计算，手工工资不受影响。CUSTOMER_EXTRA 始终以 100% 锁定 beneficiary courier。
+普通收益在工资计算时使用配送员有效比例：个人覆盖比例优先，否则继承全局默认比例。全局默认比例初始为 1.0；缺少有效比例不改变 CourierEarning 的归属或 SETTLED 生命周期，只在 RATIO 工资计算时阻止计算，手工工资不受影响。CUSTOMER_EXTRA 始终以 100% 锁定 beneficiary courier。
 
 ## 18. ManualHandling
 

@@ -92,7 +92,7 @@ class ExpressOrderForm(CommonOrderForm):
     service_date = forms.DateField(
         initial=timezone.localdate,
         label="服务日期",
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
     )
     pickup_area = forms.ChoiceField(choices=PickupArea.choices, label="取件区域")
     outside_pickup_location = forms.CharField(required=False, max_length=160, label="校外取件地点")

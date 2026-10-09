@@ -26,9 +26,11 @@
           {% if item.order.express_detail and item.order.express_detail.pickup_identifier %}<strong class="cdd-pickup-badge cdd-flex-ellipsis" title="{{ item.order.express_detail.pickup_identifier }}">取件标识 {{ item.order.express_detail.pickup_identifier }}</strong>{% endif %}
         </div>
         <details><summary>查看订单细节</summary><div class="small cdd-muted mt-2 cdd-break-text">订单 {{ item.order.display_id }} · 任务 #{{ item.task.pk }}{% if item.order.order_note %}<br>备注：{{ item.order.order_note }}{% endif %}{% if item.order.recipient_name_snapshot and item.order.recipient_name_snapshot != group.recipient_name %}<br>本单收件人：{{ item.order.recipient_name_snapshot }}{% endif %}</div></details>
-        <a class="btn btn-sm btn-outline-primary mt-2" href="{% url 'dispatch:task-detail' item.task.pk %}">进入任务</a>
       </section>
       {% endfor %}
+      {% if group.tasks|length == 1 %}<a class="btn btn-outline-primary mt-3" href="{% url 'dispatch:task-detail' group.tasks.0.pk %}">处理这组订单</a>
+      {% else %}<button class="btn btn-outline-primary mt-3" type="button" data-cdd-modal-open="recipient-tasks-{{ forloop.counter }}">处理这组订单</button>
+      <dialog class="cdd-modal" id="recipient-tasks-{{ forloop.counter }}"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button><h2 class="h5 cdd-ellipsis" title="{{ group.recipient_name }}">{{ group.recipient_name }}的任务</h2><p class="cdd-muted small">这些订单来自 {{ group.tasks|length }} 个独立任务，操作仍按原任务分别记录。</p><div class="d-grid gap-2">{% for task in group.tasks %}<a class="btn btn-outline-primary text-start" href="{% url 'dispatch:task-detail' task.pk %}">{{ task.get_business_type_display }} · 任务 #{{ task.pk }}</a>{% endfor %}</div></div></dialog>{% endif %}
     </article>
     {% empty %}<div class="cdd-card p-4 text-center cdd-muted">暂无活跃任务。</div>{% endfor %}
   </div>

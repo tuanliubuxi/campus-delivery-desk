@@ -3,6 +3,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -12,6 +13,7 @@ from apps.common.permissions import recorder_or_admin_required, role_required
 from .forms import (
     ExceptionBlockersForm,
     ExceptionCreateForm,
+    ExceptionFilterForm,
     ExceptionResolveForm,
     ManualHandlingForm,
 )
@@ -33,7 +35,10 @@ def _workspace_url(actor):
 
 @exception_operator_required
 def workspace(request):
-    form = ExceptionCreateForm(request.POST or None, request.FILES or None, actor=request.user)
+    initial = {"order": request.GET["order"]} if request.GET.get("order") else {}
+    form = ExceptionCreateForm(
+        request.POST or None, request.FILES or None, actor=request.user, initial=initial
+    )
     if request.method == "POST" and form.is_valid():
         try:
             case = create_exception_case(actor=request.user, **form.cleaned_data)
@@ -42,12 +47,53 @@ def workspace(request):
         else:
             messages.success(request, f"异常 #{case.pk} 已建立并保留证据关系")
             return redirect("exceptions:detail", case_id=case.pk)
-    # Exception history is an ordinary operational list and follows the V1 50-row page limit.
-    page = Paginator(visible_exception_cases(request.user), 50).get_page(request.GET.get("page"))
+    filter_form = ExceptionFilterForm(request.GET or None)
+    cases = visible_exception_cases(request.user)
+    if filter_form.is_valid():
+        criteria = filter_form.cleaned_data
+        if criteria["business_type"]:
+            cases = cases.filter(order__business_type=criteria["business_type"])
+        if criteria["date_from"]:
+            cases = cases.filter(created_at__date__gte=criteria["date_from"])
+        if criteria["date_to"]:
+            cases = cases.filter(created_at__date__lte=criteria["date_to"])
+        if criteria["blocking"] == "consolidation":
+            cases = cases.filter(blocks_consolidation=True)
+        elif criteria["blocking"] == "settlement":
+            cases = cases.filter(blocks_settlement=True)
+        query = criteria["query"].strip()
+        if query:
+            lookup = (
+                Q(reason_code__icontains=query)
+                | Q(reason_text__icontains=query)
+                | Q(order__recipient_name_snapshot__icontains=query)
+                | Q(order__express_detail__pickup_identifier__icontains=query)
+            )
+            if query.isdigit():
+                lookup |= Q(pk=int(query)) | Q(order_id=int(query)) | Q(task_id=int(query))
+            cases = cases.filter(lookup).distinct()
+    open_page = Paginator(cases.filter(status=ExceptionStatus.OPEN), 50).get_page(
+        request.GET.get("open_page") or request.GET.get("page")
+    )
+    resolved_page = Paginator(cases.filter(status=ExceptionStatus.RESOLVED), 50).get_page(
+        request.GET.get("resolved_page")
+    )
+    other_query = request.GET.copy()
+    for key in ("page", "open_page", "resolved_page", "order", "tab"):
+        other_query.pop(key, None)
     return render(
         request,
         "exceptions/workspace.html",
-        {"form": form, "page": page},
+        {
+            "form": form,
+            "filter_form": filter_form,
+            "open_page": open_page,
+            "resolved_page": resolved_page,
+            "page": open_page,
+            "filter_query": other_query.urlencode(),
+            "selected_tab": "resolved" if request.GET.get("tab") == "resolved" else "open",
+            "open_create_modal": form.is_bound or bool(request.GET.get("order")),
+        },
     )
 
 

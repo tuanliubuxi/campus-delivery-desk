@@ -77,6 +77,26 @@ class AddChargeForm(forms.Form):
         ).order_by("display_name", "pk")
         if len(final_ids) == 1 and not self.is_bound:
             self.fields["beneficiary_courier"].initial = next(iter(final_ids))
+        if settlement:
+            member_orders = settlement.settlement_orders.values_list("order_id", flat=True)
+            recipient_ids = list(
+                Order.objects.filter(pk__in=member_orders)
+                .exclude(proxy_recipient_id__isnull=True)
+                .values_list("proxy_recipient_id", flat=True)
+                .distinct()
+            )
+            round_ids = list(
+                Order.objects.filter(pk__in=member_orders, express_detail__isnull=False)
+                .values_list("express_detail__express_round_id", flat=True)
+                .distinct()
+            )
+            self.fields["proxy_recipient"].queryset = ProxyRecipient.objects.filter(pk__in=recipient_ids)
+            self.fields["express_round"].queryset = ExpressRound.objects.filter(pk__in=round_ids)
+            if not self.is_bound:
+                if len(recipient_ids) == 1:
+                    self.fields["proxy_recipient"].initial = recipient_ids[0]
+                if len(round_ids) == 1:
+                    self.fields["express_round"].initial = round_ids[0]
 
 
 class ReasonForm(forms.Form):

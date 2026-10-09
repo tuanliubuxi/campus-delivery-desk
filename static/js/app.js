@@ -70,13 +70,36 @@ async function loadRemoteModal(dialog, url) {
 }
 document.querySelectorAll("dialog.cdd-modal").forEach((dialog) => {
   dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
+    if (event.target === dialog && !dialog.hasAttribute("data-cdd-locked")) dialog.close();
   });
+  if (dialog.hasAttribute("data-cdd-locked")) {
+    dialog.addEventListener("cancel", (event) => event.preventDefault());
+  }
 });
 // Flash messages survive redirects; open them after the page is ready without losing focus context.
 document.querySelectorAll("dialog.cdd-modal[data-cdd-auto-open]").forEach((dialog) => {
   if (dialog.showModal) dialog.showModal();
 });
+document.querySelectorAll("[data-cdd-exception-tab]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const selected = button.dataset.cddExceptionTab;
+    document.querySelectorAll("[data-cdd-exception-tab]").forEach((tab) => {
+      tab.classList.toggle("btn-primary", tab.dataset.cddExceptionTab === selected);
+      tab.classList.toggle("btn-outline-primary", tab.dataset.cddExceptionTab !== selected);
+    });
+    document.querySelectorAll("[data-cdd-exception-panel]").forEach((panel) => {
+      panel.classList.toggle("is-mobile-active", panel.dataset.cddExceptionPanel === selected);
+    });
+  });
+});
+const appHeader = document.querySelector(".cdd-app-header");
+if (appHeader && window.ResizeObserver) {
+  const syncHeaderHeight = () => document.documentElement.style.setProperty(
+    "--cdd-header-height", `${appHeader.getBoundingClientRect().height}px`,
+  );
+  new ResizeObserver(syncHeaderHeight).observe(appHeader);
+  syncHeaderHeight();
+}
 document.querySelectorAll("form[data-cdd-confirm-value], form[data-cdd-require-input]").forEach((form) => {
   const field = form.querySelector("input[name='confirmation'], textarea[name='reason']");
   const submit = form.querySelector("[data-cdd-confirm-submit]");

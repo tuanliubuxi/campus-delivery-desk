@@ -19,7 +19,7 @@ from apps.orders.models import (
     Order,
     SizeClass,
 )
-from apps.settlements.models import ChargeType
+from apps.settlements.models import ChargeItem, ChargeScope, ChargeSource, ChargeStatus, ChargeType
 from apps.settlements.services.pricing import _create_system_charge
 
 from ..models import (
@@ -295,12 +295,33 @@ def confirm_express_size(*, order, courier, size_class, confirmation_note=""):
     if not Assignment.objects.filter(order=order, courier=courier, is_active=True).exists():
         raise ValidationError("当前配送员不拥有该快递的有效责任")
     detail = order.express_detail
-    if detail.size_class != SizeClass.UNKNOWN:
-        if detail.size_class == size_class:
-            return detail
-        raise ValidationError("快递大小已经确认，不能无痕改写")
+    previous_size = detail.size_class
+    note = confirmation_note.strip()
+    if previous_size == size_class:
+        if note and note != detail.size_confirmation_note:
+            detail.size_confirmation_note = note
+            detail.save(update_fields=["size_confirmation_note"])
+            record_event(actor=courier, event_type="EXPRESS_SIZE_NOTE_UPDATED", entity=order, metadata={"note": note})
+        return detail
+    if previous_size != SizeClass.UNKNOWN:
+        # The courier's physical observation can correct an entry made before pickup.
+        # Preserve the old accounting facts as VOIDED rather than replacing their amounts.
+        previous_charges = ChargeItem.objects.filter(
+            order=order,
+            scope_type=ChargeScope.ORDER,
+            source=ChargeSource.SYSTEM_RULE,
+            charge_type__in=[ChargeType.BASE_SERVICE, ChargeType.UPSTAIRS],
+            status=ChargeStatus.ACTIVE,
+        )
+        for item in previous_charges:
+            item.status = ChargeStatus.VOIDED
+            item.voided_at = timezone.now()
+            item.voided_by = courier
+            item.void_reason = "配送员确认实际快递大小后按原价格快照重算"
+            item.save(update_fields=["status", "voided_at", "voided_by", "void_reason"])
+            record_event(actor=courier, event_type="CHARGE_ITEM_VOIDED", entity=item, metadata={"reason": item.void_reason, "order_id": order.pk})
     detail.size_class = size_class
-    detail.size_confirmation_note = confirmation_note.strip()
+    detail.size_confirmation_note = note
     detail.save(update_fields=["size_class", "size_confirmation_note"])
     prices = {
         SizeClass.SMALL: detail.small_price_snapshot,
@@ -316,6 +337,7 @@ def confirm_express_size(*, order, courier, size_class, confirmation_note=""):
         amount=prices[size_class],
         config_snapshot={
             "size_class": size_class,
+            "previous_size_class": previous_size,
             "prices": {key: str(value) for key, value in prices.items()},
         },
     )
