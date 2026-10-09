@@ -60,6 +60,14 @@ class MarkItemForm(forms.Form):
     found_status = forms.ChoiceField(
         choices=[choice for choice in FoundStatus.choices if choice[0] != FoundStatus.PENDING]
     )
+    handling_note = forms.CharField(max_length=1000, required=False, label="确认依据或处置说明")
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("found_status") in {FoundStatus.CUSTOMER_TAKEN, FoundStatus.EXCEPTION}:
+            if not (cleaned.get("handling_note") or "").strip():
+                self.add_error("handling_note", "请填写客户已取的确认依据或人工处置原因")
+        return cleaned
 
 
 class CompleteConsolidationForm(forms.Form):
@@ -69,6 +77,13 @@ class CompleteConsolidationForm(forms.Form):
     far_annotation = forms.ImageField(required=False, label="远景标注图")
     operation_id = forms.UUIDField(widget=forms.HiddenInput)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, has_found=True, **kwargs):
         kwargs.setdefault("initial", {})["operation_id"] = uuid.uuid4()
         super().__init__(*args, **kwargs)
+        self.has_found = has_found
+        if not has_found:
+            self.fields["final_location_text"].required = False
+            self.fields["near_photo"].required = False
+        self.fields["final_location_text"].widget.attrs["class"] = "form-control"
+        for field_name in ("near_photo", "far_photo", "far_annotation"):
+            self.fields[field_name].widget.attrs.update({"class": "form-control", "accept": "image/*"})

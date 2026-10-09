@@ -121,6 +121,7 @@ class ConsolidationItem(models.Model):
         max_length=20, choices=FoundStatus.choices, default=FoundStatus.PENDING
     )
     found_at = models.DateTimeField(null=True, blank=True)
+    handling_note = models.TextField(blank=True)
 
     class Meta:
         ordering = ["order_id"]

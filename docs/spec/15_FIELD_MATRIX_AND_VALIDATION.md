@@ -98,8 +98,8 @@ UNKNOWN 在 Settlement 前必须被配送员确认。ExpressOrderDetail 必须�
 ## 11. 归拢
 
 - 所有 item FOUND/人工处置；
-- final near photo 必填；
-- final location 必填；
+- 有 FOUND 物件时 final near photo 和 final location 必填；
+- 全部非 FOUND 时，逐件确认依据或处置原因必填，最终位置及照片应为空；
 - far/annotated 可空。
 
 ## 12. ChargeItem / Settlement

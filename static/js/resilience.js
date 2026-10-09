@@ -144,7 +144,7 @@
           // A failed status preflight must not prevent the first upload attempt.
           status.textContent = "状态核对暂时不可用，继续上传并提交……";
         }
-        if (form.id === "drop-form" && window.cddCompressDeliveryImages) {
+        if ((form.id === "drop-form" || form.hasAttribute("data-cdd-image-compress")) && window.cddCompressDeliveryImages) {
           status.textContent = "正在压缩照片，请勿离开页面……";
           await window.cddCompressDeliveryImages(form);
         }
@@ -202,7 +202,17 @@
 
   // Non-enhanced POST forms still receive a simple double-click guard.
   document.querySelectorAll('form[method="post"]:not([data-cdd-resilient-submit])').forEach((form) => {
-    form.addEventListener("submit", () => {
+    form.addEventListener("submit", (event) => {
+      // Disabled submitters are omitted from native form submission. Preserve the
+      // clicked button's name/value before disabling it (finding and wage actions rely on it).
+      const submitter = event.submitter;
+      if (submitter?.name) {
+        const mirror = document.createElement("input");
+        mirror.type = "hidden";
+        mirror.name = submitter.name;
+        mirror.value = submitter.value;
+        form.appendChild(mirror);
+      }
       form.querySelectorAll('button:not([type]), button[type="submit"], input[type="submit"]').forEach((button) => {
         button.disabled = true;
       });

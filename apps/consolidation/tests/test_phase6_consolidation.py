@@ -6,6 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.template import Context, Template
 from django.urls import reverse
@@ -24,6 +25,7 @@ from apps.consolidation.services import (
 )
 from apps.customers.models import Customer
 from apps.dispatch.models import DeliveryDrop, DeliveryDropItem, LocationType
+from apps.exceptions.models import ExceptionCase
 from apps.mediafiles.models import DeliveryEvidence, EvidenceRole, MediaFile, MediaVariant
 from apps.orders.models import (
     DeliveryStatus,
@@ -230,13 +232,90 @@ def test_find_list_actions_record_status_and_visible_feedback(client, status):
     assert login_response.status_code == 302
     response = client.post(
         reverse("consolidation:mark-item", args=[item.pk]),
-        {"found_status": status},
+        {"found_status": status, "handling_note": "已联系客户核实／货架未找到"},
         follow=True,
     )
     item.refresh_from_db()
     assert item.found_status == status, (response.status_code, response.redirect_chain)
+    assert item.handling_note
+    if status == FoundStatus.EXCEPTION:
+        case = ExceptionCase.objects.get(order=first, consolidation_round=consolidation)
+        assert case.blocks_settlement and not case.blocks_consolidation
     assert response.status_code == 200
     assert "找件结果已记录" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_found_button_post_and_final_evidence_form(client):
+    recorder, courier, _, building, customer = setup_people()
+    first = make_delivered(recorder, customer, building, courier, "POST-1", timezone.now())
+    second = make_delivered(recorder, customer, building, courier, "POST-2", timezone.now())
+    consolidation = create_consolidation_round(
+        express_round=first.express_detail.express_round, actor=recorder,
+        order_ids=[first.pk, second.pk], created_mode="MANUAL",
+    )
+    courier.set_password("Strong-pass-123")
+    courier.save(update_fields=["password"])
+    assert client.post(reverse("accounts:login"), {"role": courier.role, "user": courier.pk, "password": "Strong-pass-123"}).status_code == 302
+    detail = client.get(reverse("consolidation:courier-detail", args=[consolidation.pk]))
+    content = detail.content.decode()
+    assert 'name="found_status" value="FOUND"' in content
+    assert "还有 2 件待核对" in content
+    item = consolidation.items.get(order=first)
+    response = client.post(reverse("consolidation:mark-item", args=[item.pk]), {"found_status": "FOUND"}, follow=True)
+    assert response.status_code == 200
+    item.refresh_from_db()
+    assert item.found_status == FoundStatus.FOUND
+    second_item = consolidation.items.get(order=second)
+    mark_consolidation_item(item=second_item, courier=courier, found_status=FoundStatus.FOUND)
+    ready_content = client.get(reverse("consolidation:courier-detail", args=[consolidation.pk])).content.decode()
+    assert 'data-cdd-image-compress' in ready_content
+    assert 'data-cdd-completion-status-url=' in ready_content
+    assert 'id="annotation-dialog"' in ready_content
+
+
+@pytest.mark.django_db
+def test_nonfound_requires_reason_and_can_complete_without_fake_evidence(client):
+    recorder, courier, _, building, customer = setup_people()
+    first = make_delivered(recorder, customer, building, courier, "NONE-1", timezone.now())
+    second = make_delivered(recorder, customer, building, courier, "NONE-2", timezone.now())
+    consolidation = create_consolidation_round(
+        express_round=first.express_detail.express_round, actor=recorder,
+        order_ids=[first.pk, second.pk], created_mode="MANUAL",
+    )
+    item1, item2 = list(consolidation.items.order_by("pk"))
+    courier.set_password("Strong-pass-123")
+    courier.save(update_fields=["password"])
+    assert client.post(reverse("accounts:login"), {"role": courier.role, "user": courier.pk, "password": "Strong-pass-123"}).status_code == 302
+    response = client.post(reverse("consolidation:mark-item", args=[item1.pk]), {"found_status": "CUSTOMER_TAKEN"}, follow=True)
+    assert "请填写" in response.content.decode()
+    item1.refresh_from_db()
+    assert item1.found_status == FoundStatus.PENDING
+    mark_consolidation_item(item=item1, courier=courier, found_status=FoundStatus.CUSTOMER_TAKEN, handling_note="客户电话确认已自取")
+    mark_consolidation_item(item=item2, courier=courier, found_status=FoundStatus.EXCEPTION, handling_note="现场未找到，待录单员核查")
+    operation_id = uuid.uuid4()
+    response = client.post(reverse("consolidation:complete", args=[consolidation.pk]), {"operation_id": str(operation_id)})
+    assert response.status_code == 302
+    consolidation.refresh_from_db()
+    assert consolidation.status == ConsolidationStatus.COMPLETED
+    assert consolidation.final_near_media_id is None
+    assert consolidation.final_location_text == ""
+    assert client.get(reverse("consolidation:completion-status", args=[consolidation.pk]), {"operation_id": str(operation_id)}).json()["state"] == "completed"
+
+
+@pytest.mark.django_db
+def test_found_item_still_requires_actual_photo_and_position():
+    recorder, courier, _, building, customer = setup_people()
+    first = make_delivered(recorder, customer, building, courier, "REQ-1", timezone.now())
+    second = make_delivered(recorder, customer, building, courier, "REQ-2", timezone.now())
+    consolidation = create_consolidation_round(
+        express_round=first.express_detail.express_round, actor=recorder,
+        order_ids=[first.pk, second.pk], created_mode="MANUAL",
+    )
+    for item in consolidation.items.all():
+        mark_consolidation_item(item=item, courier=courier, found_status=FoundStatus.FOUND)
+    with pytest.raises(ValidationError, match="近景"):
+        complete_consolidation_round(consolidation_round=consolidation, courier=courier, final_location_text="架上", near_photo=None, operation_id=uuid.uuid4())
 
 
 @pytest.mark.django_db

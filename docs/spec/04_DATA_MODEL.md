@@ -405,6 +405,7 @@ round_id
 order_id
 found_status              PENDING / FOUND / CUSTOMER_TAKEN / EXCEPTION
 found_at
+handling_note             CUSTOMER_TAKEN 的确认依据或 EXCEPTION 的处置原因
 ```
 
 创建 ConsolidationRound 后成员立即冻结，完成后 items 不允许增删。默认 `assigned_courier_id` 为该归拢成员中最后完成配送的配送员。负责人后续只能通过独立 `reassign_consolidation_round()` 修改并写 AuditEvent；不得修改已完成订单的 Assignment。

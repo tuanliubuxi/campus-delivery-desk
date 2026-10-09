@@ -11,6 +11,7 @@ urlpatterns = [
     path("courier/consolidations/<int:round_id>/", views.courier_detail, name="courier-detail"),
     path("courier/consolidations/items/<int:item_id>/mark/", views.mark_item, name="mark-item"),
     path("courier/consolidations/<int:round_id>/complete/", views.complete_round, name="complete"),
+    path("courier/consolidations/<int:round_id>/completion-status/", views.completion_status, name="completion-status"),
     path("recorder/consolidations/new/", views.manual_create, name="manual-create"),
     path("recorder/consolidations/<int:round_id>/reassign/", views.reassign_round, name="reassign"),
 ]

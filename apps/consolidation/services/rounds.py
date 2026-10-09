@@ -130,7 +130,7 @@ def reassign_consolidation_round(*, consolidation_round, new_courier, reason, op
 
 
 @transaction.atomic
-def mark_consolidation_item(*, item, courier, found_status):
+def mark_consolidation_item(*, item, courier, found_status, handling_note=""):
     item = ConsolidationItem.objects.select_related("round").get(pk=item.pk)
     if item.round.assigned_courier_id != courier.pk:
         raise PermissionError("只能处理分配给自己的归拢")
@@ -138,18 +138,37 @@ def mark_consolidation_item(*, item, courier, found_status):
         raise ValidationError("归拢已完成")
     if found_status not in {FoundStatus.FOUND, FoundStatus.CUSTOMER_TAKEN, FoundStatus.EXCEPTION}:
         raise ValidationError("找件结果无效")
+    note = handling_note.strip()
+    if found_status in {FoundStatus.CUSTOMER_TAKEN, FoundStatus.EXCEPTION} and not note:
+        raise ValidationError("请填写客户已取的确认依据或人工处置原因")
+    if item.found_status != FoundStatus.PENDING:
+        raise ValidationError("这件快递已有找件结果，请刷新页面查看")
+    updated = ConsolidationItem.objects.filter(
+        pk=item.pk, found_status=FoundStatus.PENDING
+    ).update(found_status=found_status, found_at=timezone.now(), handling_note=note)
+    if not updated:
+        raise ValidationError("这件快递已有找件结果，请刷新页面查看")
     if item.round.status == ConsolidationStatus.PENDING:
         item.round.status = ConsolidationStatus.IN_PROGRESS
         item.round.started_at = timezone.now()
         item.round.save(update_fields=["status", "started_at"])
-    item.found_status = found_status
-    item.found_at = timezone.now()
-    item.save(update_fields=["found_status", "found_at"])
+    if found_status == FoundStatus.EXCEPTION:
+        from apps.exceptions.services import create_exception_case
+
+        create_exception_case(
+            actor=courier,
+            order=item.order,
+            consolidation_round=item.round,
+            reason_code="CONSOLIDATION_FINDING",
+            reason_text=note,
+            blocks_consolidation=False,
+            blocks_settlement=True,
+        )
     record_event(
         actor=courier,
         event_type="CONSOLIDATION_ITEM_MARKED",
         entity=item,
-        metadata={"order_id": item.order_id, "found_status": found_status},
+        metadata={"order_id": item.order_id, "found_status": found_status, "handling_note": note},
     )
     return item
 
@@ -169,6 +188,8 @@ def complete_consolidation_round(
     operation_id = UUID(str(operation_id))
     existing = ConsolidationRound.objects.filter(completion_operation_id=operation_id).first()
     if existing:
+        if existing.pk != consolidation_round.pk or existing.assigned_courier_id != courier.pk:
+            raise ValidationError("提交标识已用于其他归拢轮次")
         return existing
     consolidation = ConsolidationRound.objects.select_related(
         "express_round", "proxy_recipient__proxy_batch"
@@ -179,15 +200,18 @@ def complete_consolidation_round(
         return consolidation
     if consolidation.items.filter(found_status=FoundStatus.PENDING).exists():
         raise ValidationError("所有物件必须标记为已找到或明确人工处置")
+    has_found = consolidation.items.filter(found_status=FoundStatus.FOUND).exists()
     location = final_location_text.strip()
-    if not location:
+    if has_found and not location:
         raise ValidationError("最终位置必填")
-    if not near_photo:
+    if has_found and not near_photo:
         raise ValidationError("最终近景合照必填")
-    near = store_delivery_image(upload=near_photo)
-    far = store_delivery_image(upload=far_photo) if far_photo else None
-    if far_annotation and not far:
+    if not has_found and (near_photo or far_photo or far_annotation or location):
+        raise ValidationError("没有找到实物，不能提交最终放置位置或照片")
+    if far_annotation and not far_photo:
         raise ValidationError("远景标注必须同时提交远景原图")
+    near = store_delivery_image(upload=near_photo) if near_photo else None
+    far = store_delivery_image(upload=far_photo) if far_photo else None
     annotated = (
         store_delivery_image(upload=far_annotation, variant_type=MediaVariant.ANNOTATED, parent=far)
         if far_annotation

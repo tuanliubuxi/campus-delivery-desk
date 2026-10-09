@@ -233,7 +233,7 @@ reassign_consolidation_round(round, new_courier, reason, operator)
 
 该 service 只修改 ConsolidationRound 负责人并记录原负责人、新负责人、原因和 AuditEvent；不得创建 Order Transfer，也不得改变已 DELIVERED 订单的 Assignment。
 
-完成前要求所有 item 为 FOUND 或已有明确人工处置；最终近景合照和位置必填，远景标注推荐但非必填。
+完成前要求所有 item 为 FOUND、填写依据的 CUSTOMER_TAKEN，或填写原因且创建异常的 EXCEPTION。存在 FOUND 时最终近景合照和位置必填，远景与标注可选；全部非 FOUND 时不允许提交虚构的最终位置或照片。归拢完成采用 operation_id 幂等，弱网客户端先核对完成状态再重试。
 
 ## 15. 简单业务复用
 

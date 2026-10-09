@@ -18,24 +18,37 @@
       {% endfor %}{% endfor %}
     </div>
     <div>当前：{{ item.get_found_status_display }}</div>
+    {% if item.handling_note %}<p class="small cdd-break-text mb-0">确认依据／处置原因：{{ item.handling_note }}</p>{% endif %}
     {% if item.found_status == 'PENDING' %}
-    <form method="post" action="{% url 'consolidation:mark-item' item.id %}" class="d-flex gap-2 mt-2">
-      {% csrf_token %}
-      <button class="btn btn-success" type="submit" name="found_status" value="FOUND">找到</button>
-      <button class="btn btn-outline-secondary" type="submit" name="found_status" value="CUSTOMER_TAKEN">客户已取</button>
-      <button class="btn btn-outline-warning" type="submit" name="found_status" value="EXCEPTION">人工处置</button>
-    </form>
+    <div class="d-flex gap-2 flex-wrap mt-2">
+      <form method="post" action="{% url 'consolidation:mark-item' item.id %}">{% csrf_token %}<button class="btn btn-success" type="submit" name="found_status" value="FOUND">找到</button></form>
+      <button class="btn btn-outline-secondary" type="button" data-cdd-modal-open="taken-{{ item.pk }}">客户已取</button>
+      <button class="btn btn-outline-warning" type="button" data-cdd-modal-open="exception-{{ item.pk }}">人工处置</button>
+    </div>
+    <dialog class="cdd-modal" id="taken-{{ item.pk }}"><div class="cdd-modal-panel"><h2 class="h5">确认客户已取</h2><p class="small cdd-muted">请填写与客户核实的依据；此件不会计入最终放置合照。</p><form method="post" action="{% url 'consolidation:mark-item' item.id %}">{% csrf_token %}<input type="hidden" name="found_status" value="CUSTOMER_TAKEN"><label class="form-label" for="taken-note-{{ item.pk }}">确认依据</label><textarea class="form-control" id="taken-note-{{ item.pk }}" name="handling_note" maxlength="1000" required></textarea><div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-primary" type="submit">确认客户已取</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
+    <dialog class="cdd-modal" id="exception-{{ item.pk }}"><div class="cdd-modal-panel"><h2 class="h5">记录人工处置</h2><p class="small cdd-muted">将建立可追踪的异常并暂缓此件结算；请说明实际情况，不要将未找到的物件拍入最终合照。</p><form method="post" action="{% url 'consolidation:mark-item' item.id %}">{% csrf_token %}<input type="hidden" name="found_status" value="EXCEPTION"><label class="form-label" for="exception-note-{{ item.pk }}">处置原因</label><textarea class="form-control" id="exception-note-{{ item.pk }}" name="handling_note" maxlength="1000" required></textarea><div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-warning" type="submit">确认建立异常</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
     {% endif %}
   </section>
   {% endfor %}
   <section class="card card-body">
     <h2 class="h5">最终放置凭证</h2>
-    <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}" data-cdd-draft data-cdd-resilient-submit data-cdd-draft-key="consolidation-{{ round.pk }}">
-      {% csrf_token %}{{ complete_form.as_p }}
+    {% if round.status == 'COMPLETED' %}<p>本轮已完成。</p>
+    {% elif pending_count %}<p class="alert alert-info">还有 {{ pending_count }} 件待核对。逐件选择找件结果后，才可提交最终放置凭证。</p>
+    {% else %}<p class="small cdd-muted">找到 {{ found_count }} 件；请提交实际找到物件的最终位置与照片。</p>
+    <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}" data-cdd-draft data-cdd-resilient-submit data-cdd-image-compress data-cdd-draft-key="consolidation-{{ round.pk }}" data-cdd-completion-status-url="{% url 'consolidation:completion-status' round.pk %}">
+      {% csrf_token %}{{ complete_form.operation_id }}
+      {% if complete_form.non_field_errors %}<div class="alert alert-danger">{{ complete_form.non_field_errors }}</div>{% endif %}
+      {% if found_count %}
+      <div class="mb-3"><label class="form-label" for="{{ complete_form.final_location_text.id_for_label }}">{{ complete_form.final_location_text.label }}</label>{{ complete_form.final_location_text }}{% for error in complete_form.final_location_text.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+      <div class="cdd-upload-section mb-3"><label class="form-label" for="{{ complete_form.near_photo.id_for_label }}">{{ complete_form.near_photo.label }}</label>{{ complete_form.near_photo }}<div class="form-text">拍下实际找到并放在一起的物件；必填。</div><ol class="cdd-file-list" data-file-list-for="id_near_photo"></ol>{% for error in complete_form.near_photo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+      <div class="cdd-upload-section mb-3"><label class="form-label" for="{{ complete_form.far_photo.id_for_label }}">{{ complete_form.far_photo.label }}</label>{{ complete_form.far_photo }}<ol class="cdd-file-list" data-file-list-for="id_far_photo"></ol>{% for error in complete_form.far_photo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+      <details><summary class="cdd-summary">已有远景标注图？可手动上传</summary><div class="mt-2"><label class="form-label" for="{{ complete_form.far_annotation.id_for_label }}">{{ complete_form.far_annotation.label }}</label>{{ complete_form.far_annotation }}<ol class="cdd-file-list" data-file-list-for="id_far_annotation"></ol>{% for error in complete_form.far_annotation.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div></details>
       {% include "includes/annotation_tools.html" %}
-      <button class="btn btn-primary w-100">完成归拢</button>
+      {% else %}<p class="alert alert-info">本轮没有找到可共同放置的物件。确认所有“客户已取”或“人工处置”记录后，可直接结束本轮，无需虚构位置或照片。</p>{% endif %}
+      <button class="btn btn-primary w-100 mt-3" type="submit">完成归拢</button>
     </form>
+    {% endif %}
   </section>
 </main>
-<script defer src="{% static 'js/annotation.js' %}"></script>
+<script defer src="{% static 'js/upload_lists.js' %}"></script><script defer src="{% static 'js/image_compress.js' %}"></script><script defer src="{% static 'js/annotation.js' %}"></script>
 {% endblock %}
