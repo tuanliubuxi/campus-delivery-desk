@@ -132,11 +132,20 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-courier-status { margin-left: auto; display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .65rem; border-radius: 999px; background: var(--cdd-surface); white-space: nowrap; }
 .cdd-courier-status-copy { display: grid; line-height: 1.08; }
 .cdd-task-counts { display: flex; flex-wrap: wrap; gap: .65rem; font-size: .82rem; color: var(--cdd-muted); }
-.cdd-task-counts span { display: inline-flex; align-items: center; gap: .3rem; }
+.cdd-task-counts span, .cdd-task-counts a { display: inline-flex; align-items: center; gap: .3rem; color: var(--cdd-muted); }
 .cdd-task-counts .cdd-status-dot { width: .5rem; height: .5rem; box-shadow: none; }
 .cdd-status-dot.cdd-dot-new { background: #5c85b9; box-shadow: 0 0 0 3px color-mix(in srgb, #5c85b9 24%, transparent); }
 .cdd-status-dot.cdd-dot-picked { background: #dc922e; box-shadow: 0 0 0 3px color-mix(in srgb, #dc922e 24%, transparent); }
 .cdd-status-dot.cdd-dot-delivering { background: #8766cc; box-shadow: 0 0 0 3px color-mix(in srgb, #8766cc 24%, transparent); }
+.cdd-status-dot.cdd-dot-consolidation { background: #20a467; box-shadow: 0 0 0 3px color-mix(in srgb, #20a467 24%, transparent); }
+.cdd-finding-card { border-left: .3rem solid var(--cdd-primary); }
+.cdd-finding-card--express { border-left-color: #20a467; }
+.cdd-customer-picker-results { max-height: min(45vh, 22rem); margin-top: .75rem; }
+.cdd-customer-picker-option { display: flex; align-items: center; gap: .65rem; padding: .7rem; border-bottom: 1px solid var(--cdd-border); cursor: pointer; }
+.cdd-customer-picker-option:hover { background: var(--cdd-elevated); }
+.cdd-order-timeline { display: grid; gap: .3rem; max-height: 14rem; overflow-y: auto; padding-left: 1.2rem; }
+.cdd-order-timeline li { padding-left: .2rem; }
+.cdd-order-timeline time { display: inline-block; min-width: 8.5rem; color: var(--cdd-muted); font-variant-numeric: tabular-nums; }
 .cdd-task-card { border-left: .3rem solid var(--cdd-primary); }
 .cdd-recipient-badge { max-width: min(76%, 19rem); padding: .3rem .65rem; border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 24%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-task-order { padding: .72rem 0; border-bottom: 1px solid var(--cdd-border); }

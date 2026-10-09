@@ -101,3 +101,16 @@ def proxy_batch_readiness(batch):
     if orders.exclude(pk__in=priced_ids).exists():
         reasons.append("仍有快递缺少有效基础费用")
     return reasons
+
+
+def proxy_delivery_receipt_readiness(recipient):
+    """A delivery receipt must cover the recipient's complete, physically resolved batch."""
+    orders = recipient.orders.exclude(delivery_status=DeliveryStatus.CANCELED)
+    if not orders.exists():
+        return ["尚无有效快递"]
+    reasons = []
+    if orders.exclude(delivery_status=DeliveryStatus.DELIVERED).exists():
+        reasons.append("仍有快递未送达")
+    if orders.exclude(express_detail__express_round__status=ExpressRoundStatus.CLOSED).exists():
+        reasons.append("仍有快递待归拢")
+    return reasons

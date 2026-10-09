@@ -10,8 +10,6 @@ from PIL import Image, ImageDraw, ImageFont
 from apps.mediafiles.models import EvidenceRole, MediaVariant
 from apps.mediafiles.services import media_absolute_path, store_delivery_image
 from apps.settlements.models import (
-    ChargeScope,
-    ChargeStatus,
     ProxyRecipientReceipt,
     SettlementImageType,
     SettlementImageVersion,
@@ -191,7 +189,7 @@ def create_proxy_recipient_receipt(*, settlement, recipient):
         )
         rows.append(("金额", f"¥{total:.2f}"))
     upload = _render_with_photo_state(
-        title="校驿 · 配送凭证", rows=rows, order_qs=order_qs
+        title="校驿 · 结算凭证", rows=rows, order_qs=order_qs
     )
     media = store_delivery_image(upload=upload, variant_type=MediaVariant.GENERATED_RECEIPT)
     ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient, is_active=True).update(
@@ -214,8 +212,7 @@ def create_proxy_recipient_receipt(*, settlement, recipient):
 
 
 def create_proxy_delivery_receipt(*, recipient):
-    """Generate a forwardable delivery receipt without changing batch or settlement state."""
-    from apps.settlements.models import ChargeItem
+    """Generate a delivery-only receipt; final prices belong to frozen settlement receipts."""
 
     order_qs = recipient.orders.filter(delivery_status="DELIVERED")
     if not order_qs.exists():
@@ -231,16 +228,6 @@ def create_proxy_delivery_receipt(*, recipient):
         ("订单数", str(order_qs.count())),
         ("放置位置", location),
     ]
-    if recipient.show_price_on_receipt:
-        amount = (
-            ChargeItem.objects.filter(
-                order__in=order_qs,
-                scope_type=ChargeScope.ORDER,
-                status=ChargeStatus.ACTIVE,
-            ).aggregate(total=Sum("amount"))["total"]
-            or 0
-        )
-        rows.append(("金额", f"¥{amount:.2f}"))
     upload = _render_with_photo_state(
         title="校驿 · 配送凭证", rows=rows, order_qs=order_qs
     )
@@ -258,7 +245,7 @@ def create_proxy_delivery_receipt(*, recipient):
         proxy_recipient=recipient,
         proxy_batch=recipient.proxy_batch,
         version_no=version,
-        show_price=recipient.show_price_on_receipt,
+        show_price=False,
         media=media,
     )
 

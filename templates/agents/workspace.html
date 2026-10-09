@@ -31,7 +31,7 @@
         <article class="cdd-card p-3 h-100">
           <div class="d-flex justify-content-between gap-2">
             <strong class="cdd-flex-ellipsis" title="{{ agent.name }}">{{ agent.name }}</strong>
-            <span class="badge text-bg-{% if agent.is_active %}success{% else %}secondary{% endif %}">{% if agent.is_active %}启用{% else %}停用{% endif %}</span>
+            <form method="post" action="{% url 'agents:agent-toggle' agent.pk %}" class="form-check form-switch m-0">{% csrf_token %}<input class="form-check-input" type="checkbox" role="switch" name="is_active" aria-label="允许 {{ agent.name }} 新建批次" {% if agent.is_active %}checked{% endif %} onchange="this.form.requestSubmit()"><span class="small">{% if agent.is_active %}启用{% else %}停用{% endif %}</span></form>
           </div>
           <div class="cdd-muted small mt-2 cdd-ellipsis" title="{{ agent.contact_text }}">{{ agent.contact_text|default:"未填写联系方式" }}</div>
           <div class="small mt-2">批次：{{ agent.batch_count }}</div>

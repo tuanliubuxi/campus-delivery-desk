@@ -89,3 +89,23 @@ def test_customer_create_view_never_overwrites_an_existing_customer(client, reco
     assert existing.wechat_nickname == "原客户"
     assert Customer.objects.filter(wechat_nickname="新客户").exists()
     assert Customer.objects.count() == 2
+
+
+@pytest.mark.django_db
+def test_customer_picker_filters_and_order_form_prefills_selected_customer(client, recorder):
+    customer = create_customer(
+        actor=recorder,
+        wechat_nickname="测试昵称",
+        recipient_names="测试收件人",
+        phone_suffixes="7759",
+    )
+    client.post(
+        reverse("accounts:login"),
+        {"role": recorder.role, "user": recorder.pk, "password": "Strong-pass-123"},
+    )
+    response = client.get(reverse("customers:picker"), {"q": "7759"})
+    assert response.status_code == 200
+    assert response.json()["results"][0]["id"] == customer.pk
+    response = client.get(reverse("orders:create", args=["EXPRESS"]), {"customer": customer.pk})
+    assert response.status_code == 200
+    assert response.context["form"].fields["customer"].initial == customer

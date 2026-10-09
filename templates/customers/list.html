@@ -1,16 +1,20 @@
 {# Searchable customer roster with administrator maintenance actions. #}
-{% extends "layouts/base.html" %}
+{% extends "layouts/base.html" %}{% load static %}
 {% block content %}
 <main class="container py-4">
   <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h1 class="h3 mb-0">客户</h1><a class="btn btn-primary" href="{% url 'customers:create' %}">新建客户</a></div>
-  <form class="d-flex gap-2 mb-3" method="get"><input class="form-control" name="q" value="{{ query }}" placeholder="搜索昵称、收件人或手机尾号；支持 / 分隔"><button class="btn btn-outline-primary">搜索</button></form>
+  <form class="d-flex gap-2 mb-3" method="get"><input class="form-control" name="q" value="{{ query }}" placeholder="搜索昵称、收件人或手机尾号；支持 / 分隔"><input type="hidden" name="building" value="{{ building_id }}"><input type="hidden" name="activity" value="{{ activity }}"><button class="btn btn-outline-primary">搜索</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-open="customer-filter">筛选客户</button></form>
+  {% if building_id or activity %}<p class="small cdd-muted">已启用筛选 · <a class="btn btn-sm btn-outline-secondary" href="{% url 'customers:list' %}?q={{ query|urlencode }}">清除筛选</a></p>{% endif %}
   <div class="row g-3 cdd-scroll-region">
     {% for customer in page %}<div class="col-12 col-md-6 col-xl-4"><article class="cdd-card p-3 h-100">
       <h2 class="h5 cdd-ellipsis" title="{{ customer.display_name }}">{{ customer.display_name }}</h2><div class="cdd-ellipsis" title="{{ customer.recipient_names }}">{{ customer.recipient_names|default:'—' }} · {{ customer.phone_suffixes|default:'—' }}</div>
       <div class="small cdd-muted cdd-ellipsis">{% if customer.building %}{{ customer.building.name }} {{ customer.floor }} {{ customer.room }}{% else %}地址待补{% endif %}</div>
-      <a class="btn btn-sm btn-outline-primary mt-3" href="{% url 'customers:edit' customer.id %}">查看与编辑</a>
+      <div class="cdd-action-row mt-3"><a class="btn btn-sm btn-outline-primary" href="{% url 'customers:edit' customer.id %}">查看与编辑</a><button class="btn btn-sm btn-primary" type="button" data-cdd-modal-open="customer-create-order" data-customer-order-id="{{ customer.pk }}" data-customer-order-name="{{ customer.display_name }}">为此客户录单</button></div>
     </article></div>{% empty %}<p class="cdd-muted">没有匹配客户。</p>{% endfor %}
   </div>
   {% if page.has_other_pages %}<nav class="mt-3"><span>第 {{ page.number }} / {{ page.paginator.num_pages }} 页</span></nav>{% endif %}
+  <dialog class="cdd-modal" id="customer-filter"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button><h2 class="h5">筛选客户</h2><form method="get"><input type="hidden" name="q" value="{{ query }}"><label class="form-label" for="customer-filter-building">楼栋</label><select class="form-select mb-3" id="customer-filter-building" name="building"><option value="">全部楼栋</option>{% for building in buildings %}<option value="{{ building.pk }}" {% if building_id == building.pk|stringformat:"s" %}selected{% endif %}>{{ building.name }}</option>{% endfor %}</select><label class="form-label" for="customer-filter-activity">下单情况</label><select class="form-select mb-3" id="customer-filter-activity" name="activity"><option value="">全部</option><option value="unfinished" {% if activity == 'unfinished' %}selected{% endif %}>有未完成订单</option><option value="recent" {% if activity == 'recent' %}selected{% endif %}>近 30 天有订单</option><option value="never" {% if activity == 'never' %}selected{% endif %}>尚无订单</option></select><div class="cdd-action-row justify-content-center"><button class="btn btn-primary">应用筛选</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
+  <dialog class="cdd-modal" id="customer-create-order"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button><h2 class="h5">为 <span data-customer-create-name></span> 录单</h2><label class="form-label" for="customer-order-business">订单业务类型</label><select class="form-select" id="customer-order-business" required><option value="">请选择业务</option>{% for business in businesses %}<option value="{% url 'orders:create' business.business_type %}">{{ business.display_name }}</option>{% endfor %}</select><div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-primary" type="button" data-customer-create-confirm disabled>确认创建订单</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></div></dialog>
 </main>
+<script defer src="{% static 'js/customer_list.js' %}"></script>
 {% endblock %}

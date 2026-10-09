@@ -24,6 +24,7 @@ from apps.audit.models import AuditEvent
 from apps.common.enums import BusinessType, UserRole
 from apps.config_center.models import Building
 from apps.customers.models import Customer
+from apps.settlements.services import generate_proxy_recipient_receipt
 
 
 @pytest.fixture
@@ -299,3 +300,30 @@ def test_proxy_ui_requires_role_and_preserves_default_show_price(client, recorde
     )
     assert response.status_code == 302
     assert ProxyRecipient.objects.get(display_name="UI临时人").show_price_on_receipt is True
+
+
+@pytest.mark.django_db
+def test_agent_switch_only_blocks_new_batches_and_keeps_existing_batch(client, recorder, agent):
+    batch = create_proxy_batch(actor=recorder, agent=agent, batch_date=date.today())
+    assert login(client, recorder).status_code == 302
+    response = client.post(reverse("agents:agent-toggle", args=[agent.pk]), {})
+    assert response.status_code == 302
+    agent.refresh_from_db()
+    batch.refresh_from_db()
+    assert not agent.is_active
+    assert batch.status == ProxyBatchStatus.OPEN
+    response = client.get(reverse("agents:workspace"))
+    assert response.status_code == 200
+    assert f"?agent={agent.pk}" not in response.content.decode()
+    response = client.post(reverse("agents:agent-toggle", args=[agent.pk]), {"is_active": "on"})
+    agent.refresh_from_db()
+    assert response.status_code == 302
+    assert agent.is_active
+
+
+@pytest.mark.django_db
+def test_proxy_delivery_receipt_rejects_empty_recipient(recorder, agent):
+    batch = create_proxy_batch(actor=recorder, agent=agent, batch_date=date.today())
+    recipient = create_proxy_recipient(actor=recorder, proxy_batch=batch, display_name="未送达")
+    with pytest.raises(ValidationError, match="尚无有效快递"):
+        generate_proxy_recipient_receipt(recipient=recipient, actor=recorder)

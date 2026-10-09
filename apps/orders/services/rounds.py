@@ -67,7 +67,10 @@ def evaluate_express_round(*, express_round, actor=None):
     if delivered_count >= 2:
         # Local imports preserve the intended orders -> consolidation dependency at runtime.
         from apps.consolidation.models import ConsolidationStatus
-        from apps.consolidation.selectors import eligible_orders_for_round
+        from apps.consolidation.selectors import (
+            eligible_orders_for_round,
+            shared_drop_has_complete_evidence,
+        )
         from apps.consolidation.services import create_consolidation_round
 
         pending = express_round.consolidation_rounds.filter(
@@ -77,8 +80,13 @@ def evaluate_express_round(*, express_round, actor=None):
             return express_round
         candidates = eligible_orders_for_round(express_round)
         if candidates.count() >= 2:
-            create_consolidation_round(express_round=express_round, actor=actor)
-            return express_round
+            candidate_ids = list(candidates.values_list("pk", flat=True))
+            if not (
+                len(candidate_ids) == delivered_count
+                and shared_drop_has_complete_evidence(candidate_ids)
+            ):
+                create_consolidation_round(express_round=express_round, actor=actor)
+                return express_round
     express_round.status = ExpressRoundStatus.CLOSED
     express_round.closed_at = timezone.now()
     express_round.save(update_fields=["status", "closed_at"])

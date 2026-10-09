@@ -3,11 +3,15 @@
 {% block content %}
 <main class="container cdd-courier-shell">
   <h1 class="h4 mb-3">我的归拢</h1>
+  <div class="d-grid gap-3">
   {% for round in rounds %}
-    <a class="card card-body mb-3 text-decoration-none" href="{% url 'consolidation:courier-detail' round.id %}">
-      <strong>{{ round.get_recipient_kind_display }} · 第 {{ round.round_no }} 轮</strong>
-      <span>{{ round.items.count }} 件 · {{ round.get_status_display }}</span>
-    </a>
-  {% empty %}<div class="alert alert-light">暂无待处理归拢。</div>{% endfor %}
+    <article class="cdd-card p-3 cdd-finding-card">
+      <div class="d-flex justify-content-between gap-2 align-items-start"><strong class="cdd-recipient-badge cdd-flex-ellipsis" title="{% if round.customer %}{{ round.customer.display_name }}{% else %}{{ round.proxy_recipient.display_name }}{% endif %}">{% if round.customer %}{{ round.customer.display_name }}{% else %}{{ round.proxy_recipient.display_name }}{% endif %}</strong><span class="badge text-bg-warning">{{ round.get_status_display }}</span></div>
+      <div class="small cdd-muted mt-2">{{ round.items.count }} 件 · 第 {{ round.round_no }} 轮</div>
+      {% for item in round.items.all %}<div class="cdd-ellipsis mt-1" title="{{ item.order.recipient_name_snapshot }} · {{ item.order.building_snapshot }} · {{ item.order.express_detail.pickup_identifier }}">{{ item.order.recipient_name_snapshot|default:"收件人待确认" }}{% if item.order.recipient_phone_snapshot %} · 尾号 {{ item.order.recipient_phone_snapshot|slice:"-4:" }}{% endif %}{% if item.order.building_snapshot %} · {{ item.order.building_snapshot }}{% endif %}{% if item.order.express_detail.pickup_identifier %} · 取件标识 {{ item.order.express_detail.pickup_identifier }}{% endif %}</div>{% endfor %}
+      <a class="btn btn-outline-primary mt-3" href="{% url 'consolidation:courier-detail' round.id %}">打开找件清单</a>
+    </article>
+  {% empty %}<div class="cdd-card p-3">暂无待处理归拢。</div>{% endfor %}
+  </div>
 </main>
 {% endblock %}

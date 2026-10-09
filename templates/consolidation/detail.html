@@ -2,11 +2,14 @@
 {% block title %}归拢清单 · 校驿{% endblock %}
 {% block content %}
 <main class="container cdd-courier-shell">
-  <h1 class="h4">找件清单</h1>
+  <div class="d-flex justify-content-between align-items-center gap-2"><h1 class="h4">找件清单</h1><a class="btn btn-outline-secondary btn-sm" href="{% url 'consolidation:courier-list' %}">返回我的归拢</a></div>
   <p class="text-secondary">成员已冻结；逐件核对原位置和照片。</p>
   {% for item in round.items.all %}
-  <section class="card card-body mb-3">
-    <strong>{{ item.order.display_id }}</strong>
+  <section class="card card-body mb-3 cdd-finding-card cdd-finding-card--{{ item.order.business_type|lower }}">
+    <div class="d-flex justify-content-between gap-2 align-items-start"><strong class="cdd-recipient-badge cdd-flex-ellipsis" title="{{ item.order.recipient_name_snapshot }}">{{ item.order.recipient_name_snapshot|default:"收件人待确认" }}</strong><span class="badge text-bg-primary">{{ item.order.get_business_type_display }}</span></div>
+    <div class="mt-2">{% if item.order.customer.wechat_nickname %}<span class="cdd-ellipsis d-inline-block align-middle" style="max-width:12rem" title="{{ item.order.customer.wechat_nickname }}">微信 {{ item.order.customer.wechat_nickname }}</span>{% endif %}{% if item.order.recipient_phone_snapshot %}<span class="ms-2">手机尾号 {{ item.order.recipient_phone_snapshot|slice:"-4:" }}</span>{% endif %}{% if item.order.express_detail.pickup_identifier %}<strong class="cdd-pickup-badge ms-2" title="{{ item.order.express_detail.pickup_identifier }}">取件标识 {{ item.order.express_detail.pickup_identifier|truncatechars:20 }}</strong>{% endif %}</div>
+    {% if item.order.order_note %}<div class="mt-2 cdd-ellipsis" title="{{ item.order.order_note }}">备注：{{ item.order.order_note }}</div>{% if item.order.order_note|length > 32 %}<button class="btn btn-sm btn-outline-secondary align-self-start mt-1" type="button" data-cdd-modal-open="consolidation-note-{{ item.pk }}">查看备注详情</button><dialog class="cdd-modal" id="consolidation-note-{{ item.pk }}"><div class="cdd-modal-panel"><h2 class="h5">订单备注</h2><p class="cdd-break-text">{{ item.order.order_note }}</p><div class="cdd-action-row justify-content-center"><button class="btn btn-primary" type="button" data-cdd-modal-close>知道了</button></div></div></dialog>{% endif %}{% endif %}
+    <small class="cdd-muted mt-2">订单 {{ item.order.display_id }}</small>
     <div>原位置：{% for di in item.order.delivery_drop_items.all %}{{ di.drop.final_location_text }}{% endfor %}</div>
     <div class="d-flex gap-2 flex-wrap my-2">
       {% for drop_item in item.order.delivery_drop_items.all %}{% for evidence in drop_item.drop.evidence.all %}
@@ -18,9 +21,9 @@
     {% if item.found_status == 'PENDING' %}
     <form method="post" action="{% url 'consolidation:mark-item' item.id %}" class="d-flex gap-2 mt-2">
       {% csrf_token %}
-      <button class="btn btn-success" name="found_status" value="FOUND">找到</button>
-      <button class="btn btn-outline-secondary" name="found_status" value="CUSTOMER_TAKEN">客户已取</button>
-      <button class="btn btn-outline-warning" name="found_status" value="EXCEPTION">人工处置</button>
+      <button class="btn btn-success" type="submit" name="found_status" value="FOUND">找到</button>
+      <button class="btn btn-outline-secondary" type="submit" name="found_status" value="CUSTOMER_TAKEN">客户已取</button>
+      <button class="btn btn-outline-warning" type="submit" name="found_status" value="EXCEPTION">人工处置</button>
     </form>
     {% endif %}
   </section>

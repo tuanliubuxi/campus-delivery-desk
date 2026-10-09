@@ -8,6 +8,7 @@
     <span><i class="cdd-status-dot cdd-dot-new"></i>待取 {{ task_status_counts.ASSIGNED|default:0 }}</span>
     <span><i class="cdd-status-dot cdd-dot-picked"></i>已取 {{ task_status_counts.PICKED|default:0 }}</span>
     <span><i class="cdd-status-dot cdd-dot-delivering"></i>配送中 {{ task_status_counts.DELIVERING|default:0 }}</span>
+    <a class="text-decoration-none" href="{% url 'consolidation:courier-list' %}"><i class="cdd-status-dot cdd-dot-consolidation"></i>待归拢 {{ pending_consolidations }}</a>
   </div>
   <div class="d-flex gap-2 mb-3"><a class="btn btn-outline-primary flex-fill" href="{% url 'dispatch:express-route-pool' %}">快递路线</a><a class="btn btn-outline-danger flex-fill" href="{% url 'dispatch:express-direct-pool' %}">客户直送</a></div>
   <div class="d-grid gap-3">

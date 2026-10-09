@@ -22,12 +22,11 @@ class AgentForm(BootstrapFormMixin, forms.ModelForm):
 class AgentEditForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Agent
-        fields = ["name", "contact_text", "note", "is_active"]
+        fields = ["name", "contact_text", "note"]
         labels = {
             "name": "代理人名称",
             "contact_text": "联系方式",
             "note": "备注",
-            "is_active": "允许创建新批次",
         }
         widgets = {"note": forms.Textarea(attrs={"rows": 3})}
 
@@ -42,7 +41,7 @@ class ProxyBatchForm(BootstrapFormMixin, forms.ModelForm):
         fields = ["agent", "batch_date", "note"]
         labels = {"agent": "代理人", "batch_date": "批次日期", "note": "批次备注"}
         widgets = {
-            "batch_date": forms.DateInput(attrs={"type": "date"}),
+            "batch_date": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
             "note": forms.Textarea(attrs={"rows": 3}),
         }
 

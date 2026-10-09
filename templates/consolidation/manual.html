@@ -6,16 +6,17 @@
   <p class="text-secondary">提交后成员立即冻结；不改变任何已送达订单的 Assignment。</p>
   <form method="post" class="card card-body">{% csrf_token %}{% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
     <label class="form-label" for="{{ form.express_round.id_for_label }}">选择快递轮次</label>{{ form.express_round }}{{ form.express_round.errors }}
+    {% if not has_manual_candidates %}<p class="text-warning mt-2">目前没有至少两件合格快递的开放轮次；已进入待处理归拢的物件不需要重复建立。</p>{% endif %}
     <p class="small cdd-muted mt-2">先选择轮次，再勾选本轮中需要提前归拢的合格快递（至少两件）。不同轮次不能混选。</p>
-    <div class="cdd-scroll-region cdd-consolidation-options">{{ form.orders }}{{ form.orders.errors }}</div>
-    <button class="btn btn-primary mt-3">建立归拢轮次</button>
+    <div class="cdd-scroll-region cdd-consolidation-options">{{ form.orders }}{% if form.orders.errors %}<div class="text-danger small">请先勾选本轮至少两件合格快递。</div>{% endif %}</div>
+    <button class="btn btn-primary mt-3" {% if not has_manual_candidates %}disabled{% endif %}>建立归拢轮次</button>
   </form>
   <h2 class="h4 mt-4">待处理轮次与独立改派</h2>
   {% for round in active_rounds %}<section class="card card-body mb-2">
     <strong>#{{ round.id }} · {{ round.get_status_display }}</strong>
     <span>当前负责人：{{ round.assigned_courier }}</span>
     <form method="post" action="{% url 'consolidation:reassign' round.id %}" class="mt-2">{% csrf_token %}
-      {{ reassign_form.as_p }}<button class="btn btn-outline-warning">改派归拢负责人</button>
+      {{ round.reassign_form.as_p }}<button class="btn btn-outline-warning">改派归拢负责人</button>
     </form>
   </section>{% empty %}<p class="text-secondary">暂无待处理归拢。</p>{% endfor %}
 </main>

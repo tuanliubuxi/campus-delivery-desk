@@ -8,13 +8,14 @@
     <form method="post">
       {% csrf_token %}
       {{ form.as_p }}
+      {% if agent %}<label class="form-check mb-3"><input class="form-check-input" type="checkbox" {% if agent.is_active %}checked{% endif %} disabled><span class="form-check-label">允许创建新批次（请在代理人列表使用开关调整）</span></label>{% endif %}
       <div class="cdd-action-row justify-content-center">
         <button class="btn btn-primary cdd-touch">保存</button>
         <a class="btn btn-outline-secondary cdd-touch" href="{% url 'agents:workspace' %}">取消</a>
         {% if agent %}<button class="btn btn-outline-danger cdd-touch" type="submit" form="agent-delete-form" {% if agent.proxy_batches.exists %}disabled title="已有批次记录，只能停用"{% endif %}>删除</button>{% endif %}
       </div>
     </form>
-    {% if agent %}<form id="agent-delete-form" method="post" action="{% url 'agents:agent-delete' agent.pk %}" onsubmit="return confirm('仅未产生批次记录的代理人可以删除。确认继续？')">{% csrf_token %}</form>{% if agent.proxy_batches.exists %}<p class="form-text text-center mt-2">该代理人已有历史批次，不能删除；可以在上方改为停用。</p>{% endif %}{% endif %}
+    {% if agent %}<form id="agent-delete-form" method="post" action="{% url 'agents:agent-delete' agent.pk %}" onsubmit="return confirm('仅未产生批次记录的代理人可以删除。确认继续？')">{% csrf_token %}</form>{% if agent.proxy_batches.exists %}<p class="form-text text-center mt-2">该代理人已有历史批次，不能删除；可以在代理人列表中停用新批次。</p>{% endif %}{% endif %}
   </section>
 </main>
 {% endblock %}

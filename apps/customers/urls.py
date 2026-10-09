@@ -9,6 +9,7 @@ app_name = "customers"
 urlpatterns = [
     path("recorder/customers/", views.customer_list, name="list"),
     path("recorder/customers/new/", views.customer_create, name="create"),
+    path("recorder/customers/picker.json", views.customer_picker, name="picker"),
     path("recorder/customers/<int:customer_id>/edit/", views.customer_edit, name="edit"),
     path(
         "recorder/customers/<int:customer_id>/profile.json",

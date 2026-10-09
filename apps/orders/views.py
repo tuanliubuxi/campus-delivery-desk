@@ -129,6 +129,7 @@ def order_create(request, business_type):
             "business_type": business_type,
             "business_label": BusinessType(business_type).label,
             "is_create": True,
+            "picker_buildings": Building.objects.filter(is_active=True),
         },
     )
 
@@ -147,7 +148,9 @@ def quick_complete(request):
         business_type = _business_type(business_value)
     except ValueError:
         return redirect("orders:quick-complete")
-    order_form = FORM_MAP[business_type](request.POST or None)
+    customer_id = request.GET.get("customer")
+    customer = get_object_or_404(Customer, pk=customer_id) if customer_id else None
+    order_form = FORM_MAP[business_type](request.POST or None, customer=customer)
     completion_form = CompletionMetadataForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and order_form.is_valid() and completion_form.is_valid():
         metadata = completion_form.cleaned_data.copy()
@@ -173,6 +176,9 @@ def quick_complete(request):
         "orders/quick_complete.html",
         {
             "business_type": business_type,
+            "business_label": BusinessType(business_type).label,
+            "selected_customer": customer,
+            "picker_buildings": Building.objects.filter(is_active=True),
             "order_form": order_form,
             "completion_form": completion_form,
         },

@@ -116,6 +116,8 @@ def reassign_consolidation_round(*, consolidation_round, new_courier, reason, op
     if new_courier.role != UserRole.COURIER or not new_courier.is_active:
         raise ValidationError("新负责人必须是启用中的配送员")
     old_id = consolidation.assigned_courier_id
+    if new_courier.pk == old_id:
+        raise ValidationError("新负责人不能与当前负责人相同")
     consolidation.assigned_courier = new_courier
     consolidation.save(update_fields=["assigned_courier"])
     record_event(

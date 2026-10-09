@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.template import Context, Template
+from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
@@ -22,6 +24,7 @@ from apps.consolidation.services import (
 )
 from apps.customers.models import Customer
 from apps.dispatch.models import DeliveryDrop, DeliveryDropItem, LocationType
+from apps.mediafiles.models import DeliveryEvidence, EvidenceRole, MediaFile, MediaVariant
 from apps.orders.models import (
     DeliveryStatus,
     DestinationType,
@@ -178,3 +181,72 @@ def test_completed_manual_subset_creates_next_round_for_two_remaining_items():
         orders[2].pk,
         orders[3].pk,
     }
+
+
+@pytest.mark.django_db
+def test_same_evidenced_drop_skips_duplicate_consolidation():
+    recorder, courier, _, building, customer = setup_people()
+    now = timezone.now()
+    first = make_delivered(recorder, customer, building, courier, "ONE-1", now)
+    second = make_delivered(recorder, customer, building, courier, "ONE-2", now)
+    shared = first.delivery_drop_items.get().drop
+    second.delivery_drop_items.update(drop=shared)
+    evidence = MediaFile.objects.create(
+        storage_key="test/shared-drop.png",
+        mime_type="image/png",
+        width=320,
+        height=240,
+        size_bytes=123,
+        sha256="a" * 64,
+        variant_type=MediaVariant.ORIGINAL_COMPRESSED,
+    )
+    DeliveryEvidence.objects.create(drop=shared, media=evidence, role=EvidenceRole.NEAR)
+    express_round = first.express_detail.express_round
+    evaluate_express_round(express_round=express_round, actor=recorder)
+    express_round.refresh_from_db()
+    assert express_round.status == ExpressRoundStatus.CLOSED
+    assert not express_round.consolidation_rounds.exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("status", [FoundStatus.CUSTOMER_TAKEN, FoundStatus.EXCEPTION])
+def test_find_list_actions_record_status_and_visible_feedback(client, status):
+    recorder, courier, _, building, customer = setup_people()
+    first = make_delivered(recorder, customer, building, courier, "FIND-1", timezone.now())
+    second = make_delivered(recorder, customer, building, courier, "FIND-2", timezone.now())
+    consolidation = create_consolidation_round(
+        express_round=first.express_detail.express_round,
+        actor=recorder,
+        order_ids=[first.pk, second.pk],
+        created_mode="MANUAL",
+    )
+    item = consolidation.items.get(order=first)
+    courier.set_password("Strong-pass-123")
+    courier.save(update_fields=["password"])
+    login_response = client.post(
+        reverse("accounts:login"),
+        {"role": courier.role, "user": courier.pk, "password": "Strong-pass-123"},
+    )
+    assert login_response.status_code == 302
+    response = client.post(
+        reverse("consolidation:mark-item", args=[item.pk]),
+        {"found_status": status},
+        follow=True,
+    )
+    item.refresh_from_db()
+    assert item.found_status == status, (response.status_code, response.redirect_chain)
+    assert response.status_code == 200
+    assert "找件结果已记录" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_order_timeline_shows_recorded_facts_without_inventing_pickup():
+    recorder, courier, _, building, customer = setup_people()
+    order = make_delivered(recorder, customer, building, courier, "TIME-1", timezone.now())
+    html = Template(
+        '{% load order_timeline %}{% order_timeline order as events %}'
+        '{% for when, label, detail in events %}{{ label }}|{% endfor %}'
+    ).render(Context({"order": order}))
+    assert "录入订单" in html
+    assert "完成配送" in html
+    assert "确认取件" not in html

@@ -259,6 +259,7 @@ closed_at nullable
 - 一个 round CLOSED 后，同一天后续新快递也进入新的 round；
 - 不同 service_date 永不互相阻塞；
 - round 内不再存在 NEW/ASSIGNED/PICKED/DELIVERING 后：若未取消且已送达数量为 0，则代表全取消并自动 CLOSED；为 1 时直接 CLOSED；>=2 时先等待所有已存在的 PENDING/IN_PROGRESS ConsolidationRound 完成，再评估尚未进入已完成归拢轮次的剩余合格候选；剩余候选 >=2 时创建/等待下一必要 ConsolidationRound，少于 2 时才 CLOSED；
+- 例外：所有已送达合格物件恰好共用同一 DeliveryDrop，且该 Drop 有最终位置和有效照片时，已具备共同放置证据，可直接关闭 round，不再建立重复归拢轮次；只比较配送员身份或客户身份不足以触发此例外。
 - CLOSED round 不再接收新订单，同一 service_date 的后续订单进入新的 round_no。
 
 ## 8. DeliveryTask / Assignment

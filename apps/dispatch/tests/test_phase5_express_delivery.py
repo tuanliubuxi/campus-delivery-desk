@@ -328,7 +328,7 @@ def test_unknown_size_uses_creation_snapshot_then_single_delivery_closes_round(
 
 
 @pytest.mark.django_db
-def test_two_delivered_parcels_keep_round_open_until_phase6_consolidation(
+def test_two_parcels_in_one_evidenced_drop_close_without_duplicate_consolidation(
     recorder, couriers, buildings
 ):
     courier, _ = couriers
@@ -358,7 +358,8 @@ def test_two_delivered_parcels_keep_round_open_until_phase6_consolidation(
     )
     express_round = first.express_detail.express_round
     express_round.refresh_from_db()
-    assert express_round.status == ExpressRoundStatus.OPEN
+    assert express_round.status == ExpressRoundStatus.CLOSED
+    assert not express_round.consolidation_rounds.exists()
 
 
 @pytest.mark.django_db

@@ -13,7 +13,7 @@ from .forms import (
     MarkItemForm,
     ReassignConsolidationForm,
 )
-from .models import ConsolidationItem, ConsolidationRound
+from .models import ConsolidationItem, ConsolidationRound, FoundStatus
 from .selectors import courier_consolidation_rounds
 from .services import (
     complete_consolidation_round,
@@ -36,6 +36,8 @@ def courier_list(request):
 def courier_detail(request, round_id):
     consolidation = get_object_or_404(
         ConsolidationRound.objects.prefetch_related(
+            "items__order__express_detail",
+            "items__order__customer",
             "items__order__delivery_drop_items__drop__evidence__media"
         ),
         pk=round_id,
@@ -58,6 +60,11 @@ def mark_item(request, item_id):
             mark_consolidation_item(item=item, courier=request.user, **form.cleaned_data)
         except (ValidationError, PermissionError) as exc:
             messages.error(request, str(exc))
+        else:
+            label = FoundStatus(form.cleaned_data["found_status"]).label
+            messages.success(request, f"找件结果已记录：{label}")
+    else:
+        messages.error(request, "找件结果无效，请刷新页面后重试")
     return redirect("consolidation:courier-detail", round_id=item.round_id)
 
 
@@ -103,13 +110,18 @@ def manual_create(request):
     active_rounds = ConsolidationRound.objects.exclude(status="COMPLETED").select_related(
         "assigned_courier", "customer", "proxy_recipient"
     )
+    active_rounds = list(active_rounds)
+    for round_ in active_rounds:
+        round_.reassign_form = ReassignConsolidationForm(
+            current_courier_id=round_.assigned_courier_id
+        )
     return render(
         request,
         "consolidation/manual.html",
         {
             "form": form,
             "active_rounds": active_rounds,
-            "reassign_form": ReassignConsolidationForm(),
+            "has_manual_candidates": form.fields["express_round"].queryset.exists(),
         },
     )
 
@@ -118,7 +130,9 @@ def manual_create(request):
 @recorder_or_admin_required
 def reassign_round(request, round_id):
     consolidation = get_object_or_404(ConsolidationRound, pk=round_id)
-    form = ReassignConsolidationForm(request.POST)
+    form = ReassignConsolidationForm(
+        request.POST, current_courier_id=consolidation.assigned_courier_id
+    )
     if form.is_valid():
         try:
             reassign_consolidation_round(
@@ -130,4 +144,6 @@ def reassign_round(request, round_id):
             messages.error(request, str(exc))
         else:
             messages.success(request, "归拢负责人已调整，已完成订单责任未改变")
+    else:
+        messages.error(request, "; ".join(form.non_field_errors()) or "请选择其他启用中的配送员并填写改派原因")
     return redirect("consolidation:manual-create")

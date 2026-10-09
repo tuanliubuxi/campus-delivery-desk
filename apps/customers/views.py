@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.common.permissions import recorder_or_admin_required
+from apps.config_center.models import Building, BusinessTypeConfig
 from apps.customers.forms import CustomerForm
 from apps.customers.models import Customer
 from apps.customers.selectors import search_customers
@@ -30,8 +31,44 @@ def customer_profile(request, customer_id):
 @recorder_or_admin_required
 def customer_list(request):
     query = request.GET.get("q", "").strip()
-    page = Paginator(search_customers(query), 50).get_page(request.GET.get("page"))
-    return render(request, "customers/list.html", {"page": page, "query": query})
+    building_id = request.GET.get("building", "")
+    activity = request.GET.get("activity", "")
+    if not building_id.isdecimal() or not Building.objects.filter(pk=building_id).exists():
+        building_id = ""
+    if activity not in {"unfinished", "recent", "never"}:
+        activity = ""
+    page = Paginator(
+        search_customers(query, building_id=building_id, activity=activity), 50
+    ).get_page(request.GET.get("page"))
+    return render(request, "customers/list.html", {
+        "page": page,
+        "query": query,
+        "building_id": building_id,
+        "activity": activity,
+        "buildings": Building.objects.filter(is_active=True),
+        "businesses": BusinessTypeConfig.objects.filter(enabled=True),
+    })
+
+
+@recorder_or_admin_required
+def customer_picker(request):
+    query = request.GET.get("q", "").strip()
+    building_id = request.GET.get("building", "")
+    if not query and not building_id:
+        return JsonResponse({"results": [], "message": "请输入名称或手机号尾号，或选择楼栋"})
+    if building_id and (not building_id.isdecimal() or not Building.objects.filter(pk=building_id).exists()):
+        return JsonResponse({"results": [], "message": "楼栋无效"}, status=400)
+    customers = search_customers(query, building_id=building_id)[:100]
+    return JsonResponse({"results": [
+        {
+            "id": customer.pk,
+            "name": customer.display_name,
+            "recipients": customer.recipient_names,
+            "phone": customer.phone_suffixes,
+            "building": customer.building.name if customer.building else "地址待补",
+        }
+        for customer in customers
+    ]})
 
 
 @recorder_or_admin_required

@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 
 from apps.common.enums import BusinessType
 from apps.common.permissions import courier_required
+from apps.consolidation.models import ConsolidationRound, ConsolidationStatus
 from apps.exceptions.views import workspace as exception_workspace
 from apps.orders.models import DeliveryStatus, Order, PickupArea
 
@@ -56,10 +57,18 @@ def task_list(request):
         for assignment in task.assignments.all():
             if assignment.is_active:
                 task_status_counts[assignment.order.delivery_status] += 1
+    pending_consolidations = ConsolidationRound.objects.filter(
+        assigned_courier=request.user,
+        status__in=[ConsolidationStatus.PENDING, ConsolidationStatus.IN_PROGRESS],
+    ).count()
     return render(
         request,
         "dispatch/task_list.html",
-        {"task_groups": group_courier_tasks_by_recipient(tasks), "task_status_counts": task_status_counts},
+        {
+            "task_groups": group_courier_tasks_by_recipient(tasks),
+            "task_status_counts": task_status_counts,
+            "pending_consolidations": pending_consolidations,
+        },
     )
 
 

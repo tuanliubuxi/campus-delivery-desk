@@ -228,6 +228,8 @@ max(本轮快递件数 - 5, 0) × 0.5 元
 
 自动归拢只包含已送达、未进入其他归拢、非上楼/当面交付、无 `OPEN && blocks_consolidation=true` 异常的快递。ExpressRound 内不存在 NEW/ASSIGNED/PICKED/DELIVERING 后按有效已送达数量处理：0 件（全部取消）直接 CLOSED；1 件无需归拢直接 CLOSED；至少 2 件时仅对符合条件的物件建立必要 ConsolidationRound，没有任何需要归拢的候选则直接 CLOSED；存在必要归拢时待其全部完成后 CLOSED。
 
+若该轮所有已送达合格物件都属于同一次 DeliveryDrop、共用最终位置与有效照片，视为已经共同放置并留证，不再重复建立找件归拢轮次；不同 DeliveryDrop 或证据不完整仍按正常归拢规则处理。
+
 默认归拢负责人为该轮相关成员中最后一个完成配送的配送员。归拢负责人后续调整使用独立的归拢改派动作，只改变 ConsolidationRound 负责人并记录审计，不改变已经完成订单的 Assignment。
 
 录单员/管理员仍可对已送达的合格子集提前人工建立 ConsolidationRound；成员冻结后不能向该 ConsolidationRound 追加物件。
@@ -236,7 +238,7 @@ max(本轮快递件数 - 5, 0) × 0.5 元
 
 - 不跨业务类型合并结算。
 - 普通业务：按客户/本轮结算；快递的“本轮”以 ExpressRound 为边界。
-- 代理单：每个 ProxyRecipient 生成一张可转发的客户凭证；“是否显示价格”默认开启。
+- 代理单：每个 ProxyRecipient 可先在全部快递已送达且归拢完成后生成不含价格的配送凭证；结算冻结后另生成可转发的结算凭证，“是否显示价格”只作用于结算凭证，默认开启。未满足条件时不能提前生成配送凭证。
 - 代理人另外得到一张无照片的 ProxyBatch 汇总结算图。
 - 代理人的下游售价不进入本系统。
 - ChargeItem 是业务费用来源，错误费用项使用 VOIDED 逻辑作废，不物理删除。

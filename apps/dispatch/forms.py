@@ -110,8 +110,19 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
             detail = getattr(item.order, "express_detail", None)
             if detail:
                 self.size_order_ids.add(str(item.order_id))
+                order = item.order
+                detail_hint = " · ".join(
+                    str(value)
+                    for value in (
+                        order.recipient_name_snapshot,
+                        f"手机尾号 {order.recipient_phone_snapshot[-4:]}" if order.recipient_phone_snapshot else "",
+                        f"取件标识 {detail.pickup_identifier}" if detail.pickup_identifier else "",
+                    )
+                    if value
+                )
                 self.fields[f"size_class_{item.order_id}"] = forms.ChoiceField(
-                    label=f"{item.order.display_id} 的实际大小",
+                    label=f"{detail_hint} · 实际大小",
+                    help_text=f"备注：{order.order_note or '无'}。订单编号 {order.display_id}。",
                     choices=[("", "请选择实际大小"), *[choice for choice in SizeClass.choices if choice[0] != SizeClass.UNKNOWN]],
                     required=False,
                     initial=detail.size_class if detail.size_class != SizeClass.UNKNOWN else None,

@@ -21,12 +21,16 @@ class ManualConsolidationForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["express_round"].queryset = ExpressRound.objects.filter(status="OPEN")
+        from .selectors import eligible_orders_for_round
+
+        open_rounds = ExpressRound.objects.filter(status="OPEN")
+        eligible_ids = [
+            round_.pk for round_ in open_rounds if eligible_orders_for_round(round_).count() >= 2
+        ]
+        self.fields["express_round"].queryset = open_rounds.filter(pk__in=eligible_ids)
         selected_id = self.data.get("express_round") if self.is_bound else self.initial.get("express_round")
         selected_id = getattr(selected_id, "pk", selected_id)
         if selected_id and str(selected_id).isdecimal():
-            from .selectors import eligible_orders_for_round
-
             selected_round = self.fields["express_round"].queryset.filter(pk=selected_id).first()
             if selected_round:
                 self.fields["orders"].queryset = eligible_orders_for_round(selected_round)
@@ -35,15 +39,21 @@ class ManualConsolidationForm(forms.Form):
                 )
 
 
+class ReassignCourierChoice(forms.ModelChoiceField):
+    def label_from_instance(self, courier):
+        name = courier.display_name or courier.username
+        return name if len(name) <= 18 else f"{name[:17]}…"
+
+
 class ReassignConsolidationForm(forms.Form):
-    new_courier = forms.ModelChoiceField(queryset=User.objects.none(), label="新负责人")
+    new_courier = ReassignCourierChoice(queryset=User.objects.none(), label="新负责人")
     reason = forms.CharField(max_length=255, label="改派原因")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, current_courier_id=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["new_courier"].queryset = User.objects.filter(
             role=UserRole.COURIER, is_active=True
-        )
+        ).exclude(pk=current_courier_id)
 
 
 class MarkItemForm(forms.Form):
