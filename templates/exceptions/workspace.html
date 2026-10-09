@@ -44,7 +44,7 @@
       <div class="mt-3"><label class="form-label">{{ form.reason_code.label }}</label>{{ form.reason_code }}<div class="form-text">{{ form.reason_code.help_text }}</div>{{ form.reason_code.errors }}</div>
       <div class="mt-3"><label class="form-label">{{ form.reason_text.label }}</label>{{ form.reason_text }}{{ form.reason_text.errors }}</div>
       <div class="mt-3"><label class="form-label">{{ form.attachments.label }}</label>{{ form.attachments }}{{ form.attachments.errors }}</div>
-      {% if user.is_courier %}{{ form.blocks_consolidation }}{{ form.blocks_settlement }}{{ form.delivery_evidence }}{{ form.media_evidence }}{% else %}<details class="mt-3"><summary class="cdd-summary">高级关联与阻塞设置</summary><div class="mt-2">{{ form.blocks_consolidation.as_field_group }}{{ form.blocks_settlement.as_field_group }}{{ form.delivery_evidence.as_field_group }}{{ form.media_evidence.as_field_group }}</div></details>{% endif %}
+      {% if user.is_courier %}{{ form.blocks_consolidation }}{{ form.blocks_settlement }}{{ form.delivery_evidence }}{{ form.media_evidence }}{% else %}<details class="mt-3"><summary class="cdd-summary">高级关联与阻塞设置</summary><div class="mt-2">{{ form.blocks_consolidation.as_field_group }}{{ form.blocks_settlement.as_field_group }}<div class="cdd-evidence-options">{{ form.delivery_evidence.as_field_group }}</div><div class="cdd-evidence-options">{{ form.media_evidence.as_field_group }}</div></div></details>{% endif %}
       <div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-danger" type="submit">确认建立异常</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div>
     </form>
   </div></dialog>

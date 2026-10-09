@@ -21,10 +21,14 @@ from .forms import (
     WageCalculatorForm,
 )
 from .models import ChargeItem, Settlement, WageCalculationRun
-from .selectors import settlement_charge_items, settlement_preview_total
+from .selectors import (
+    settlement_candidate_groups,
+    settlement_charge_items,
+    settlement_preview_total,
+)
 from .services import (
     add_draft_charge,
-    build_settlement,
+    build_settlement_group,
     calculate_wages,
     confirm_settlement,
     freeze_settlement_for_payment,
@@ -46,7 +50,11 @@ def workspace(request):
     return render(
         request,
         "settlements/workspace.html",
-        {"settlements": settlements, "build_form": BuildSettlementForm()},
+        {
+            "settlements": settlements,
+            "build_form": BuildSettlementForm(),
+            "candidate_groups": settlement_candidate_groups(),
+        },
     )
 
 
@@ -56,8 +64,8 @@ def build(request):
     form = BuildSettlementForm(request.POST)
     if form.is_valid():
         try:
-            settlement = build_settlement(
-                order_ids=[order.pk for order in form.cleaned_data["orders"]],
+            settlement = build_settlement_group(
+                group_key=form.cleaned_data["group_key"],
                 actor=request.user,
                 operation_id=form.cleaned_data["operation_id"],
             )
@@ -67,7 +75,10 @@ def build(request):
             messages.success(request, "结算草稿已建立；订单状态仍为未结算")
             return redirect("settlements:detail", settlement_id=settlement.pk)
     else:
-        messages.error(request, "请选择可结算订单")
+        messages.error(
+            request,
+            "; ".join(form.non_field_errors()) or "请选择一个有效的待结算组",
+        )
     return redirect("settlements:workspace")
 
 
@@ -92,6 +103,8 @@ def detail(request, settlement_id):
         if version.media.deleted_at:
             continue
         version.is_latest_available = version.image_type not in seen_types
+        version.dialog_id = f"receipt-version-{version.pk}"
+        version.receipt_title = f"{version.get_image_type_display()} v{version.version_no}"
         seen_types.add(version.image_type)
         available_versions.append(version)
     available_receipts = []
@@ -102,6 +115,8 @@ def detail(request, settlement_id):
         if receipt.media.deleted_at:
             continue
         receipt.is_latest_available = receipt.proxy_recipient_id not in seen_recipients
+        receipt.dialog_id = f"proxy-receipt-{receipt.pk}"
+        receipt.receipt_title = f"{receipt.proxy_recipient.display_name} 凭证 v{receipt.version_no}"
         seen_recipients.add(receipt.proxy_recipient_id)
         available_receipts.append(receipt)
     return render(

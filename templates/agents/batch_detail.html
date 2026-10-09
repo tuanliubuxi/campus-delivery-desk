@@ -17,6 +17,7 @@
   </div>
 
   {% if batch.note %}<div class="alert alert-light border cdd-clamp" title="{{ batch.note }}">批次备注：{{ batch.note }}</div>{% endif %}
+  <section class="cdd-card p-3 mb-3"><h2 class="h6">批次状态如何流转</h2><p class="mb-1">录入中 → 待结算 → 已结算。没有手动“关闭批次”按钮：有效快递全部送达、必要归拢完成、大小与费用确认且无阻塞异常后，系统自动转为“待结算”。</p>{% if batch.status == 'OPEN' %}{% if readiness_reasons %}<div class="small cdd-muted">当前还需：{% for reason in readiness_reasons %}{% if not forloop.first %}；{% endif %}{{ reason }}{% endfor %}。</div>{% else %}<div class="small cdd-muted">当前条件已满足；若状态未自动更新，请联系管理员检查批次状态。</div>{% endif %}{% endif %}</section>
   {% if batch.status == 'OPEN' %}
     {% if batch.blocking_cancel_count %}<div class="alert alert-warning">已有取件、配送中或已送达快递，不能整批取消；仍可逐单处理未取件订单。</div>{% else %}<form method="post" action="{% url 'agents:batch-cancel' batch.pk %}" class="cdd-card p-3 mb-3" onsubmit="return confirm('确认原子取消整个代理批次及所有未取件订单？');">{% csrf_token %}<label class="form-label" for="cancel-reason">整批取消原因</label><div class="input-group"><input id="cancel-reason" class="form-control" name="reason" maxlength="255" required><button class="btn btn-outline-danger">取消整批</button></div><div class="form-text">空批次也允许显式取消；执行失败不会留下部分取消状态。</div></form>{% endif %}
   {% endif %}
@@ -56,7 +57,8 @@
           {% csrf_token %}<button class="btn btn-sm btn-outline-primary">生成客户凭证</button>
         </form>
         {% for receipt in recipient.receipts.all %}{% if receipt.is_active and not receipt.media.deleted_at %}
-          <a class="btn btn-sm btn-outline-primary mt-2" href="{% url 'mediafiles:download' receipt.media_id %}">下载凭证 v{{ receipt.version_no }}{% if not receipt.show_price %}（无价格）{% endif %}</a>
+          <button class="btn btn-sm btn-outline-primary mt-2" type="button" data-cdd-modal-open="recipient-receipt-{{ receipt.pk }}">查看凭证 v{{ receipt.version_no }}{% if not receipt.show_price %}（无价格）{% endif %}</button>
+          {% with receipt_title=recipient.display_name %}<dialog class="cdd-modal cdd-modal--image" id="recipient-receipt-{{ receipt.pk }}" aria-label="{{ receipt_title }}凭证"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button><h2 class="h5 cdd-ellipsis" title="{{ receipt_title }}">{{ receipt_title }}凭证</h2><div class="cdd-receipt-viewport"><img class="cdd-receipt-preview" src="{% url 'mediafiles:download' receipt.media_id %}" alt="{{ receipt_title }}凭证"></div><div class="cdd-action-row justify-content-center mt-3"><a class="btn btn-primary" href="{% url 'mediafiles:download' receipt.media_id %}" download>下载</a><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></div></dialog>{% endwith %}
         {% endif %}{% endfor %}
       </article>
     </div>

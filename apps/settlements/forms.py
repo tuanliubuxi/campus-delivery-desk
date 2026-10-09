@@ -27,21 +27,31 @@ class CourierSelect(forms.Select):
         return option
 
 
-class SettlementOrderChoiceField(forms.ModelMultipleChoiceField):
-    def label_from_instance(self, order):
-        return f"{order.display_id} · {order.recipient_name_snapshot} · {order.get_business_type_display()}"
-
-
 class BuildSettlementForm(forms.Form):
-    orders = SettlementOrderChoiceField(queryset=Order.objects.none(), label="已送达订单")
+    group_key = forms.CharField(label="待结算组", max_length=40)
     operation_id = forms.UUIDField(widget=forms.HiddenInput)
 
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("initial", {})["operation_id"] = uuid.uuid4()
         super().__init__(*args, **kwargs)
-        self.fields["orders"].queryset = Order.objects.filter(
-            delivery_status="DELIVERED", settlement_status="UNSETTLED"
-        ).select_related("customer", "proxy_recipient")
+
+    def clean_group_key(self):
+        key = self.cleaned_data["group_key"]
+        prefix, separator, identifier = key.partition(":")
+        if (
+            not separator
+            or prefix not in {"round", "batch", "order"}
+            or not identifier.isdecimal()
+            or len(identifier) > 18
+        ):
+            raise forms.ValidationError("请选择一个有效的待结算组")
+        return key
+
+    def clean(self):
+        cleaned = super().clean()
+        if hasattr(self.data, "getlist") and len(self.data.getlist("group_key")) != 1:
+            raise forms.ValidationError("一次只能选择一个待结算组")
+        return cleaned
 
 
 class AddChargeForm(forms.Form):
@@ -121,7 +131,10 @@ class RefundForm(FinancialActionForm):
     amount = forms.DecimalField(min_value=0.01, max_digits=12, decimal_places=2, label="退款金额")
     impact_wage = forms.BooleanField(required=False, label="该退款影响计薪收入池")
     wage_courier = forms.ModelChoiceField(
-        required=False, queryset=User.objects.none(), label="指定扣减配送员（可选）"
+        required=False,
+        queryset=User.objects.none(),
+        label="指定扣减配送员（可选）",
+        widget=CourierSelect(attrs={"class": "form-select cdd-beneficiary-select"}),
     )
     wage_amount = forms.DecimalField(
         required=False,

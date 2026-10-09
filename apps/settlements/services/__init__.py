@@ -1,6 +1,6 @@
 """Public pricing, earning, and settlement workflow services."""
 
-from .build import build_settlement
+from .build import build_settlement, build_settlement_group
 from .charges import add_draft_charge, void_draft_charge
 from .confirmation import confirm_settlement, record_refund, reverse_settlement
 from .earnings import make_earning_key, record_pending_earning
@@ -14,6 +14,7 @@ from .wages import calculate_wages, overlapping_wage_runs, save_wage_calculation
 __all__ = [
     "add_draft_charge",
     "build_settlement",
+    "build_settlement_group",
     "calculate_wages",
     "overlapping_wage_runs",
     "confirm_settlement",

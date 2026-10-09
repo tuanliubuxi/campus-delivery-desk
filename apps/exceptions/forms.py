@@ -56,10 +56,16 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
         widget=MultipleImageInput(attrs={"accept": "image/*"}),
     )
     delivery_evidence = forms.ModelMultipleChoiceField(
-        queryset=DeliveryEvidence.objects.none(), required=False, label="引用已有配送证据"
+        queryset=DeliveryEvidence.objects.none(),
+        required=False,
+        label="引用已有配送证据",
+        widget=forms.CheckboxSelectMultiple,
     )
     media_evidence = forms.ModelMultipleChoiceField(
-        queryset=MediaFile.objects.none(), required=False, label="引用已有归拢图片"
+        queryset=MediaFile.objects.none(),
+        required=False,
+        label="引用已有归拢图片",
+        widget=forms.CheckboxSelectMultiple,
     )
 
     def __init__(self, *args, actor=None, **kwargs):
@@ -80,6 +86,9 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
             | models.Q(consolidation_annotated_rounds__isnull=False),
             deleted_at__isnull=True,
         ).distinct()
+        self.fields["media_evidence"].label_from_instance = (
+            lambda media: f"归拢图片 #{media.pk} · {media.created_at:%Y-%m-%d %H:%M}"
+        )
         if actor and actor.is_courier:
             self.fields["order"].queryset = Order.objects.filter(
                 assignments__courier=actor

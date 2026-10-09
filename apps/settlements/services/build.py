@@ -36,6 +36,35 @@ def require_financial_operator(actor):
 
 
 @transaction.atomic
+def build_settlement_group(*, group_key, actor, operation_id):
+    """Resolve the complete group on the server; never trust posted member IDs."""
+    require_financial_operator(actor)
+    existing = Settlement.objects.filter(build_operation_id=UUID(str(operation_id))).first()
+    if existing:
+        return existing
+    kind, _, raw_id = group_key.partition(":")
+    if kind not in {"round", "batch", "order"} or not raw_id.isdecimal() or len(raw_id) > 18:
+        raise ValidationError("请选择有效待结算组")
+    group_id = int(raw_id)
+    if kind == "round":
+        orders = Order.objects.filter(
+            source_type=SourceType.DIRECT,
+            business_type=BusinessType.EXPRESS,
+            express_detail__express_round_id=group_id,
+        )
+    elif kind == "batch":
+        orders = Order.objects.filter(source_type=SourceType.AGENT, proxy_batch_id=group_id)
+    else:
+        orders = Order.objects.filter(
+            pk=group_id, source_type=SourceType.DIRECT
+        ).exclude(business_type=BusinessType.EXPRESS)
+    order_ids = list(
+        orders.exclude(delivery_status=DeliveryStatus.CANCELED).values_list("pk", flat=True)
+    )
+    return build_settlement(order_ids=order_ids, actor=actor, operation_id=operation_id)
+
+
+@transaction.atomic
 def build_settlement(*, order_ids, actor, operation_id):
     """Create only DRAFT + SettlementOrder; UNKNOWN parcels are intentionally accepted here."""
     require_financial_operator(actor)

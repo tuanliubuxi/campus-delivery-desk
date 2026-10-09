@@ -104,7 +104,18 @@ def batch_detail(request, batch_id):
         batch = proxy_batch_detail(batch_id)
     except ProxyBatch.DoesNotExist:
         batch = get_object_or_404(ProxyBatch, pk=batch_id)
-    return render(request, "agents/batch_detail.html", {"batch": batch})
+    from apps.agents.selectors.proxy import proxy_batch_readiness
+
+    return render(
+        request,
+        "agents/batch_detail.html",
+        {
+            "batch": batch,
+            "readiness_reasons": proxy_batch_readiness(batch)
+            if batch.status == "OPEN"
+            else [],
+        },
+    )
 
 
 @require_POST

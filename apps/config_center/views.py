@@ -1,5 +1,6 @@
 """Administrator views for inspecting and changing configuration."""
 
+from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -26,6 +27,9 @@ from apps.config_center.services import (
 @admin_required
 def config_index(request):
     context = configuration_center_data()
+    context["daily_backup_time"] = (
+        f"{settings.DAILY_BACKUP_HOUR:02d}:{settings.DAILY_BACKUP_MINUTE:02d}"
+    )
     context["buildings"] = Building.objects.all()
     for item in context["business_configs"]:
         item.edit_form = BusinessTypeConfigForm(instance=item)

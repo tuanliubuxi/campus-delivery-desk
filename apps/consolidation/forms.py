@@ -13,12 +13,26 @@ from .models import FoundStatus
 
 class ManualConsolidationForm(forms.Form):
     express_round = forms.ModelChoiceField(queryset=ExpressRound.objects.none(), label="快递轮次")
-    orders = forms.ModelMultipleChoiceField(queryset=Order.objects.none(), label="归拢快递")
+    orders = forms.ModelMultipleChoiceField(
+        queryset=Order.objects.none(),
+        label="归拢快递",
+        widget=forms.CheckboxSelectMultiple,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["express_round"].queryset = ExpressRound.objects.filter(status="OPEN")
-        self.fields["orders"].queryset = Order.objects.filter(delivery_status="DELIVERED")
+        selected_id = self.data.get("express_round") if self.is_bound else self.initial.get("express_round")
+        selected_id = getattr(selected_id, "pk", selected_id)
+        if selected_id and str(selected_id).isdecimal():
+            from .selectors import eligible_orders_for_round
+
+            selected_round = self.fields["express_round"].queryset.filter(pk=selected_id).first()
+            if selected_round:
+                self.fields["orders"].queryset = eligible_orders_for_round(selected_round)
+                self.fields["orders"].label_from_instance = (
+                    lambda order: f"{order.display_id} · {order.recipient_name_snapshot} · {order.building_snapshot}"
+                )
 
 
 class ReassignConsolidationForm(forms.Form):

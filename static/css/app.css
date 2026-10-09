@@ -175,7 +175,18 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-modal::backdrop { background: rgb(4 12 24 / 68%); backdrop-filter: blur(2px); }
 .cdd-modal-panel { position: relative; max-height: 88vh; overflow: auto; padding: 1.35rem; border: 1px solid var(--cdd-border); border-radius: 1rem; background: var(--cdd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 35%); }
 .cdd-modal-close { position: sticky; z-index: 2; top: 0; float: right; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 1px solid var(--cdd-border); border-radius: 50%; background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.35rem; }
-.cdd-receipt-preview { display: block; width: auto; max-width: 100%; max-height: 70vh; margin-inline: auto; border-radius: .65rem; }
+.cdd-receipt-viewport { max-height: 65vh; overflow: auto; touch-action: pinch-zoom; }
+.cdd-detail-key { display: inline-block; max-width: 100%; padding: .2rem .55rem; border-radius: .45rem; background: var(--cdd-elevated); color: var(--cdd-text); overflow-wrap: anywhere; }
+.cdd-settlement-groups { max-height: min(64vh, 640px); }
+.cdd-settlement-group { display: block; margin-bottom: .7rem; padding: .85rem; border: 1px solid var(--cdd-border); border-radius: .75rem; background: var(--cdd-elevated); cursor: pointer; }
+.cdd-settlement-group:hover:not(.is-blocked), .cdd-settlement-group:has(input:checked) { border-color: var(--cdd-primary); box-shadow: inset 0 0 0 1px var(--cdd-primary); }
+.cdd-settlement-group.is-blocked { opacity: .75; cursor: default; }
+.cdd-settlement-members { display: grid; gap: .2rem; margin-top: .6rem; padding: .55rem .7rem; border-radius: .5rem; background: var(--cdd-surface); font-size: .9rem; }
+.cdd-consolidation-options { max-height: 22rem; }
+.cdd-consolidation-options label { display: flex; align-items: center; gap: .55rem; padding: .45rem .65rem; border-bottom: 1px solid var(--cdd-border); cursor: pointer; }
+.cdd-evidence-options { max-height: 12rem; overflow-y: auto; margin-top: .75rem; padding: .5rem; border: 1px solid var(--cdd-border); border-radius: .5rem; }
+.cdd-evidence-options label { display: flex; gap: .5rem; align-items: center; }
+.cdd-receipt-preview { display: block; width: auto; max-width: 100%; max-height: 65vh; margin-inline: auto; border-radius: .65rem; touch-action: pinch-zoom; }
 .cdd-file-list { margin: .65rem 0 0; padding-left: 2rem; }
 .cdd-file-item { display: list-item; padding: .25rem 0; }
 .cdd-file-item::marker { color: var(--cdd-muted); font-variant-numeric: tabular-nums; }

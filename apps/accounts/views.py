@@ -70,6 +70,8 @@ AUDIT_EVENT_LABELS = {
     "EXPRESS_ROUND_CLOSED": "关闭快递轮次",
     "DELIVERY_DROP_COMPLETED": "完成配送",
     "EXPRESS_SIZE_CONFIRMED": "确认快递大小",
+    "EXPRESS_SIZE_NOTE_UPDATED": "更新快递大小说明／价格建议",
+    "EXPRESS_SIZE_NOTE_UPDATE": "更新快递大小说明／价格建议",
     "EXPRESS_PICKED": "确认已取件",
     "ORDER_PICKED": "普通订单确认取件",
     "SIMPLE_DELIVERY_STARTED": "开始配送",
@@ -130,6 +132,9 @@ AUDIT_ENTITY_LABELS = {
     "operations.BackupRecord": "备份",
     "operations.JobRun": "运维任务",
     "mediafiles.MediaFile": "媒体文件",
+    "config_center.BusinessTypeConfig": "业务配置",
+    "config_center.SiteConfiguration": "站点配置",
+    "operations.MaintenanceState": "维护状态",
 }
 
 

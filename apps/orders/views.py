@@ -242,6 +242,9 @@ def order_history(request):
         ),
         50,
     ).get_page(request.GET.get("page"))
+    from apps.orders.selectors.orders import attach_latest_receipts
+
+    page.object_list = attach_latest_receipts(page.object_list)
     filters = request.GET.copy()
     filters.pop("page", None)
     return render(

@@ -83,7 +83,10 @@ def complete_round(request, round_id):
 
 @recorder_or_admin_required
 def manual_create(request):
-    form = ManualConsolidationForm(request.POST or None)
+    form = ManualConsolidationForm(
+        request.POST or None,
+        initial={"express_round": request.GET.get("express_round", "")},
+    )
     if request.method == "POST" and form.is_valid():
         try:
             consolidation = create_consolidation_round(

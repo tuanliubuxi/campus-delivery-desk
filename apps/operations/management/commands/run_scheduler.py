@@ -5,6 +5,7 @@ import logging
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from apps.operations.services import (
@@ -26,7 +27,11 @@ class Command(BaseCommand):
         run_startup_recovery_check()
         scheduler.add_job(
             create_daily_backup,
-            CronTrigger(hour=3, minute=0, timezone="Asia/Shanghai"),
+            CronTrigger(
+                hour=settings.DAILY_BACKUP_HOUR,
+                minute=settings.DAILY_BACKUP_MINUTE,
+                timezone="Asia/Shanghai",
+            ),
             id="daily_backup",
             replace_existing=True,
             coalesce=True,

@@ -105,6 +105,9 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", DATA_ROOT / "media"))
 BACKUP_ROOT = Path(os.environ.get("BACKUP_ROOT", DATA_ROOT / "backups"))
 TMP_ROOT = Path(os.environ.get("TMP_ROOT", DATA_ROOT / "tmp"))
 LOG_ROOT = Path(os.environ.get("LOG_ROOT", DATA_ROOT / "logs"))
+# The V1 scheduler has a fixed local backup time; the configuration page displays it read-only.
+DAILY_BACKUP_HOUR = 3
+DAILY_BACKUP_MINUTE = 0
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30

@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client
+from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
@@ -25,8 +27,9 @@ from apps.common.enums import BusinessType, UserRole
 from apps.config_center.models import Building
 from apps.customers.models import Customer
 from apps.dispatch.models import DeliveryDrop, DeliveryDropItem, LocationType
-from apps.mediafiles.models import DeliveryEvidence, EvidenceRole
+from apps.mediafiles.models import DeliveryEvidence, EvidenceRole, MediaFile, MediaVariant
 from apps.mediafiles.services import media_absolute_path, store_delivery_image
+from apps.mediafiles.services.retention import delete_media_file
 from apps.orders.models import (
     DeliveryStatus,
     DestinationType,
@@ -37,6 +40,7 @@ from apps.orders.models import (
     RecipientKind,
     SizeClass,
 )
+from apps.orders.selectors.orders import attach_latest_receipts
 from apps.orders.services import create_express_order
 from apps.orders.services.rounds import evaluate_express_round
 from apps.settlements.forms import AddChargeForm
@@ -48,9 +52,11 @@ from apps.settlements.models import (
     SettlementLine,
     SettlementStatus,
 )
+from apps.settlements.selectors import settlement_candidate_groups
 from apps.settlements.services import (
     add_draft_charge,
     build_settlement,
+    build_settlement_group,
     freeze_settlement_for_payment,
     generate_proxy_recipient_receipt,
     void_settlement,
@@ -102,6 +108,115 @@ def make_context(size=SizeClass.SMALL):
     DeliveryDropItem.objects.create(drop=drop, order=order)
     evaluate_express_round(express_round=order.express_detail.express_round, actor=recorder)
     return recorder, courier, order
+
+
+@pytest.mark.django_db
+def test_settlement_candidate_is_one_round_and_server_resolves_members():
+    recorder, _, first = make_context()
+    express_round = first.express_detail.express_round
+    express_round.status = "OPEN"
+    express_round.closed_at = None
+    express_round.save(update_fields=["status", "closed_at"])
+    second = create_express_order(
+        actor=recorder,
+        customer=first.customer,
+        pickup_area=PickupArea.SOUTH,
+        pickup_identifier_type=PickupIdentifierType.PICKUP_CODE,
+        pickup_identifier="SECOND-IN-ROUND",
+        size_class=SizeClass.SMALL,
+        building=first.customer.building,
+        destination_type=DestinationType.CAMPUS_BUILDING,
+        requires_upstairs=False,
+        allow_duplicate=True,
+    )
+    second.delivery_status = DeliveryStatus.DELIVERED
+    second.save(update_fields=["delivery_status"])
+    group = next(item for item in settlement_candidate_groups() if item.key == f"round:{express_round.pk}")
+    assert {order.pk for order in group.orders} == {first.pk, second.pk}
+    assert not group.ready
+    assert "轮次尚未关闭" in "；".join(group.blockers)
+    express_round.status = "CLOSED"
+    express_round.closed_at = timezone.now()
+    express_round.save(update_fields=["status", "closed_at"])
+    group = next(item for item in settlement_candidate_groups() if item.key == f"round:{express_round.pk}")
+    assert group.ready
+    recorder.set_password("Strong-pass-123")
+    recorder.save(update_fields=["password"])
+    client = Client()
+    login = client.post(reverse("accounts:login"), {
+        "role": UserRole.RECORDER, "user": recorder.pk, "password": "Strong-pass-123",
+    })
+    assert login.status_code == 302
+    page = client.get(reverse("settlements:workspace"))
+    assert page.status_code == 200
+    html = page.content.decode()
+    assert html.count(f'value="round:{express_round.pk}"') == 1
+    assert 'type="checkbox" name="group_key"' in html
+    assert 'name="orders" multiple' not in html
+    settlement = build_settlement_group(
+        group_key=group.key, actor=recorder, operation_id=uuid.uuid4()
+    )
+    assert set(settlement.settlement_orders.values_list("order_id", flat=True)) == {
+        first.pk, second.pk,
+    }
+
+
+@pytest.mark.django_db
+def test_order_receipt_button_uses_only_available_active_version():
+    recorder, _, order = make_context()
+    settlement = build_settlement_group(
+        group_key=f"round:{order.express_detail.express_round_id}",
+        actor=recorder,
+        operation_id=uuid.uuid4(),
+    )
+    settlement.status = SettlementStatus.WAITING_PAYMENT
+    settlement.save(update_fields=["status"])
+    media = MediaFile.objects.create(
+        storage_key=f"test/{uuid.uuid4().hex}.png", mime_type="image/png",
+        width=10, height=10, size_bytes=100, sha256="a" * 64,
+        variant_type=MediaVariant.GENERATED_RECEIPT,
+    )
+    SettlementImageVersion.objects.create(
+        settlement=settlement, version_no=1, media=media,
+        image_type=SettlementImageType.CUSTOMER_SETTLEMENT,
+    )
+    assert attach_latest_receipts([order])[0].latest_receipt_media_id == media.pk
+    media.deleted_at = timezone.now()
+    media.save(update_fields=["deleted_at"])
+    assert attach_latest_receipts([order])[0].latest_receipt_media_id is None
+
+
+@pytest.mark.django_db
+def test_deleting_current_receipt_promotes_available_prior_version():
+    recorder, _, order = make_context()
+    settlement = build_settlement_group(
+        group_key=f"round:{order.express_detail.express_round_id}",
+        actor=recorder,
+        operation_id=uuid.uuid4(),
+    )
+    settlement.status = SettlementStatus.WAITING_PAYMENT
+    settlement.save(update_fields=["status"])
+    media = [
+        MediaFile.objects.create(
+            storage_key=f"test/{uuid.uuid4().hex}.png", mime_type="image/png",
+            width=10, height=10, size_bytes=100, sha256=str(index) * 64,
+            variant_type=MediaVariant.GENERATED_RECEIPT,
+        )
+        for index in (1, 2)
+    ]
+    old = SettlementImageVersion.objects.create(
+        settlement=settlement, version_no=1, media=media[0],
+        image_type=SettlementImageType.CUSTOMER_SETTLEMENT, is_active=False,
+    )
+    latest = SettlementImageVersion.objects.create(
+        settlement=settlement, version_no=2, media=media[1],
+        image_type=SettlementImageType.CUSTOMER_SETTLEMENT, is_active=True,
+    )
+    delete_media_file(media=media[1], reason="保留期清理")
+    old.refresh_from_db()
+    latest.refresh_from_db()
+    assert old.is_active and not latest.is_active
+    assert attach_latest_receipts([order])[0].latest_receipt_media_id == media[0].pk
 
 
 @pytest.mark.django_db

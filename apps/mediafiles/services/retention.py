@@ -5,6 +5,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from apps.audit.services import record_event
@@ -15,6 +16,7 @@ from apps.mediafiles.selectors import is_media_protected, media_delete_after, pr
 from .images import media_absolute_path
 
 
+@transaction.atomic
 def delete_media_file(*, media, reason, actor=None, now=None):
     """Delete bytes only; all MediaFile and business references remain queryable."""
     if actor is not None and (not actor.is_authenticated or not actor.is_admin):
@@ -29,6 +31,45 @@ def delete_media_file(*, media, reason, actor=None, now=None):
     media.deleted_at = now or timezone.now()
     media.delete_reason = reason[:255]
     media.save(update_fields=["deleted_at", "delete_reason"])
+    # A deleted current receipt must not leave a dead preview button. Make the
+    # newest still-available version current, but never revive a batch receipt
+    # invalidated by an explicit batch reopen.
+    from apps.settlements.models import ProxyRecipientReceipt, SettlementImageVersion
+
+    for version in SettlementImageVersion.objects.filter(media=media, is_active=True):
+        version.is_active = False
+        version.save(update_fields=["is_active"])
+        previous = (
+            SettlementImageVersion.objects.filter(
+                settlement=version.settlement,
+                image_type=version.image_type,
+                media__deleted_at__isnull=True,
+            )
+            .exclude(pk=version.pk)
+            .order_by("-version_no", "-pk")
+            .first()
+        )
+        if previous:
+            previous.is_active = True
+            previous.save(update_fields=["is_active"])
+    for receipt in ProxyRecipientReceipt.objects.filter(media=media, is_active=True):
+        receipt.is_active = False
+        receipt.save(update_fields=["is_active"])
+        previous = (
+            ProxyRecipientReceipt.objects.filter(
+                proxy_recipient=receipt.proxy_recipient,
+                media__deleted_at__isnull=True,
+                created_at__gte=receipt.proxy_batch.ready_at,
+            )
+            .exclude(pk=receipt.pk)
+            .order_by("-version_no", "-pk")
+            .first()
+            if receipt.proxy_batch.ready_at
+            else None
+        )
+        if previous:
+            previous.is_active = True
+            previous.save(update_fields=["is_active"])
     if actor is not None:
         record_event(
             actor=actor,

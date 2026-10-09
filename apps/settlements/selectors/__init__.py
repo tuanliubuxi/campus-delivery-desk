@@ -1,5 +1,6 @@
 """Settlement query surface."""
 
+from .groups import settlement_candidate_groups
 from .settlements import (
     settlement_charge_items,
     settlement_final_courier_ids,
@@ -13,5 +14,6 @@ __all__ = [
     "settlement_charge_items",
     "settlement_final_courier_ids",
     "settlement_preview_total",
+    "settlement_candidate_groups",
     "wage_pool_totals",
 ]

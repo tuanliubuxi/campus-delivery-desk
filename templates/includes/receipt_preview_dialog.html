@@ -1,0 +1,11 @@
+<dialog class="cdd-modal cdd-modal--image" id="{{ dialog_id }}" aria-label="{{ receipt_title }}">
+  <div class="cdd-modal-panel">
+    <button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button>
+    <h2 class="h5 cdd-ellipsis" title="{{ receipt_title }}">{{ receipt_title }}</h2>
+    <div class="cdd-receipt-viewport"><img class="cdd-receipt-preview" src="{% url 'mediafiles:download' media_id %}" alt="{{ receipt_title }}"></div>
+    <div class="cdd-action-row justify-content-center mt-3">
+      <a class="btn btn-primary" href="{% url 'mediafiles:download' media_id %}" download>下载</a>
+      <button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button>
+    </div>
+  </div>
+</dialog>

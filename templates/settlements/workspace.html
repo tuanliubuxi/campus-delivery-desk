@@ -4,9 +4,17 @@
 <main class="container py-3"><div class="row g-4">
   <section class="col-lg-5">
     <h1 class="h3">建立结算草稿</h1>
-    <p class="text-secondary">这里只固定订单集合；不会生成冻结行，也不会改变订单结算状态。</p>
-    <form method="post" action="{% url 'settlements:build' %}" class="card card-body">
-      {% csrf_token %}{{ build_form.as_p }}<button class="btn btn-primary">建立 DRAFT</button>
+    <p class="cdd-muted">每张卡片是一个必须一起结算的收件轮次或代理批次。一次只建立一组草稿，不会立即冻结金额或改变订单状态。</p>
+    <form method="post" action="{% url 'settlements:build' %}" class="cdd-card p-3">
+      {% csrf_token %}{{ build_form.operation_id }}
+      <div class="cdd-scroll-region cdd-settlement-groups">
+        {% for group in candidate_groups %}<label class="cdd-settlement-group {% if not group.ready %}is-blocked{% endif %}">
+          <span class="d-flex gap-2 align-items-start"><input class="form-check-input mt-1" type="checkbox" name="group_key" value="{{ group.key }}" data-cdd-settlement-group {% if not group.ready %}disabled{% endif %}><span class="cdd-min-width-zero flex-grow-1"><strong class="cdd-ellipsis" title="{{ group.title }}">{{ group.title }}</strong><small class="d-block cdd-muted">{{ group.subtitle }}</small></span>{% if group.ready %}<span class="badge text-bg-success">可建草稿</span>{% else %}<span class="badge text-bg-secondary">暂不可选</span>{% endif %}</span>
+          <span class="cdd-settlement-members">{% for order in group.orders %}<span class="cdd-ellipsis" title="{{ order.display_id }} · {{ order.recipient_name_snapshot }} · {{ order.get_delivery_status_display }}">{{ order.display_id }} · {{ order.recipient_name_snapshot }} · {{ order.get_delivery_status_display }}</span>{% endfor %}</span>
+          {% if group.blockers %}<small class="d-block text-warning mt-2">{{ group.blockers|join:"；" }}</small>{% endif %}{% if group.warning %}<small class="d-block text-warning mt-2">{{ group.warning }}</small>{% endif %}
+        </label>{% empty %}<p class="cdd-muted mb-0">暂无已送达、未结算的订单。</p>{% endfor %}
+      </div>
+      <button class="btn btn-primary mt-3" type="submit">建立结算草稿</button>
     </form>
   </section>
   <section class="col-lg-7"><h2 class="h4">最近结算</h2><div class="cdd-scroll-region">

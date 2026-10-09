@@ -80,6 +80,18 @@ document.querySelectorAll("dialog.cdd-modal").forEach((dialog) => {
 document.querySelectorAll("dialog.cdd-modal[data-cdd-auto-open]").forEach((dialog) => {
   if (dialog.showModal) dialog.showModal();
 });
+document.addEventListener("change", (event) => {
+  if (!event.target.matches("[data-cdd-settlement-group]") || !event.target.checked) return;
+  event.target.form.querySelectorAll("[data-cdd-settlement-group]").forEach((input) => {
+    if (input !== event.target) input.checked = false;
+  });
+});
+document.addEventListener("change", (event) => {
+  if (event.target.id !== "id_express_round" || !event.target.closest("form")?.querySelector(".cdd-consolidation-options")) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("express_round", event.target.value);
+  window.location.assign(url.toString());
+});
 document.querySelectorAll("[data-cdd-exception-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     const selected = button.dataset.cddExceptionTab;

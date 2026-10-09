@@ -4,8 +4,11 @@
 <main class="container py-3">
   <h1 class="h3">人工提前归拢</h1>
   <p class="text-secondary">提交后成员立即冻结；不改变任何已送达订单的 Assignment。</p>
-  <form method="post" class="card card-body">{% csrf_token %}{{ form.as_p }}
-    <button class="btn btn-primary">建立归拢轮次</button>
+  <form method="post" class="card card-body">{% csrf_token %}{% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <label class="form-label" for="{{ form.express_round.id_for_label }}">选择快递轮次</label>{{ form.express_round }}{{ form.express_round.errors }}
+    <p class="small cdd-muted mt-2">先选择轮次，再勾选本轮中需要提前归拢的合格快递（至少两件）。不同轮次不能混选。</p>
+    <div class="cdd-scroll-region cdd-consolidation-options">{{ form.orders }}{{ form.orders.errors }}</div>
+    <button class="btn btn-primary mt-3">建立归拢轮次</button>
   </form>
   <h2 class="h4 mt-4">待处理轮次与独立改派</h2>
   {% for round in active_rounds %}<section class="card card-body mb-2">

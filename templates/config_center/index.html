@@ -8,5 +8,6 @@
   <div class="d-flex justify-content-between align-items-center mt-4"><h2 class="h5">楼栋与区域</h2><a class="btn btn-sm btn-outline-primary" href="{% url 'config_center:building-create' %}">新增楼栋</a></div>
   <div class="cdd-card table-responsive cdd-scroll-region"><table class="table mb-0"><thead><tr><th>代码</th><th>名称</th><th>区域</th><th>顺序</th><th></th></tr></thead><tbody>{% for item in buildings %}<tr><td>{{ item.code }}</td><td>{{ item.name }}</td><td>{{ item.get_zone_display }}</td><td>{{ item.route_order }}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'config_center:building-edit' item.id %}">编辑</a></td></tr>{% endfor %}</tbody></table></div>
   <section class="cdd-card p-3 mt-4"><h2 class="h5">工资比例</h2><p class="mb-2">系统默认比例：{% if site_config.default_wage_rate is None %}<span class="text-warning">未配置</span>{% else %}{{ site_config.default_wage_rate }}{% endif %}</p><p class="small cdd-muted mb-0">所有配送员默认继承该比例；需要例外时，在“人员与会话”中单独设置。客户自愿加价始终 100% 归收益配送员。</p></section>
+  <section class="cdd-card p-3 mt-3"><h2 class="h5">自动备份</h2><p class="mb-2">每日 {{ daily_backup_time }}（北京时间）自动备份。</p><p class="small cdd-muted mb-0">此时间由独立调度进程固定执行，目前仅供查看；备份记录、立即备份与恢复请前往<a class="btn btn-sm btn-outline-primary ms-2" href="{% url 'operations:backups' %}">备份维护</a>。</p></section>
 </main>
 {% endblock %}
