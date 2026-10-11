@@ -16,6 +16,7 @@ from PIL import Image
 from apps.accounts.models import User
 from apps.common.enums import BusinessType, UserRole
 from apps.config_center.models import Building
+from apps.consolidation.forms import CompleteConsolidationForm
 from apps.consolidation.models import ConsolidationStatus, FoundStatus
 from apps.consolidation.services import (
     complete_consolidation_round,
@@ -316,6 +317,83 @@ def test_found_item_still_requires_actual_photo_and_position():
         mark_consolidation_item(item=item, courier=courier, found_status=FoundStatus.FOUND)
     with pytest.raises(ValidationError, match="近景"):
         complete_consolidation_round(consolidation_round=consolidation, courier=courier, final_location_text="架上", near_photo=None, operation_id=uuid.uuid4())
+
+
+@pytest.mark.django_db
+def test_consolidation_accepts_four_near_photos_and_receipt_reads_all():
+    from apps.orders.models import Order
+    from apps.settlements.services.receipts import _receipt_photo_state
+
+    recorder, courier, _, building, customer = setup_people()
+    orders = [
+        make_delivered(recorder, customer, building, courier, f"FOUR-{index}", timezone.now())
+        for index in range(2)
+    ]
+    consolidation = create_consolidation_round(
+        express_round=orders[0].express_detail.express_round,
+        actor=recorder,
+        order_ids=[order.pk for order in orders],
+        created_mode="MANUAL",
+    )
+    for item in consolidation.items.all():
+        mark_consolidation_item(item=item, courier=courier, found_status=FoundStatus.FOUND)
+    complete_consolidation_round(
+        consolidation_round=consolidation,
+        courier=courier,
+        final_location_text="同一货架",
+        near_photos=[photo(color) for color in ("red", "green", "blue", "yellow")],
+        operation_id=uuid.uuid4(),
+    )
+    consolidation.refresh_from_db()
+    extra = list(consolidation.additional_near_photos.all())
+    assert [item.position for item in extra] == [2, 3, 4]
+    expected_ids = [consolidation.final_near_media_id, *(item.media_id for item in extra)]
+    old_media = MediaFile.objects.create(
+        storage_key="test/old-delivery.png", mime_type="image/png", width=320,
+        height=240, size_bytes=123, sha256="b" * 64,
+        variant_type=MediaVariant.ORIGINAL_COMPRESSED,
+    )
+    DeliveryEvidence.objects.create(
+        drop=orders[0].delivery_drop_items.get().drop,
+        media=old_media,
+        role=EvidenceRole.NEAR,
+    )
+    receipt_photos, _ = _receipt_photo_state(Order.objects.filter(pk__in=[order.pk for order in orders]))
+    assert [item.pk for item in receipt_photos] == expected_ids
+
+
+@pytest.mark.django_db
+def test_consolidation_rejects_fifth_near_photo_in_form_and_service():
+    recorder, courier, _, building, customer = setup_people()
+    orders = [
+        make_delivered(recorder, customer, building, courier, f"FIVE-{index}", timezone.now())
+        for index in range(2)
+    ]
+    consolidation = create_consolidation_round(
+        express_round=orders[0].express_detail.express_round,
+        actor=recorder,
+        order_ids=[order.pk for order in orders],
+        created_mode="MANUAL",
+    )
+    for item in consolidation.items.all():
+        mark_consolidation_item(item=item, courier=courier, found_status=FoundStatus.FOUND)
+    uploads = [photo() for _ in range(5)]
+    form = CompleteConsolidationForm(
+        data={"final_location_text": "架上", "operation_id": str(uuid.uuid4())},
+        files={"near_photos": uploads},
+    )
+    assert not form.is_valid()
+    assert "最多上传 4 张" in str(form.errors["near_photos"])
+    with pytest.raises(ValidationError, match="最多上传 4 张"):
+        complete_consolidation_round(
+            consolidation_round=consolidation,
+            courier=courier,
+            final_location_text="架上",
+            near_photos=[photo() for _ in range(5)],
+            operation_id=uuid.uuid4(),
+        )
+    consolidation.refresh_from_db()
+    assert consolidation.status != ConsolidationStatus.COMPLETED
 
 
 @pytest.mark.django_db

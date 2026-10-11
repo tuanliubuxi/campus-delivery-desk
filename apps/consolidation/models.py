@@ -125,3 +125,22 @@ class ConsolidationItem(models.Model):
 
     class Meta:
         ordering = ["order_id"]
+
+
+class ConsolidationNearPhoto(models.Model):
+    """Additional final near views; the first remains on ConsolidationRound."""
+
+    round = models.ForeignKey(
+        ConsolidationRound, on_delete=models.PROTECT, related_name="additional_near_photos"
+    )
+    media = models.ForeignKey("mediafiles.MediaFile", on_delete=models.PROTECT)
+    position = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ["position"]
+        constraints = [
+            models.UniqueConstraint(fields=["round", "position"], name="consolidation_near_position"),
+            models.CheckConstraint(
+                condition=Q(position__gte=2, position__lte=4), name="consolidation_near_extra_range"
+            ),
+        ]

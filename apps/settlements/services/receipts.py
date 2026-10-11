@@ -76,16 +76,30 @@ def _receipt_photo_state(orders):
     from apps.consolidation.models import ConsolidationRound, ConsolidationStatus
     from apps.mediafiles.models import DeliveryEvidence, MediaFile
 
-    consolidated_ids = ConsolidationRound.objects.filter(
+    consolidations = ConsolidationRound.objects.filter(
         express_round_id__in=round_ids,
+        items__order__in=orders,
         status=ConsolidationStatus.COMPLETED,
         final_near_media__isnull=False,
-    ).values_list("final_near_media_id", flat=True)
-    drop_ids = orders.values_list("delivery_drop_items__drop_id", flat=True)
+    ).distinct().prefetch_related("additional_near_photos").order_by("pk")
+    consolidated_order_ids = set(
+        orders.filter(
+            consolidation_item__round__in=consolidations,
+        ).values_list("pk", flat=True)
+    )
+    drop_ids = orders.exclude(pk__in=consolidated_order_ids).values_list(
+        "delivery_drop_items__drop_id", flat=True
+    )
     evidence = DeliveryEvidence.objects.filter(drop_id__in=drop_ids).select_related(
         "media", "annotated_media"
     )
-    ordered_ids = list(consolidated_ids)
+    ordered_ids = []
+    for consolidation in consolidations:
+        ordered_ids.append(consolidation.final_near_media_id)
+        ordered_ids.extend(photo.media_id for photo in consolidation.additional_near_photos.all())
+        far_id = consolidation.final_far_annotated_media_id or consolidation.final_far_media_id
+        if far_id:
+            ordered_ids.append(far_id)
     for item in evidence.order_by("created_at", "id"):
         if item.role == EvidenceRole.FAR and item.annotated_media_id:
             ordered_ids.append(item.annotated_media_id)

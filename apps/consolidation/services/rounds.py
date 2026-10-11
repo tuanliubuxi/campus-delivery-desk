@@ -17,6 +17,7 @@ from apps.orders.models import ExpressRound, ExpressRoundStatus
 from ..models import (
     ConsolidationCreatedMode,
     ConsolidationItem,
+    ConsolidationNearPhoto,
     ConsolidationRound,
     ConsolidationStatus,
     FoundStatus,
@@ -179,7 +180,8 @@ def complete_consolidation_round(
     consolidation_round,
     courier,
     final_location_text,
-    near_photo,
+    near_photo=None,
+    near_photos=None,
     far_photo=None,
     far_annotation=None,
     operation_id,
@@ -204,13 +206,16 @@ def complete_consolidation_round(
     location = final_location_text.strip()
     if has_found and not location:
         raise ValidationError("最终位置必填")
-    if has_found and not near_photo:
+    photos = list(near_photos or ([] if near_photo is None else [near_photo]))
+    if len(photos) > 4:
+        raise ValidationError("近景照片最多上传 4 张。")
+    if has_found and not photos:
         raise ValidationError("最终近景合照必填")
-    if not has_found and (near_photo or far_photo or far_annotation or location):
+    if not has_found and (photos or far_photo or far_annotation or location):
         raise ValidationError("没有找到实物，不能提交最终放置位置或照片")
     if far_annotation and not far_photo:
         raise ValidationError("远景标注必须同时提交远景原图")
-    near = store_delivery_image(upload=near_photo) if near_photo else None
+    near_media = [store_delivery_image(upload=upload) for upload in photos]
     far = store_delivery_image(upload=far_photo) if far_photo else None
     annotated = (
         store_delivery_image(upload=far_annotation, variant_type=MediaVariant.ANNOTATED, parent=far)
@@ -220,7 +225,7 @@ def complete_consolidation_round(
     now = timezone.now()
     consolidation.status = ConsolidationStatus.COMPLETED
     consolidation.final_location_text = location
-    consolidation.final_near_media = near
+    consolidation.final_near_media = near_media[0] if near_media else None
     consolidation.final_far_media = far
     consolidation.final_far_annotated_media = annotated
     consolidation.completed_at = now
@@ -228,6 +233,10 @@ def complete_consolidation_round(
     if not consolidation.started_at:
         consolidation.started_at = now
     consolidation.save()
+    ConsolidationNearPhoto.objects.bulk_create(
+        ConsolidationNearPhoto(round=consolidation, media=media, position=position)
+        for position, media in enumerate(near_media[1:], start=2)
+    )
     record_event(
         actor=courier,
         event_type="CONSOLIDATION_ROUND_COMPLETED",

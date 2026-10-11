@@ -6,6 +6,7 @@ from django import forms
 
 from apps.accounts.models import User
 from apps.common.enums import UserRole
+from apps.dispatch.forms import MultipleImageField
 from apps.orders.models import ExpressRound, Order
 
 from .models import FoundStatus
@@ -72,7 +73,7 @@ class MarkItemForm(forms.Form):
 
 class CompleteConsolidationForm(forms.Form):
     final_location_text = forms.CharField(max_length=255, label="最终位置")
-    near_photo = forms.ImageField(label="近景合照")
+    near_photos = MultipleImageField(required=False, label="近景合照（最多 4 张）")
     far_photo = forms.ImageField(required=False, label="远景照片")
     far_annotation = forms.ImageField(required=False, label="远景标注图")
     operation_id = forms.UUIDField(widget=forms.HiddenInput)
@@ -83,7 +84,12 @@ class CompleteConsolidationForm(forms.Form):
         self.has_found = has_found
         if not has_found:
             self.fields["final_location_text"].required = False
-            self.fields["near_photo"].required = False
         self.fields["final_location_text"].widget.attrs["class"] = "form-control"
-        for field_name in ("near_photo", "far_photo", "far_annotation"):
+        for field_name in ("near_photos", "far_photo", "far_annotation"):
             self.fields[field_name].widget.attrs.update({"class": "form-control", "accept": "image/*"})
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.has_found and not cleaned.get("near_photos"):
+            self.add_error("near_photos", "最终近景合照至少上传 1 张。")
+        return cleaned

@@ -398,6 +398,8 @@ started_at
 completed_at
 ```
 
+`final_near_media_id` 保留第一张近景照片，兼容旧轮次；第 2–4 张按顺序存入 `ConsolidationNearPhoto(round_id, media_id, position)`，`position` 限制为 2–4，且每轮位置唯一。最终近景照片总数为 1–4 张，远景最多 1 张。
+
 ### ConsolidationItem
 
 ```text
