@@ -261,6 +261,8 @@ def test_found_button_post_and_final_evidence_form(client):
     detail = client.get(reverse("consolidation:courier-detail", args=[consolidation.pk]))
     content = detail.content.decode()
     assert 'name="found_status" value="FOUND"' in content
+    assert content.count("cdd-recipient-badge") == 1
+    assert content.count("取件标识") >= 2
     assert "还有 2 件待核对" in content
     item = consolidation.items.get(order=first)
     response = client.post(reverse("consolidation:mark-item", args=[item.pk]), {"found_status": "FOUND"}, follow=True)
@@ -322,7 +324,7 @@ def test_found_item_still_requires_actual_photo_and_position():
 @pytest.mark.django_db
 def test_consolidation_accepts_four_near_photos_and_receipt_reads_all():
     from apps.orders.models import Order
-    from apps.settlements.services.receipts import _receipt_photo_state
+    from apps.settlements.services.receipts import _final_locations, _receipt_photo_state
 
     recorder, courier, _, building, customer = setup_people()
     orders = [
@@ -360,6 +362,7 @@ def test_consolidation_accepts_four_near_photos_and_receipt_reads_all():
     )
     receipt_photos, _ = _receipt_photo_state(Order.objects.filter(pk__in=[order.pk for order in orders]))
     assert [item.pk for item in receipt_photos] == expected_ids
+    assert _final_locations(Order.objects.filter(pk__in=[order.pk for order in orders])) == "同一货架"
 
 
 @pytest.mark.django_db

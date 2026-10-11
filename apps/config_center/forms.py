@@ -74,12 +74,16 @@ class SiteConfigurationForm(BootstrapFormMixin, forms.ModelForm):
             "heartbeat_interval_seconds": "登录心跳间隔（秒）",
             "lease_stale_seconds": "异设备接管判定窗口（秒）",
             "media_retention_days": "普通图片保留天数",
+            "receipt_brand_name": "凭证显示名称",
+            "image_quality": "上传图片质量",
             "default_wage_rate": "配送员默认计薪比例（0 至 1）",
         }
         help_texts = {
             "kfc_open_weekday": "1 代表周一，4 代表周四，7 代表周日。",
             "lease_stale_seconds": "仅用于判断另一台设备能否接管账号，不是登录有效期；登录采用 30 天滚动有效期。必须大于心跳间隔。",
             "media_retention_days": "异常保护和结算历史等特殊保留规则仍优先适用。",
+            "receipt_brand_name": "所有新生成的凭证共用此名称；已生成的历史凭证不会被改写。",
+            "image_quality": "清晰档保留更多像素，便于看取件码；更高档位会增加上传时间和存储占用。",
             "default_wage_rate": "默认 1.0；个人比例可在“人员与会话”中覆盖。",
         }
 

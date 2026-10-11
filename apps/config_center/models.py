@@ -14,6 +14,12 @@ class Zone(models.TextChoices):
     NORTH = "NORTH", "北区"
 
 
+class ImageQuality(models.TextChoices):
+    STANDARD = "STANDARD", "标准（较省流量）"
+    CLEAR = "CLEAR", "清晰（推荐看取件码）"
+    EXTRA_CLEAR = "EXTRA_CLEAR", "高清（上传较慢）"
+
+
 class Building(models.Model):
     code = models.CharField(max_length=16, unique=True)
     name = models.CharField(max_length=80)
@@ -116,6 +122,10 @@ class SiteConfiguration(models.Model):
     )
     media_retention_days = models.PositiveSmallIntegerField(
         default=30, validators=[MinValueValidator(1), MaxValueValidator(3650)]
+    )
+    receipt_brand_name = models.CharField(max_length=32, default="校驿")
+    image_quality = models.CharField(
+        max_length=16, choices=ImageQuality.choices, default=ImageQuality.STANDARD
     )
     default_wage_rate = models.DecimalField(
         max_digits=5,

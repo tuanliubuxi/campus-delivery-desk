@@ -49,13 +49,6 @@ for /f %%H in ('git rev-parse HEAD') do set "CDD_COMMIT=%%H"
 set "CDD_HOST_ARCH=amd64"
 if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "CDD_HOST_ARCH=arm64"
 
-set "CDD_RUNNING="
-for /f "delims=" %%C in ('docker compose ps --status running -q 2^>nul') do set "CDD_RUNNING=1"
-if defined CDD_RUNNING (
-  echo [ERROR] Compose services are running. Stop them before copying SQLite and runtime data.
-  exit /b 1
-)
-
 if not exist "tags" mkdir "tags"
 set "CDD_RELEASE_DIR=tags\%CDD_RELEASE%"
 if not exist "%CDD_RELEASE_DIR%" mkdir "%CDD_RELEASE_DIR%"
@@ -81,6 +74,11 @@ if exist "%CDD_PROJECT%" (
 set "CDD_STAGE=%TEMP%\%CDD_RELEASE%-%CDD_ARCH%-%RANDOM%-%RANDOM%"
 mkdir "%CDD_STAGE%" >nul || exit /b 1
 set "CDD_DOCKER=%CDD_STAGE%\%CDD_DOCKER_NAME%"
+set "CDD_SNAPSHOT=%CDD_STAGE%\database.sqlite3"
+if exist ".venv\Scripts\python.exe" (set "CDD_PY=.venv\Scripts\python.exe") else (set "CDD_PY=python")
+echo [INFO] Taking a verified online SQLite snapshot; running services will not be stopped...
+"%CDD_PY%" scripts\snapshot_sqlite.py "data\db\app.sqlite3" "%CDD_SNAPSHOT%"
+if errorlevel 1 exit /b 1
 
 echo [INFO] Building application image for linux/%CDD_ARCH%...
 docker buildx build --platform "linux/%CDD_ARCH%" --load -t campus-delivery-desk-app:local -t "campus-delivery-desk-app:%CDD_RELEASE%" .
@@ -99,12 +97,17 @@ if errorlevel 1 exit /b 1
 if not defined CDD_REUSE_PROJECT (
   mkdir "%CDD_STAGE%\%CDD_RELEASE%" >nul || exit /b 1
   echo [INFO] Staging private project backup, including the host virtual environment...
-  robocopy "." "%CDD_STAGE%\%CDD_RELEASE%" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "tags" "deployments" "tmp" ".ruff_cache" ".pytest_cache" "pytest-cache-files-*" "__pycache__" "staticfiles" /XF "*.pyc" "*.pyo"
+  robocopy "." "%CDD_STAGE%\%CDD_RELEASE%" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "tags" "deployments" "tmp" "data" ".ruff_cache" ".pytest_cache" "pytest-cache-files-*" "__pycache__" "staticfiles" /XF "*.pyc" "*.pyo"
   set "CDD_ROBOCOPY=!ERRORLEVEL!"
   if !CDD_ROBOCOPY! GEQ 8 (
     echo [ERROR] Project staging failed with robocopy code !CDD_ROBOCOPY!.
     exit /b 1
   )
+  robocopy "data" "%CDD_STAGE%\%CDD_RELEASE%\data" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "db" "tmp"
+  set "CDD_ROBOCOPY=!ERRORLEVEL!"
+  if !CDD_ROBOCOPY! GEQ 8 exit /b 1
+  if not exist "%CDD_STAGE%\%CDD_RELEASE%\data\db" mkdir "%CDD_STAGE%\%CDD_RELEASE%\data\db"
+  copy /Y "%CDD_SNAPSHOT%" "%CDD_STAGE%\%CDD_RELEASE%\data\db\app.sqlite3" >nul || exit /b 1
   tar -a -cf "%CDD_PROJECT%" -C "%CDD_STAGE%" "%CDD_RELEASE%"
   if errorlevel 1 exit /b 1
 ) else (
@@ -116,12 +119,14 @@ mkdir "%CDD_RUNTIME_DIR%" >nul || exit /b 1
 echo [INFO] Staging the self-contained offline runtime bundle...
 for %%F in (run-offline.bat run-offline.sh docker-compose.yml Caddyfile .env .env.example README.md LICENSE) do copy /Y "%%F" "%CDD_RUNTIME_DIR%\%%F" >nul || exit /b 1
 copy /Y "%CDD_DOCKER%" "%CDD_RUNTIME_DIR%\%CDD_DOCKER_NAME%" >nul || exit /b 1
-robocopy "data" "%CDD_RUNTIME_DIR%\data" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP
+robocopy "data" "%CDD_RUNTIME_DIR%\data" /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD "db" "tmp"
 set "CDD_ROBOCOPY=!ERRORLEVEL!"
 if !CDD_ROBOCOPY! GEQ 8 (
   echo [ERROR] Runtime data staging failed with robocopy code !CDD_ROBOCOPY!.
   exit /b 1
 )
+if not exist "%CDD_RUNTIME_DIR%\data\db" mkdir "%CDD_RUNTIME_DIR%\data\db"
+copy /Y "%CDD_SNAPSHOT%" "%CDD_RUNTIME_DIR%\data\db\app.sqlite3" >nul || exit /b 1
 tar -a -cf "%CDD_RUNTIME%" -C "%CDD_STAGE%" "%CDD_RELEASE%-offline-runtime-%CDD_ARCH%"
 if errorlevel 1 exit /b 1
 

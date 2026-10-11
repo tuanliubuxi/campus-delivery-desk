@@ -24,7 +24,7 @@ from apps.agents.services import (
     reopen_proxy_batch,
 )
 from apps.common.enums import BusinessType, UserRole
-from apps.config_center.models import Building
+from apps.config_center.models import Building, SiteConfiguration
 from apps.customers.models import Customer
 from apps.dispatch.models import DeliveryDrop, DeliveryDropItem, LocationType
 from apps.mediafiles.models import DeliveryEvidence, EvidenceRole, MediaFile, MediaVariant
@@ -61,6 +61,7 @@ from apps.settlements.services import (
     generate_proxy_recipient_receipt,
     void_settlement,
 )
+from apps.settlements.services.receipts import _receipt_title, _render_receipt
 
 
 @pytest.fixture(autouse=True)
@@ -70,6 +71,46 @@ def isolated_media(settings):
     settings.TMP_ROOT = root / "tmp"
     yield
     shutil.rmtree(root, ignore_errors=True)
+
+
+def make_media_file_present(media):
+    path = media_absolute_path(media)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"receipt-test")
+
+
+@pytest.mark.django_db
+def test_large_receipt_uses_dynamic_height_and_single_photo_column():
+    photos = []
+    for color in ("red", "blue", "green", "yellow", "purple"):
+        buffer = BytesIO()
+        Image.new("RGB", (1600, 1000), color).save(buffer, "JPEG")
+        photos.append(store_delivery_image(upload=SimpleUploadedFile(
+            f"{color}.jpg", buffer.getvalue(), content_type="image/jpeg"
+        )))
+    rows = [(f"第 {index} 件", f"取件标识 CODE-{index}") for index in range(1, 41)]
+    rows += [(f"费用项 {index}", f"¥{index}.00") for index in range(1, 51)]
+    receipt = _render_receipt(title="校驿 · 配送结算凭证", rows=rows, photo_media_items=photos)
+    with Image.open(receipt) as image:
+        assert image.width == 1080
+        assert image.height > 8000
+        first_y = 165 + len(rows) * 54 + 30 + 200
+        first = image.getpixel((540, first_y))
+        second = image.getpixel((540, first_y + 602))
+        assert first[0] > first[2]  # red first photo
+        assert second[2] > second[0]  # blue second photo
+    receipt.seek(0)
+    stored = store_delivery_image(upload=receipt, variant_type=MediaVariant.GENERATED_RECEIPT)
+    assert stored.width == 1080
+    assert stored.height > 8000
+
+
+@pytest.mark.django_db
+def test_receipt_title_uses_global_brand():
+    config = SiteConfiguration.load()
+    config.receipt_brand_name = "校园服务队"
+    config.save()
+    assert _receipt_title("配送凭证") == "校园服务队 · 配送凭证"
 
 
 def make_context(size=SizeClass.SMALL):
@@ -134,7 +175,7 @@ def test_settlement_candidate_is_one_round_and_server_resolves_members():
     group = next(item for item in settlement_candidate_groups() if item.key == f"round:{express_round.pk}")
     assert {order.pk for order in group.orders} == {first.pk, second.pk}
     assert not group.ready
-    assert "轮次尚未关闭" in "；".join(group.blockers)
+    assert "待同轮订单完成或归拢结束" in "；".join(group.blockers)
     express_round.status = "CLOSED"
     express_round.closed_at = timezone.now()
     express_round.save(update_fields=["status", "closed_at"])
@@ -180,6 +221,8 @@ def test_order_receipt_button_uses_only_available_active_version():
         settlement=settlement, version_no=1, media=media,
         image_type=SettlementImageType.CUSTOMER_SETTLEMENT,
     )
+    assert attach_latest_receipts([order])[0].latest_receipt_media_id is None
+    make_media_file_present(media)
     assert attach_latest_receipts([order])[0].latest_receipt_media_id == media.pk
     media.deleted_at = timezone.now()
     media.save(update_fields=["deleted_at"])
@@ -212,6 +255,8 @@ def test_deleting_current_receipt_promotes_available_prior_version():
         settlement=settlement, version_no=2, media=media[1],
         image_type=SettlementImageType.CUSTOMER_SETTLEMENT, is_active=True,
     )
+    make_media_file_present(media[0])
+    make_media_file_present(media[1])
     delete_media_file(media=media[1], reason="保留期清理")
     old.refresh_from_db()
     latest.refresh_from_db()

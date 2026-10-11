@@ -1,6 +1,10 @@
 """Phase 11 acceptance coverage for PWA, idempotency, seeds, and release artifacts."""
 
 import json
+import shutil
+import sqlite3
+import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -25,6 +29,29 @@ from apps.orders.models import DestinationType, Order, TakeoutGate
 from apps.orders.services import create_takeout_order
 
 pytestmark = pytest.mark.django_db
+
+
+def test_online_sqlite_snapshot_is_consistent_while_source_is_open():
+    root = Path(settings.BASE_DIR) / "data" / "tmp" / f"snapshot-test-{uuid.uuid4().hex}"
+    root.mkdir(parents=True)
+    try:
+        source = root / "live.sqlite3"
+        snapshot = root / "snapshot.sqlite3"
+        with sqlite3.connect(source) as live:
+            live.execute("PRAGMA journal_mode=WAL")
+            live.execute("CREATE TABLE proof (value TEXT)")
+            live.execute("INSERT INTO proof VALUES ('retained')")
+            live.commit()
+            result = subprocess.run(
+                [sys.executable, "scripts/snapshot_sqlite.py", str(source), str(snapshot)],
+                cwd=settings.BASE_DIR, capture_output=True,
+            )
+            assert result.returncode == 0, result.stderr.decode(errors="replace")
+        with sqlite3.connect(snapshot) as copied:
+            assert copied.execute("SELECT value FROM proof").fetchone() == ("retained",)
+            assert copied.execute("PRAGMA quick_check").fetchone() == ("ok",)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def _recorder_customer():

@@ -6,6 +6,7 @@
   <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
     <div>
       <a href="{% url 'agents:workspace' %}" class="btn btn-sm btn-outline-secondary">返回代理批次</a>
+      {% if from_order %}<a href="{% url 'orders:history' %}?q={{ from_order.display_id|urlencode }}" class="btn btn-sm btn-outline-primary">返回订单 {{ from_order.display_id }}</a>{% endif %}
       <h1 class="h3 mt-2 mb-1">{{ batch.agent.name }} · {{ batch.display_code }}</h1>
       <div class="cdd-muted">{{ batch.get_status_display }} · 仅限快递 · {{ batch.batch_date }}</div>
     </div>

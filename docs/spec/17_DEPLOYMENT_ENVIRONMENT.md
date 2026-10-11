@@ -109,6 +109,8 @@ ready 检查 DB 可读写和 data 目录。
 6. Recovery Check；
 7. 管理员确认后退出维护。
 
+Windows 本地离线包可在 Compose 服务继续运行时生成：先通过 SQLite online backup API 生成并校验独立数据库快照，再把快照与媒体文件放入私有备份和离线包；不直接复制正在使用的 SQLite/WAL 文件。打包不会停止或重启现有容器。Linux 打包脚本仍遵守其自身的停机要求。
+
 ## 11. cpolar
 
 Django 只假设稳定 HTTPS Base URL，不把 cpolar 账号/隧道逻辑写进业务模型。建议固定域名/固定隧道，避免 PWA 地址变化。

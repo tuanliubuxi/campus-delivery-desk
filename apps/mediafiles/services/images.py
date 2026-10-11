@@ -12,8 +12,11 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from apps.mediafiles.models import MediaFile, MediaVariant
 
-MAX_IMAGE_SIDE = 1600
-JPEG_QUALITY = 85
+IMAGE_PROFILES = {
+    "STANDARD": (1600, 85),
+    "CLEAR": (2400, 92),
+    "EXTRA_CLEAR": (3200, 95),
+}
 
 
 def media_absolute_path(media):
@@ -29,13 +32,21 @@ def store_delivery_image(*, upload, variant_type=MediaVariant.ORIGINAL_COMPRESSE
     """Decode real image bytes, strip metadata, compress, then atomically publish."""
     if not upload:
         return None
+    if variant_type == MediaVariant.GENERATED_RECEIPT:
+        # A tall receipt must not be shrunk to a phone-photo limit after rendering.
+        max_side, jpeg_quality = None, 90
+    else:
+        from apps.config_center.models import SiteConfiguration
+
+        max_side, jpeg_quality = IMAGE_PROFILES[SiteConfiguration.load().image_quality]
     try:
         image = Image.open(upload)
         image.verify()
         upload.seek(0)
         image = Image.open(upload)
         image = ImageOps.exif_transpose(image)
-        image.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE), Image.Resampling.LANCZOS)
+        if max_side is not None:
+            image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
         if image.mode not in {"RGB", "L"}:
             background = Image.new("RGB", image.size, "white")
             if "A" in image.getbands():
@@ -56,7 +67,7 @@ def store_delivery_image(*, upload, variant_type=MediaVariant.ORIGINAL_COMPRESSE
     temp_root.mkdir(parents=True, exist_ok=True)
     temp_path = temp_root / f"upload-{uuid.uuid4().hex}.tmp"
     try:
-        image.save(temp_path, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+        image.save(temp_path, format="JPEG", quality=jpeg_quality, optimize=True)
         content = temp_path.read_bytes()
         os.replace(temp_path, final_path)
         try:

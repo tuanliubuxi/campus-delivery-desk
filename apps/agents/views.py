@@ -131,11 +131,19 @@ def batch_detail(request, batch_id):
     for recipient in batch.recipients.all():
         recipient.delivery_receipt_reasons = proxy_delivery_receipt_readiness(recipient)
 
+    from_order_id = request.GET.get("from_order", "")
+    from_order = (
+        batch.orders.filter(pk=from_order_id).first()
+        if from_order_id.isdecimal()
+        else None
+    )
+
     return render(
         request,
         "agents/batch_detail.html",
         {
             "batch": batch,
+            "from_order": from_order,
             "readiness_reasons": proxy_batch_readiness(batch)
             if batch.status == "OPEN"
             else [],

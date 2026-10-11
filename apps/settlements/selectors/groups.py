@@ -91,7 +91,7 @@ def settlement_candidate_groups(limit=200):
         first = orders[0]
         blockers = []
         if any(order.delivery_status != DeliveryStatus.DELIVERED for order in orders):
-            blockers.append("还有订单未送达")
+            blockers.append("已送达的订单待同轮其他订单完成")
         if any(order.settlement_status != OrderSettlementStatus.UNSETTLED for order in orders):
             blockers.append("成员已进入其他结算状态")
         if any(order.pk in occupied_ids for order in orders):
@@ -101,7 +101,7 @@ def settlement_candidate_groups(limit=200):
             title = first.customer.wechat_nickname or first.recipient_name_snapshot
             subtitle = f"快递轮次 #{round_.pk} · {round_.service_date} · {len(orders)} 单"
             if round_.status != ExpressRoundStatus.CLOSED:
-                blockers.append("快递轮次尚未关闭，请先完成必要归拢")
+                blockers.append("已送达，待同轮订单完成或归拢结束")
         elif key.startswith("batch:"):
             batch = first.proxy_batch
             title = batch.agent.name

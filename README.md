@@ -212,7 +212,7 @@ HTTPS_PORT=18443
 | `-offline-runtime-amd64.zip` / `.tar.gz` | Docker tar、启动脚本、Compose、Caddy、`.env` 与 `data/` | 最简迁移包；解压后直接运行离线脚本 |
 | `-manifest-amd64.txt` / `-manifest-arm64.txt` | Git commit、平台和 SHA-256 | 核对目标架构与文件完整性 |
 
-构建前应提交所有受 Git 跟踪的修改、停止 Compose 服务，并确认 `.env` 和数据库状态正确。Windows：
+构建前应提交所有受 Git 跟踪的修改，并确认 `.env` 和数据库状态正确。Windows 脚本使用 SQLite 在线快照，Compose 服务可保持运行；Linux 脚本仍须按其提示停机。Windows：
 
 ```powershell
 .\build-release.bat amd64

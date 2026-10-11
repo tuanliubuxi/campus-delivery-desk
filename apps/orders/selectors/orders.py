@@ -57,6 +57,7 @@ def order_detail(order_id):
 
 def attach_latest_receipts(orders):
     """Attach one available current receipt to each visible order without per-row queries."""
+    from apps.mediafiles.services import media_absolute_path
     from apps.settlements.models import (
         ProxyRecipientReceipt,
         SettlementImageType,
@@ -79,16 +80,18 @@ def attach_latest_receipts(orders):
         image_type=SettlementImageType.CUSTOMER_SETTLEMENT,
         is_active=True,
         media__deleted_at__isnull=True,
-    ).order_by("-version_no", "-pk"):
-        latest_customer.setdefault(version.settlement_id, version.media_id)
+    ).select_related("media").order_by("-version_no", "-pk"):
+        if media_absolute_path(version.media).is_file():
+            latest_customer.setdefault(version.settlement_id, version.media_id)
     recipient_ids = {order.proxy_recipient_id for order in orders if order.proxy_recipient_id}
     latest_proxy = {}
     for receipt in ProxyRecipientReceipt.objects.filter(
         proxy_recipient_id__in=recipient_ids,
         is_active=True,
         media__deleted_at__isnull=True,
-    ).order_by("-version_no", "-pk"):
-        latest_proxy.setdefault((receipt.proxy_recipient_id, receipt.proxy_batch_id), receipt.media_id)
+    ).select_related("media").order_by("-version_no", "-pk"):
+        if media_absolute_path(receipt.media).is_file():
+            latest_proxy.setdefault((receipt.proxy_recipient_id, receipt.proxy_batch_id), receipt.media_id)
     for order in orders:
         order.receipt_dialog_id = f"order-receipt-{order.pk}"
         order.latest_receipt_media_id = (

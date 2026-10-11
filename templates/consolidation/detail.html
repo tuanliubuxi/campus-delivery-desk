@@ -1,13 +1,16 @@
-{% extends "layouts/base.html" %}{% load static %}
+{% extends "layouts/base.html" %}{% load static image_profile %}
 {% block title %}归拢清单 · 校驿{% endblock %}
 {% block content %}
 <main class="container cdd-courier-shell">
   <div class="d-flex justify-content-between align-items-center gap-2"><h1 class="h4">找件清单</h1><a class="btn btn-outline-secondary btn-sm" href="{% url 'consolidation:courier-list' %}">返回我的归拢</a></div>
   <p class="text-secondary">成员已冻结；逐件核对原位置和照片。</p>
+  {% with first_item=round.items.first %}<section class="card card-body mb-3 cdd-finding-card cdd-finding-card--express">
+    <div class="d-flex justify-content-between gap-2 align-items-start"><strong class="cdd-recipient-badge cdd-flex-ellipsis" title="{{ first_item.order.recipient_name_snapshot }}">{{ first_item.order.recipient_name_snapshot|default:"收件人待确认" }}</strong><span class="badge text-bg-primary">{{ round.items.count }} 件快递</span></div>
+    <div class="mt-2">{% if first_item.order.customer.wechat_nickname %}<span class="cdd-ellipsis d-inline-block align-middle" style="max-width:12rem" title="{{ first_item.order.customer.wechat_nickname }}">微信 {{ first_item.order.customer.wechat_nickname }}</span>{% endif %}{% if first_item.order.recipient_phone_snapshot %}<span class="ms-2">手机尾号 {{ first_item.order.recipient_phone_snapshot|slice:"-4:" }}</span>{% endif %}</div>
+  {% endwith %}
   {% for item in round.items.all %}
-  <section class="card card-body mb-3 cdd-finding-card cdd-finding-card--{{ item.order.business_type|lower }}">
-    <div class="d-flex justify-content-between gap-2 align-items-start"><strong class="cdd-recipient-badge cdd-flex-ellipsis" title="{{ item.order.recipient_name_snapshot }}">{{ item.order.recipient_name_snapshot|default:"收件人待确认" }}</strong><span class="badge text-bg-primary">{{ item.order.get_business_type_display }}</span></div>
-    <div class="mt-2">{% if item.order.customer.wechat_nickname %}<span class="cdd-ellipsis d-inline-block align-middle" style="max-width:12rem" title="{{ item.order.customer.wechat_nickname }}">微信 {{ item.order.customer.wechat_nickname }}</span>{% endif %}{% if item.order.recipient_phone_snapshot %}<span class="ms-2">手机尾号 {{ item.order.recipient_phone_snapshot|slice:"-4:" }}</span>{% endif %}{% if item.order.express_detail.pickup_identifier %}<strong class="cdd-pickup-badge ms-2" title="{{ item.order.express_detail.pickup_identifier }}">取件标识 {{ item.order.express_detail.pickup_identifier|truncatechars:20 }}</strong>{% endif %}</div>
+  <div class="border-top mt-3 pt-3">
+    {% if item.order.express_detail.pickup_identifier %}<strong class="cdd-pickup-badge" title="{{ item.order.express_detail.pickup_identifier }}">取件标识 {{ item.order.express_detail.pickup_identifier|truncatechars:20 }}</strong>{% endif %}
     {% if item.order.order_note %}<div class="mt-2 cdd-ellipsis" title="{{ item.order.order_note }}">备注：{{ item.order.order_note }}</div>{% if item.order.order_note|length > 32 %}<button class="btn btn-sm btn-outline-secondary align-self-start mt-1" type="button" data-cdd-modal-open="consolidation-note-{{ item.pk }}">查看备注详情</button><dialog class="cdd-modal" id="consolidation-note-{{ item.pk }}"><div class="cdd-modal-panel"><h2 class="h5">订单备注</h2><p class="cdd-break-text">{{ item.order.order_note }}</p><div class="cdd-action-row justify-content-center"><button class="btn btn-primary" type="button" data-cdd-modal-close>知道了</button></div></div></dialog>{% endif %}{% endif %}
     <small class="cdd-muted mt-2">订单 {{ item.order.display_id }}</small>
     <div>原位置：{% for di in item.order.delivery_drop_items.all %}{{ di.drop.final_location_text }}{% endfor %}</div>
@@ -28,14 +31,15 @@
     <dialog class="cdd-modal" id="taken-{{ item.pk }}"><div class="cdd-modal-panel"><h2 class="h5">确认客户已取</h2><p class="small cdd-muted">请填写与客户核实的依据；此件不会计入最终放置合照。</p><form method="post" action="{% url 'consolidation:mark-item' item.id %}">{% csrf_token %}<input type="hidden" name="found_status" value="CUSTOMER_TAKEN"><label class="form-label" for="taken-note-{{ item.pk }}">确认依据</label><textarea class="form-control" id="taken-note-{{ item.pk }}" name="handling_note" maxlength="1000" required></textarea><div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-primary" type="submit">确认客户已取</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
     <dialog class="cdd-modal" id="exception-{{ item.pk }}"><div class="cdd-modal-panel"><h2 class="h5">记录人工处置</h2><p class="small cdd-muted">将建立可追踪的异常并暂缓此件结算；请说明实际情况，不要将未找到的物件拍入最终合照。</p><form method="post" action="{% url 'consolidation:mark-item' item.id %}">{% csrf_token %}<input type="hidden" name="found_status" value="EXCEPTION"><label class="form-label" for="exception-note-{{ item.pk }}">处置原因</label><textarea class="form-control" id="exception-note-{{ item.pk }}" name="handling_note" maxlength="1000" required></textarea><div class="cdd-action-row justify-content-center mt-3"><button class="btn btn-warning" type="submit">确认建立异常</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
     {% endif %}
-  </section>
+  </div>
   {% endfor %}
+  </section>
   <section class="card card-body">
     <h2 class="h5">最终放置凭证</h2>
     {% if round.status == 'COMPLETED' %}<p>本轮已完成。</p>
     {% elif pending_count %}<p class="alert alert-info">还有 {{ pending_count }} 件待核对。逐件选择找件结果后，才可提交最终放置凭证。</p>
     {% else %}<p class="small cdd-muted">找到 {{ found_count }} 件；请提交实际找到物件的最终位置与照片。</p>
-    <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}" data-cdd-draft data-cdd-resilient-submit data-cdd-image-compress data-cdd-draft-key="consolidation-{{ round.pk }}" data-cdd-completion-status-url="{% url 'consolidation:completion-status' round.pk %}">
+    <form method="post" enctype="multipart/form-data" action="{% url 'consolidation:complete' round.id %}" data-cdd-draft data-cdd-resilient-submit data-cdd-image-compress data-cdd-image-profile="{% image_profile %}" data-cdd-draft-key="consolidation-{{ round.pk }}" data-cdd-completion-status-url="{% url 'consolidation:completion-status' round.pk %}">
       {% csrf_token %}{{ complete_form.operation_id }}
       {% if complete_form.non_field_errors %}<div class="alert alert-danger">{{ complete_form.non_field_errors }}</div>{% endif %}
       {% if found_count %}
