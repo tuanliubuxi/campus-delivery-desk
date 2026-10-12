@@ -1,31 +1,17 @@
-{# Admin-only calculator: results are suggestions and never represent wage payment. #}
 {% extends "layouts/base.html" %}
-{% block title %}收益与工资 · 校驿{% endblock %}
+{% block title %}薪资核算与发放 · 校驿{% endblock %}
 {% block content %}
 <main class="container py-3">
-  <h1 class="h3">工资计算器</h1>
-  <p class="text-secondary">仅计算与复核，不表示工资已经发放。</p>
-  <form method="post" class="card card-body mb-4">{% csrf_token %}
-    {{ form.as_p }}
-    <h2 class="h5">手工模式分配</h2>
-    <div class="row g-2">{% for courier in couriers %}<label class="col-md-4">{{ courier.display_name }}
-      <input class="form-control" type="number" min="0" step="0.01" name="courier_{{ courier.id }}">
-    </label>{% empty %}<p>暂无配送员账号。</p>{% endfor %}</div>
-    <div class="d-flex flex-wrap gap-2 mt-3"><button class="btn btn-primary" name="preview" value="1">预览计算</button><button class="btn btn-success" name="save_result" value="1">保存计算结果</button></div>
-  </form>
-  {% if overlaps %}<section class="alert alert-warning"><strong>发现重叠周期</strong><ul class="mb-0">{% for run in overlaps %}<li>{{ run.period_start }} 至 {{ run.period_end }} · {{ run.mode }} · {{ run.created_at }}</li>{% endfor %}</ul></section>{% endif %}
-  {% if calculation %}<section class="card card-body">
-    <h2 class="h5">计算结果 · {% if calculation.mode == 'RATIO' %}比例模式{% else %}手工模式{% endif %}</h2>
-    <div class="row g-3 mb-3">
-      <div class="col-md-4"><strong>净服务收入池</strong><br>¥{{ calculation.available_pool }}</div>
-      <div class="col-md-4"><strong>强制归属</strong><br>¥{{ calculation.locked_amount }}</div>
-      <div class="col-md-4"><strong>剩余可人工分配</strong><br>¥{{ calculation.manual_allocatable_remaining }}</div>
-      {% if calculation.mode == 'MANUAL' %}<div class="col-md-4"><strong>当前人工合计</strong><br>¥{{ calculation.current_manual_total }}</div>{% endif %}
-    </div>
-    <div class="table-responsive cdd-scroll-region"><table class="table"><thead><tr><th>成员</th><th>有效比例</th><th>普通直接收益</th><th>强制归属</th><th>退款工资调整</th><th>人工金额</th><th>最终金额</th><th>提示</th></tr></thead><tbody>
-    {% for line in calculation.lines %}<tr><td>{{ line.courier.display_name }}</td><td>{{ line.effective_rate|default:"—" }}</td><td>¥{{ line.ordinary_direct }}</td><td>¥{{ line.locked_amount }}</td><td>¥{{ line.wage_adjustment }}</td><td>¥{{ line.manual_amount }}</td><td>¥{{ line.final_amount }}</td><td class="text-warning">{{ line.warning }}</td></tr>{% empty %}<tr><td colspan="8">该周期暂无已结算收益。</td></tr>{% endfor %}
-    </tbody></table></div>
-  </section>{% endif %}
-  <section class="card card-body mt-4"><h2 class="h5">已保存的计算记录</h2><div class="table-responsive cdd-scroll-region"><table class="table mb-0"><thead><tr><th>周期</th><th>模式</th><th>保存时间</th><th>操作人</th></tr></thead><tbody>{% for run in saved_runs %}<tr><td>{{ run.period_start }} 至 {{ run.period_end }}</td><td>{{ run.mode }}</td><td>{{ run.created_at }}</td><td>{{ run.created_by|default:"系统" }}</td></tr>{% empty %}<tr><td colspan="4">暂无记录</td></tr>{% endfor %}</tbody></table></div></section>
+  <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><div><h1 class="h3">薪资核算与发放</h1><p class="text-secondary">按订单完成日归集；客户确认付款后才可计薪。核算不代表已发放。</p></div><a class="btn btn-outline-primary align-self-start" href="{% url 'settlements:wage-history' %}">查看发薪记录</a></div>
+  <section class="card card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-6"><label class="form-label" for="wage-courier">配送员</label><select class="form-select text-truncate" name="courier" id="wage-courier" onchange="this.form.submit()"><option value="">请选择配送员</option>{% for courier in couriers %}<option value="{{ courier.pk }}" {% if selected.pk == courier.pk %}selected{% endif %}>{{ courier.display_name }}{% if not courier.is_active %}（已停用）{% endif %}</option>{% endfor %}</select></div>
+      <div class="col-md-6"><label class="form-label" for="wage-date">待发薪日期</label><select class="form-select" name="work_date" id="wage-date" onchange="this.form.submit()" {% if not selected or not dates %}disabled{% endif %}>{% if not dates %}<option>暂无待发薪日期</option>{% else %}<option value="">请选择日期</option>{% for day in dates %}<option value="{{ day|date:'Y-m-d' }}" {% if selected_date == day %}selected{% endif %}>{{ day|date:'Y年m月d日' }}</option>{% endfor %}{% endif %}</select></div>
+      <div class="col-12"><button class="btn btn-outline-secondary">查看</button></div>
+    </form>
+    {% if selected and not dates %}<p class="text-secondary mt-3 mb-0">该配送员暂无已收款且未发放的订单收入，不能建立发薪草稿。</p>{% endif %}
+    {% if selected and selected_date %}{% if existing %}<a class="btn btn-outline-primary mt-3 align-self-start" href="{% url 'settlements:wage-detail' existing.pk %}">继续该日发薪草稿</a>{% else %}<form method="post" action="{% url 'settlements:wage-draft-create' %}" class="mt-3">{% csrf_token %}<input type="hidden" name="courier_id" value="{{ selected.pk }}"><input type="hidden" name="work_date" value="{{ selected_date|date:'Y-m-d' }}"><input type="hidden" name="operation_id" value="{{ operation_id }}"><button class="btn btn-primary" {% if selected_date not in dates %}disabled{% endif %}>建立该日薪资草稿</button></form>{% endif %}{% endif %}
+  </section>
+  <p class="small text-secondary mt-3">当天任务未完成会阻止核算。客户迟付订单在收款后仍归属原完成日期，另建补发记录。</p>
 </main>
 {% endblock %}

@@ -284,3 +284,37 @@ class ProxyRecipientReceipt(models.Model):
                 name="settlements_one_active_proxy_receipt",
             ),
         ]
+
+
+class UpstairsPriceReview(models.Model):
+    """Immutable recorder choice between system formula and courier's whole-order suggestion."""
+
+    class Decision(models.TextChoices):
+        KEEP_FORMULA = "KEEP_FORMULA", "保留公式价"
+        ACCEPT_SUGGESTION = "ACCEPT_SUGGESTION", "采纳建议总额"
+
+    settlement = models.ForeignKey(Settlement, on_delete=models.PROTECT, related_name="upstairs_reviews")
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="upstairs_reviews")
+    decision = models.CharField(max_length=24, choices=Decision.choices)
+    small_medium_count = models.PositiveIntegerField()
+    large_oversize_count = models.PositiveIntegerField()
+    formula_total = models.DecimalField(max_digits=12, decimal_places=2)
+    suggested_total = models.DecimalField(max_digits=12, decimal_places=2)
+    suggestion_note = models.CharField(max_length=255)
+    adjustment_charge = models.ForeignKey(
+        "settlements.ChargeItem", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="upstairs_reviews",
+    )
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["settlement", "order"], name="unique_upstairs_review_per_settlement_order")]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise TypeError("UpstairsPriceReview is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise TypeError("UpstairsPriceReview cannot be deleted")

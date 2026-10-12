@@ -14,6 +14,23 @@ class ExceptionStatus(models.TextChoices):
     RESOLVED = "RESOLVED", "已解决"
 
 
+EXCEPTION_REASON_CHOICES = [
+    ("CONTACT_FAILED", "无法联系客户"),
+    ("PICKUP_FAILED", "取件受阻"),
+    ("ITEM_MISSING", "物件遗失／找不到"),
+    ("ITEM_DAMAGED", "物件损坏"),
+    ("ADDRESS_ERROR", "地址或收件信息有误"),
+    ("DELIVERY_BLOCKED", "配送受阻"),
+    ("CUSTOMER_TAKEN", "客户已自行取走"),
+    ("OTHER", "其他"),
+]
+LEGACY_REASON_LABELS = {
+    "DAMAGED": "物件损坏", "DUPLICATE": "疑似重复订单",
+    "POST_PICKUP_CANCEL": "取件后取消", "CANNOT_PICK": "取件受阻",
+    "CUSTOMER_UNREACHABLE": "无法联系客户", "ADDRESS_ISSUE": "地址或收件信息有误",
+}
+
+
 class ManualHandlingAction(models.TextChoices):
     ADD_EXTRA_CHARGE = "ADD_EXTRA_CHARGE", "追加费用"
     REDUCE_CHARGE = "REDUCE_CHARGE", "减少费用"
@@ -96,6 +113,12 @@ class ExceptionCase(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+    @property
+    def reason_label(self):
+        return dict(EXCEPTION_REASON_CHOICES).get(
+            self.reason_code, LEGACY_REASON_LABELS.get(self.reason_code, self.reason_code)
+        )
 
 
 class ExceptionCaseAttachment(models.Model):

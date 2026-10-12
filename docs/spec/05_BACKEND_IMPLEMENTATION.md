@@ -399,26 +399,9 @@ DRAFT 可以提供预览，但带价格的“正式有效结算凭证”必须�
 
 真实退款使用 REFUND/FinancialAdjustment，保留原 SETTLED 事实。
 
-## 23. 工资计算器
+## 23. 每日薪资核算与发放
 
-`available_pool` 定义为：所选周期已经完成客户/代理结算的净服务营业收入，扣除影响计薪的退款/减免，不包含待付款、商品采购款和 REVERSED 结算。
-
-其中具有强制收益归属的金额先锁定。例如 CUSTOMER_EXTRA 100% 锁定其 beneficiary courier：
-
-```text
-available_pool = 900
-locked_to_couriers = 20
-manual_allocatable_remaining = 880
-```
-
-`calculate_wages(filters, mode)`：
-
-- RATIO：普通业务收益按配送员有效比例（个人覆盖优先，否则系统默认）计算，强制归属收益直接加入对应人员；
-- MANUAL：管理员分配剩余可人工分配池，强制归属部分不可转给别人。
-
-系统默认比例初始为 1.0，配送员个人比例允许为空并继承默认值。缺少有效比例不得阻止业务、结算确认或 CourierEarning 收益归属；只有 RATIO 工资计算遇到所选周期内无有效比例的配送员普通收益时拒绝。CUSTOMER_EXTRA 始终按 100% 归 beneficiary courier，不依赖普通比例配置。
-
-MANUAL 硬约束 `sum(manual_allocations) <= manual_allocatable_remaining`。个人最终工资高于本人直接产生的普通配送收益只返回 warning，不阻塞。
+历史 WageCalculationRun 保留只读兼容，旧 RATIO/MANUAL 整周期新建入口关闭。新流程以 CourierEarning 中已确认客户付款的 SETTLED 收益为来源，按 DeliveryDrop 完成日期分日，且不得重复进入有效薪资单。结算确认时冻结有效计薪比例；指定客户加价仍 100% 归指定成员。管理员对单日项目建立 DRAFT，逐条添加有理由的调整（调整后合计必须大于零），确认核算成 READY，实际付款后登记 PAID；未付款草稿可审计作废。配送员仅可查询自己的薪资构成。
 
 ## 24. Dashboard Selector
 

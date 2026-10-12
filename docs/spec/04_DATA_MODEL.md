@@ -135,6 +135,10 @@ delivery_status           NEW / ASSIGNED / PICKED / DELIVERING / DELIVERED / CAN
 settlement_status         UNSETTLED / WAITING_PAYMENT / SETTLED
 is_urgent                 bool
 requires_upstairs         bool default false
+upstairs_small_medium_count / upstairs_large_oversize_count   nullable int，简单业务上楼计数
+upstairs_small_rate_snapshot / upstairs_large_rate_snapshot   nullable money，录单时费率
+upstairs_suggested_total   nullable money，配送员整单建议总额
+upstairs_suggestion_note   text，填写建议时必填
 entry_mode                NORMAL / DIRECT_COMPLETE / HISTORICAL_BACKFILL
 
 destination_type          CAMPUS_BUILDING / OFF_CAMPUS_ADDRESS
@@ -576,7 +580,7 @@ order_id nullable          # 业务收益通常有 Order；纯工资调整可空
 settlement_id nullable
 source_charge_item_id nullable
 courier_id
-source_type               BASE_DELIVERY / UPSTAIRS / CUSTOMER_EXTRA / MANUAL_EXTRA / WAGE_ADJUSTMENT
+source_type               BASE_DELIVERY / UPSTAIRS / UPSTAIRS_REVIEW / CUSTOMER_EXTRA / MANUAL_EXTRA / WAGE_ADJUSTMENT
 amount_base               Decimal nullable
 commission_rate_snapshot  Decimal nullable
 suggested_wage_amount     Decimal nullable
@@ -584,13 +588,15 @@ status                    PENDING_PAYMENT / SETTLED / REVERSED
 created_at
 ```
 
-CourierEarning 按收益来源拆行，正常业务收益的粒度为“Settlement × Order（如适用）× Courier × source/source ChargeItem”，而不是把一个订单所有收益混成一条。配送完成时创建 BASE_DELIVERY `PENDING_PAYMENT` 归属记录，`settlement_id=NULL`；结算确认时按 SettlementLine/ChargeItem 来源生成或完成 UPSTAIRS、CUSTOMER_EXTRA、MANUAL_EXTRA 等收益行。历史 `commission_rate_snapshot/suggested_wage_amount` 字段仅保留既有事实兼容；新规则在工资计算时读取配送员个人覆盖比例或系统默认比例，不回写历史收益行。
+CourierEarning 按收益来源拆行，正常业务收益的粒度为“Settlement × Order（如适用）× Courier × source/source ChargeItem”，而不是把一个订单所有收益混成一条。配送完成时创建 BASE_DELIVERY `PENDING_PAYMENT` 归属记录，`settlement_id=NULL`；结算确认时按 SettlementLine/ChargeItem 来源生成或完成 UPSTAIRS、UPSTAIRS_REVIEW、CUSTOMER_EXTRA、MANUAL_EXTRA 等收益行，并冻结有效计薪比例。客户自愿加价仍 100% 归属指定成员。
 
 `earning_key` 必须是确定性的，避免 SQLite nullable UNIQUE 语义导致重复。例如基础归属可使用 `base:{order_id}:{courier_id}:initial`；结算派生可包含 settlement/order/charge_item/courier。Settlement 撤销时原记录转为 REVERSED；再次结算创建新 CourierEarning，不复用旧记录。
 
-## 18. WageCalculationRun
+## 18. 每日薪资单
 
-工资计算器不表示“已发工资”，但可保存一次计算结果便于复核：
+旧 WageCalculationRun 历史快照保留，不再作为新业务入口。新记录采用 WagePayout（配送员、订单完成日、补发序号、DRAFT/READY/PAID/VOIDED、基数/调整/应发合计、建立/核算/发放/作废人和时间）、WagePayoutEarning（订单收入快照）、WagePayoutAdjustment（类型、带符号金额、理由、说明和添加人）及 WagePayoutRefund（关联退款扣减）。PAID 明细不可修改；同日迟到付款可建立补发单。UpstairsPriceReview 固定结算草稿中逐单采纳或保留建议的决定、原件数、公式价、建议价、理由与审定人。
+
+旧版结构仅供兼容历史：
 
 ```text
 id / operation_id unique
@@ -601,7 +607,7 @@ created_by
 created_at
 ```
 
-预览不创建记录；保存时写入不可变快照。相同 `period_start + period_end + mode` 唯一；部分周期重叠允许在明确提示并二次确认后保存。强制归属费用（如 CUSTOMER_EXTRA）单独记录为 locked amount。
+旧版记录不表示已发放工资，不再新建整周期手工分配记录。
 
 ## 19. 异常、图片保护、审计与运维
 

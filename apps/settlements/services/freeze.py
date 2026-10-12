@@ -62,6 +62,10 @@ def freeze_settlement_for_payment(*, settlement, actor):
     )
     if occupied:
         raise ValidationError("订单已被其他有效结算占用")
+    suggested_ids = set(order_qs.filter(upstairs_suggested_total__isnull=False).values_list("pk", flat=True))
+    reviewed_ids = set(settlement.upstairs_reviews.values_list("order_id", flat=True))
+    if suggested_ids - reviewed_ids:
+        raise ValidationError("配送员价格建议尚未逐单决定采纳或保留公式价")
     if order_qs.filter(
         exception_cases__status=ExceptionStatus.OPEN,
         exception_cases__blocks_settlement=True,

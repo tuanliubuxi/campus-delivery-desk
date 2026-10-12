@@ -11,7 +11,7 @@ from django.db.models.deletion import ProtectedError
 from apps.accounts.models import User
 from apps.accounts.services.leases import revoke_all_user_leases
 from apps.audit.services import record_event
-from apps.common.enums import BusinessType, Theme, UserRole
+from apps.common.enums import AcceptingCategory, BusinessType, Theme, UserRole
 from apps.config_center.models import BusinessTypeConfig
 
 
@@ -174,9 +174,16 @@ def set_accepting_orders(*, courier, accepting):
 def select_accepting_business(*, courier, business_type):
     if courier.role != UserRole.COURIER:
         raise PermissionError("只有配送员可选择业务类型")
-    if business_type not in BusinessType.values:
+    if business_type not in AcceptingCategory.values and business_type not in BusinessType.values:
         raise ValueError("未知业务类型")
-    if not BusinessTypeConfig.objects.filter(business_type=business_type, enabled=True).exists():
+    if business_type != BusinessType.EXPRESS:
+        business_type = AcceptingCategory.SIMPLE
+    enabled = BusinessTypeConfig.objects.filter(enabled=True)
+    if business_type == AcceptingCategory.EXPRESS:
+        enabled = enabled.filter(business_type=BusinessType.EXPRESS)
+    else:
+        enabled = enabled.exclude(business_type=BusinessType.EXPRESS)
+    if not enabled.exists():
         raise ValueError("该业务当前未启用")
     # Dispatch owns assignment state; the local import avoids an app import cycle.
     from apps.dispatch.models import Assignment
@@ -186,8 +193,11 @@ def select_accepting_business(*, courier, business_type):
         .values_list("order__business_type", flat=True)
         .distinct()
     )
-    if active_businesses and active_businesses != {business_type}:
-        raise ValueError("存在其他业务的活跃任务，完成或转出后才能切换")
+    if active_businesses and (
+        (business_type == AcceptingCategory.EXPRESS and active_businesses != {BusinessType.EXPRESS})
+        or (business_type == AcceptingCategory.SIMPLE and BusinessType.EXPRESS in active_businesses)
+    ):
+        raise ValueError("存在另一类业务的活跃任务，完成或转出后才能切换")
     courier.accepting_business = business_type
     courier.save(update_fields=["accepting_business"])
     record_event(

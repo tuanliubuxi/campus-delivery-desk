@@ -147,11 +147,11 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-order-timeline li { padding-left: .2rem; }
 .cdd-order-timeline time { display: inline-block; min-width: 8.5rem; color: var(--cdd-muted); font-variant-numeric: tabular-nums; }
 .cdd-task-card { border-left: .3rem solid var(--cdd-primary); }
-.cdd-recipient-badge { max-width: min(76%, 19rem); padding: .3rem .65rem; border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 24%, var(--cdd-surface)); color: var(--cdd-text); }
+.cdd-recipient-badge { max-width: min(76%, 19rem); padding: .3rem .65rem; border: 1px solid var(--cdd-primary); border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 18%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-task-order { padding: .72rem 0; border-bottom: 1px solid var(--cdd-border); }
 .cdd-task-primary { margin-top: .2rem; font-size: 1.02rem; font-weight: 650; }
 .cdd-task-identifiers { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem .5rem; margin-top: .3rem; font-size: .92rem; }
-.cdd-pickup-badge { max-width: 100%; padding: .2rem .45rem; border-radius: .35rem; background: color-mix(in srgb, var(--cdd-focus) 35%, var(--cdd-surface)); color: var(--cdd-text); }
+.cdd-pickup-badge { max-width: 100%; padding: .2rem .45rem; border: 1px solid var(--cdd-focus); border-radius: .35rem; background: color-mix(in srgb, var(--cdd-focus) 22%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-task-status { color: var(--cdd-muted); font-size: .82rem; white-space: nowrap; }
 .cdd-task-order summary { color: var(--cdd-primary); cursor: pointer; font-size: .84rem; margin-top: .35rem; }
 .cdd-status-dot { width: .65rem; height: .65rem; border-radius: 50%; background: #8793a5; box-shadow: 0 0 0 3px color-mix(in srgb, #8793a5 22%, transparent); }
@@ -185,7 +185,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-modal-panel { position: relative; max-height: 88vh; overflow: auto; padding: 1.35rem; border: 1px solid var(--cdd-border); border-radius: 1rem; background: var(--cdd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 35%); }
 .cdd-modal-close { position: sticky; z-index: 2; top: 0; float: right; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 1px solid var(--cdd-border); border-radius: 50%; background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.35rem; }
 .cdd-receipt-viewport { max-height: 65vh; overflow: auto; touch-action: pinch-zoom; }
-.cdd-detail-key { display: inline-block; max-width: 100%; padding: .2rem .55rem; border-radius: .45rem; background: var(--cdd-elevated); color: var(--cdd-text); overflow-wrap: anywhere; }
+.cdd-detail-key { display: inline-block; max-width: 100%; padding: .2rem .55rem; border: 1px solid var(--cdd-primary); border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 16%, var(--cdd-surface)); color: var(--cdd-text); overflow-wrap: anywhere; }
 .cdd-settlement-groups { max-height: min(64vh, 640px); }
 .cdd-settlement-group { display: block; margin-bottom: .7rem; padding: .85rem; border: 1px solid var(--cdd-border); border-radius: .75rem; background: var(--cdd-elevated); cursor: pointer; }
 .cdd-settlement-group:hover:not(.is-blocked), .cdd-settlement-group:has(input:checked) { border-color: var(--cdd-primary); box-shadow: inset 0 0 0 1px var(--cdd-primary); }
@@ -330,3 +330,11 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .card form input {
   max-width: 100%;
 }
+
+/* Distinct left-edge cues remain legible in every supported theme. */
+.cdd-task-order { border-left: .28rem solid var(--bs-primary); padding-left: .8rem; }
+.cdd-task-order--takeout { border-left-color: #e77a2d; }
+.cdd-task-order--kfc { border-left-color: #cf3d50; }
+.cdd-task-order--grocery { border-left-color: #37986d; }
+.cdd-task-order--errand { border-left-color: #9367c8; }
+.cdd-task-order--luggage_upstairs { border-left-color: #4789c5; }

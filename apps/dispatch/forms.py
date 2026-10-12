@@ -1,11 +1,12 @@
 """Mobile courier forms carrying explicit idempotency keys and evidence uploads."""
 
 import uuid
+from decimal import Decimal
 
 from django import forms
 
 from apps.accounts.models import User
-from apps.common.enums import UserRole
+from apps.common.enums import BusinessType, UserRole
 from apps.common.forms import BootstrapFormMixin
 from apps.config_center.models import QuickLocationPhrase
 from apps.orders.models import PickupArea, SizeClass
@@ -92,7 +93,7 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
     annotated_photo = forms.ImageField(
         required=False,
         label="远景标注派生图",
-        help_text="可使用页面标记工具生成，也可直接上传。",
+        help_text="可使用页面标记工具生成，也可直接上传；已有标注图时不必重复上传远景原图。",
     )
 
     def __init__(self, *args, assignments, **kwargs):
@@ -100,6 +101,9 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
         self.unknown_size_fields = []
         self.known_size_fields = []
         self.size_order_ids = set()
+        self.upstairs_order_ids = set()
+        self.unknown_upstairs_fields = []
+        self.known_upstairs_fields = []
         self.fields["order_ids"].choices = [
             (str(item.order_id), item.order.display_id) for item in assignments
         ]
@@ -139,6 +143,27 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
                     self.unknown_size_fields.append(field_pair)
                 else:
                     self.known_size_fields.append(field_pair)
+            order = item.order
+            if order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order.requires_upstairs:
+                self.upstairs_order_ids.add(str(order.pk))
+                suggested = f"upstairs_suggested_total_{order.pk}"
+                note = f"upstairs_suggestion_note_{order.pk}"
+                self.fields[suggested] = forms.DecimalField(
+                    required=False, min_value=Decimal("0.01"), max_digits=12, decimal_places=2,
+                    label=f"{order.recipient_name_snapshot} · 配送员建议总费用（元，可选）",
+                    help_text="填整单应收总额，不是上楼费差额；计数不符请在说明中写清。",
+                )
+                self.fields[note] = forms.CharField(
+                    required=False, max_length=255, label="价格建议与计数说明（填写建议时必填）",
+                )
+                if order.upstairs_small_medium_count is None and order.upstairs_large_oversize_count is None:
+                    small = f"upstairs_small_medium_count_{order.pk}"
+                    large = f"upstairs_large_oversize_count_{order.pk}"
+                    self.fields[small] = forms.IntegerField(required=False, min_value=0, label="小／中件数（独立袋／箱／包）")
+                    self.fields[large] = forms.IntegerField(required=False, min_value=0, label="大／超大件数（独立袋／箱／包）")
+                    self.unknown_upstairs_fields.append((str(order.pk), order, self[small], self[large], self[suggested], self[note]))
+                else:
+                    self.known_upstairs_fields.append((order, self[suggested], self[note]))
         phrases = " / ".join(
             QuickLocationPhrase.objects.filter(is_active=True).values_list("text", flat=True)
         )
@@ -151,6 +176,13 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
         for order_id in selected & self.size_order_ids:
             if not cleaned.get(f"size_class_{order_id}"):
                 self.add_error(f"size_class_{order_id}", "请确认本单的实际大小")
+        for order_id in selected & self.upstairs_order_ids:
+            small_key = f"upstairs_small_medium_count_{order_id}"
+            large_key = f"upstairs_large_oversize_count_{order_id}"
+            if small_key in self.fields and sum((cleaned.get(small_key) or 0, cleaned.get(large_key) or 0)) <= 0:
+                self.add_error(small_key, "完成配送前必须填写件数，且至少一类大于零")
+            if cleaned.get(f"upstairs_suggested_total_{order_id}") is not None and not cleaned.get(f"upstairs_suggestion_note_{order_id}", "").strip():
+                self.add_error(f"upstairs_suggestion_note_{order_id}", "填写总费用建议时，请说明理由")
         return cleaned
 
 

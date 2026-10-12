@@ -68,6 +68,12 @@ class Order(models.Model):
     )
     is_urgent = models.BooleanField(default=False, db_index=True)
     requires_upstairs = models.BooleanField(default=False, db_index=True)
+    upstairs_small_medium_count = models.PositiveIntegerField(null=True, blank=True)
+    upstairs_large_oversize_count = models.PositiveIntegerField(null=True, blank=True)
+    upstairs_suggested_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    upstairs_suggestion_note = models.CharField(max_length=255, blank=True)
+    upstairs_small_rate_snapshot = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    upstairs_large_rate_snapshot = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     entry_mode = models.CharField(
         max_length=24,
         choices=EntryMode.choices,
@@ -175,6 +181,25 @@ class Order(models.Model):
         from apps.orders.services.numbering import format_display_id
 
         return format_display_id(self)
+
+    @property
+    def delivery_status_badge_class(self):
+        return {
+            DeliveryStatus.NEW: "text-bg-secondary",
+            DeliveryStatus.ASSIGNED: "text-bg-primary",
+            DeliveryStatus.PICKED: "text-bg-warning",
+            DeliveryStatus.DELIVERING: "text-bg-info",
+            DeliveryStatus.DELIVERED: "text-bg-success",
+            DeliveryStatus.CANCELED: "text-bg-danger",
+        }.get(self.delivery_status, "text-bg-secondary")
+
+    @property
+    def settlement_status_badge_class(self):
+        return {
+            OrderSettlementStatus.UNSETTLED: "text-bg-secondary",
+            OrderSettlementStatus.WAITING_PAYMENT: "text-bg-warning",
+            OrderSettlementStatus.SETTLED: "text-bg-success",
+        }.get(self.settlement_status, "text-bg-secondary")
 
     def __str__(self):
         return self.fixed_id

@@ -62,7 +62,7 @@
             <td>{{ order.sequence_date }}</td><td>{{ order.get_business_type_display }}</td><td><span class="cdd-ellipsis" title="{{ order.recipient_name_snapshot }}">{{ order.recipient_name_snapshot }}</span></td>
             <td>{{ order.get_source_type_display }}{% if order.proxy_batch_id %}<div class="small cdd-ellipsis" title="{{ order.proxy_batch.agent.name }}">{{ order.proxy_batch.agent.name }}</div>{% endif %}</td>
             <td><span class="cdd-ellipsis" title="{{ order.zone_snapshot }}">{{ order.zone_snapshot|default:order.off_campus_address }}</span></td><td>{{ order.is_urgent|yesno:"是,否" }}</td><td>{{ order.requires_upstairs|yesno:"是,否" }}</td>
-            <td>{{ order.get_delivery_status_display }}</td><td>{{ order.get_settlement_status_display }}</td>
+            <td><span class="badge {{ order.delivery_status_badge_class }}">{{ order.get_delivery_status_display }}</span></td><td><span class="badge {{ order.settlement_status_badge_class }}">{{ order.get_settlement_status_display }}</span></td>
           </tr>
           {% empty %}<tr><td colspan="10" class="text-center text-body-secondary py-4">当前筛选没有订单</td></tr>{% endfor %}
         </tbody>

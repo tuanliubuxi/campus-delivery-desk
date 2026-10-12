@@ -302,6 +302,15 @@ def complete_task(request, task_id):
                     ),
                     far_photo=form.cleaned_data["far_photo"],
                     annotated_photo=form.cleaned_data["annotated_photo"],
+                    upstairs_data={
+                        order_id: {
+                            "small": form.cleaned_data.get(f"upstairs_small_medium_count_{order_id}"),
+                            "large": form.cleaned_data.get(f"upstairs_large_oversize_count_{order_id}"),
+                            "suggested_total": form.cleaned_data.get(f"upstairs_suggested_total_{order_id}"),
+                            "note": form.cleaned_data.get(f"upstairs_suggestion_note_{order_id}", ""),
+                        }
+                        for order_id in selected_ids
+                    },
                 )
         except (ValidationError, ValueError) as exc:
             form.add_error(None, exc)

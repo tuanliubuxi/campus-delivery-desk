@@ -1,8 +1,8 @@
 {% extends "layouts/base.html" %}
 {% block title %}结算 · 校驿{% endblock %}
 {% block content %}
-<main class="container py-3"><div class="row g-4">
-  <section class="col-lg-5">
+<main class="container py-3"><div class="d-flex justify-content-end mb-3"><a class="btn btn-outline-primary" href="{% url 'settlements:history' %}">查看结算记录</a></div><div class="row g-4">
+  <section class="col-lg-12">
     <h1 class="h3">建立结算草稿</h1>
     <p class="cdd-muted">每张卡片是一个必须一起结算的收件轮次或代理批次。一次只建立一组草稿，不会立即冻结金额或改变订单状态。</p>
     <form method="post" action="{% url 'settlements:build' %}" class="cdd-card p-3">
@@ -17,14 +17,5 @@
       <button class="btn btn-primary mt-3" type="submit">建立结算草稿</button>
     </form>
   </section>
-  <section class="col-lg-7"><h2 class="h4">最近结算</h2><div class="cdd-scroll-region">
-    {% for settlement in settlements %}
-    <a class="card card-body mb-2 text-decoration-none" href="{% url 'settlements:detail' settlement.id %}">
-      <strong>#{{ settlement.id }} · {{ settlement.get_business_type_display }}</strong>
-      <span>{{ settlement.get_status_display }} · {{ settlement.settlement_orders.count }} 单</span>
-      {% if settlement.status == 'VOIDED' and settlement.void_reason %}<span class="small cdd-muted cdd-ellipsis" title="{{ settlement.void_reason }}">作废原因：{{ settlement.void_reason }}</span>{% endif %}
-    </a>
-    {% empty %}<div class="alert alert-light">暂无结算。</div>{% endfor %}
-  </div></section>
 </div></main>
 {% endblock %}

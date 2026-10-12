@@ -117,10 +117,11 @@ def accept_transfer(*, transfer, courier):
     orders = [item.order for item in transfer.items.select_related("order")]
     business_type = orders[0].business_type
     active_businesses = _active_businesses(courier)
-    if active_businesses and active_businesses != {business_type}:
-        raise ValidationError("接收人存在其他业务的活跃任务")
-    if courier.accepting_business and courier.accepting_business != business_type:
-        raise ValidationError("接收人当前业务类型不匹配；请在无活跃任务时先切换")
+    if (business_type == BusinessType.EXPRESS and active_businesses and active_businesses != {BusinessType.EXPRESS}) or (business_type != BusinessType.EXPRESS and BusinessType.EXPRESS in active_businesses):
+        raise ValidationError("接收人存在另一类业务的活跃任务")
+    expected_category = BusinessType.EXPRESS if business_type == BusinessType.EXPRESS else "SIMPLE"
+    if courier.accepting_business and courier.accepting_business not in {expected_category, business_type}:
+        raise ValidationError("接收人当前接单类别不匹配；请在无另一类活跃任务时先切换")
     now = timezone.now()
     task = DeliveryTask.objects.create(
         task_type=(

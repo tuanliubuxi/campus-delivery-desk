@@ -129,6 +129,7 @@ def order_create(request, business_type):
             "business_type": business_type,
             "business_label": BusinessType(business_type).label,
             "is_create": True,
+            "selected_customer_id": customer.pk if customer else None,
             "picker_buildings": Building.objects.filter(is_active=True),
         },
     )
@@ -153,24 +154,30 @@ def quick_complete(request):
     order_form = FORM_MAP[business_type](request.POST or None, customer=customer)
     completion_form = CompletionMetadataForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and order_form.is_valid() and completion_form.is_valid():
-        metadata = completion_form.cleaned_data.copy()
-        try:
-            order = create_completed_order(
-                actor=request.user,
-                business_type=business_type,
-                order_data=order_form.service_kwargs(),
-                **metadata,
-            )
-        except PossibleDuplicateOrder as exc:
-            order_form.add_error(
-                "confirm_duplicate",
-                f"发现 {len(exc.orders)} 条疑似重复订单；核对后可勾选确认继续。",
-            )
-        except (ValidationError, PermissionError, ValueError) as exc:
-            completion_form.add_error(None, exc)
+        if business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order_form.cleaned_data.get("requires_upstairs") and not (
+            (order_form.cleaned_data.get("upstairs_small_medium_count") or 0)
+            + (order_form.cleaned_data.get("upstairs_large_oversize_count") or 0)
+        ):
+            order_form.add_error("upstairs_small_medium_count", "直接完成／历史补录没有后续配送员核对步骤，请填写实际件数")
         else:
-            messages.success(request, f"订单 {order.fixed_id} 已按实际完成事实录入")
-            return redirect("orders:detail", order_id=order.pk)
+            metadata = completion_form.cleaned_data.copy()
+            try:
+                order = create_completed_order(
+                    actor=request.user,
+                    business_type=business_type,
+                    order_data=order_form.service_kwargs(),
+                    **metadata,
+                )
+            except PossibleDuplicateOrder as exc:
+                order_form.add_error(
+                    "confirm_duplicate",
+                    f"发现 {len(exc.orders)} 条疑似重复订单；核对后可勾选确认继续。",
+                )
+            except (ValidationError, PermissionError, ValueError) as exc:
+                completion_form.add_error(None, exc)
+            else:
+                messages.success(request, f"订单 {order.fixed_id} 已按实际完成事实录入")
+                return redirect("orders:detail", order_id=order.pk)
     return render(
         request,
         "orders/quick_complete.html",
@@ -178,6 +185,7 @@ def quick_complete(request):
             "business_type": business_type,
             "business_label": BusinessType(business_type).label,
             "selected_customer": customer,
+            "selected_customer_id": customer.pk if customer else None,
             "picker_buildings": Building.objects.filter(is_active=True),
             "order_form": order_form,
             "completion_form": completion_form,

@@ -69,8 +69,12 @@ def create_exception_case(
         if existing.created_by_id != actor.pk:
             raise ValidationError("operation_id 已被其他异常操作使用")
         return existing
-    if not reason_code.strip() or not reason_text.strip():
-        raise ValidationError("异常类型和说明必填")
+    if not reason_code.strip():
+        raise ValidationError("异常类型必填")
+    if reason_code == "OTHER" and not reason_text.strip():
+        raise ValidationError("选择其他时，异常说明必填")
+    if len(delivery_evidence) > 4 or len(media_evidence) > 4:
+        raise ValidationError("每类已有证据最多引用 4 张")
     if not any((order, task, drop, consolidation_round)):
         raise ValidationError("异常必须关联订单、任务、配送记录或归拢轮次")
     if actor.role == UserRole.COURIER:
@@ -90,6 +94,9 @@ def create_exception_case(
                 or media.consolidation_far_rounds.filter(assigned_courier=actor).exists()
                 or media.consolidation_annotated_rounds.filter(
                     assigned_courier=actor
+                ).exists()
+                or media.consolidationnearphoto_set.filter(
+                    round__assigned_courier=actor
                 ).exists()
             )
             if not owns_consolidation:

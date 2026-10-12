@@ -3,6 +3,7 @@
     <button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button>
     <h2 class="h5 cdd-ellipsis" title="{{ receipt_title }}">{{ receipt_title }}</h2>
     <div class="cdd-receipt-viewport"><img class="cdd-receipt-preview" src="{% url 'mediafiles:download' media_id %}" alt="{{ receipt_title }}"></div>
+    {% if available_evidence %}<details class="mt-3"><summary class="cdd-summary">查看原始配送／归拢证据（{{ available_evidence|length }} 张）</summary><p class="small cdd-muted">原始证据须登录并具备业务访问权限；凭证重建不会恢复已清理的图片。</p><div class="cdd-scroll-region" style="max-height:45vh;overflow:auto">{% for evidence in available_evidence %}<div class="border-bottom py-2"><span class="small">原始图片 #{{ evidence.pk }} · {{ evidence.created_at|date:'Y-m-d H:i' }}</span><a class="btn btn-sm btn-outline-primary ms-2" href="{% url 'mediafiles:download' evidence.pk %}" download>下载原图</a><img class="d-block mt-2" style="max-width:100%;max-height:35vh;object-fit:contain" loading="lazy" src="{% url 'mediafiles:download' evidence.pk %}" alt="原始证据 #{{ evidence.pk }}"></div>{% endfor %}</div></details>{% endif %}
     <div class="cdd-action-row justify-content-center mt-3">
       <a class="btn btn-primary" href="{% url 'mediafiles:download' media_id %}" download>下载</a>
       <button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button>

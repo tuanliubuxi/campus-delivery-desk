@@ -1,5 +1,6 @@
 """Transactional state machine for the five non-express delivery businesses."""
 
+from decimal import Decimal
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
@@ -7,7 +8,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.audit.services import record_event
-from apps.common.enums import BusinessType, UserRole
+from apps.common.enums import AcceptingCategory, BusinessType, UserRole
 from apps.mediafiles.models import DeliveryEvidence, EvidenceRole, MediaVariant
 from apps.mediafiles.services import media_absolute_path, store_delivery_image
 from apps.orders.models import DeliveryStatus, DispatchMode, Order, RecipientKind
@@ -66,11 +67,11 @@ def claim_simple_task(*, order, courier, operation_id):
         return existing
     if order.business_type not in SIMPLE_BUSINESSES:
         raise ValidationError("该入口只允许简单配送业务")
-    if not courier.accepting_orders or courier.accepting_business != order.business_type:
-        raise ValidationError("请先选择本业务并开启接单")
+    if not courier.accepting_orders or courier.accepting_business not in {AcceptingCategory.SIMPLE, *SIMPLE_BUSINESSES}:
+        raise ValidationError("请先选择其他业务并开启接单")
     active_businesses = _active_businesses(courier)
-    if active_businesses and active_businesses != {order.business_type}:
-        raise ValidationError("存在其他业务的活跃任务，不能接取本单")
+    if BusinessType.EXPRESS in active_businesses:
+        raise ValidationError("存在快递业务的活跃任务，不能接取其他业务")
     updated = Order.objects.filter(pk=order.pk, delivery_status=DeliveryStatus.NEW).update(
         delivery_status=DeliveryStatus.ASSIGNED,
         updated_at=timezone.now(),
@@ -206,6 +207,7 @@ def complete_delivery_drop(
     near_photos=None,
     far_photo=None,
     annotated_photo=None,
+    upstairs_data=None,
 ):
     _require_courier(courier)
     existing = DeliveryDrop.objects.filter(operation_id=operation_id).first()
@@ -224,15 +226,26 @@ def complete_delivery_drop(
         location_type=location_type,
         final_location_text=final_location_text,
     )
+    upstairs_data = upstairs_data or {}
+    for order in orders:
+        if order.business_type not in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} or not order.requires_upstairs:
+            continue
+        details = upstairs_data.get(order.pk, {})
+        if order.upstairs_small_medium_count is None and order.upstairs_large_oversize_count is None:
+            if (details.get("small") or 0) + (details.get("large") or 0) <= 0:
+                raise ValidationError(f"{order.display_id} 必须核对上楼件数")
+        if details.get("suggested_total") is not None:
+            if Decimal(str(details["suggested_total"])) <= 0:
+                raise ValidationError("建议总费用必须大于零")
+            if not str(details.get("note", "")).strip():
+                raise ValidationError("填写建议总费用时，必须说明理由")
     normalized_near_photos = list(near_photos or ([] if near_photo is None else [near_photo]))
     if len(normalized_near_photos) > 4:
         raise ValidationError("近景照片最多上传 4 张")
     if first.business_type != BusinessType.LUGGAGE_UPSTAIRS and not (
-        normalized_near_photos or far_photo
+        normalized_near_photos or far_photo or annotated_photo
     ):
         raise ValidationError("普通配送至少上传一张照片")
-    if annotated_photo and not far_photo:
-        raise ValidationError("标注派生图必须同时提供远景原图")
 
     created_media = []
     try:
@@ -275,6 +288,23 @@ def complete_delivery_drop(
             )
             express_rounds = {}
             for order in orders:
+                if order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order.requires_upstairs:
+                    from apps.settlements.services.pricing import create_simple_upstairs_charge
+
+                    details = upstairs_data.get(order.pk, {})
+                    missing_counts = order.upstairs_small_medium_count is None and order.upstairs_large_oversize_count is None
+                    if missing_counts:
+                        order.upstairs_small_medium_count = details.get("small") or 0
+                        order.upstairs_large_oversize_count = details.get("large") or 0
+                    order.upstairs_suggested_total = details.get("suggested_total")
+                    order.upstairs_suggestion_note = str(details.get("note", "")).strip()
+                    order.save(update_fields=["upstairs_small_medium_count", "upstairs_large_oversize_count", "upstairs_suggested_total", "upstairs_suggestion_note"])
+                    if missing_counts:
+                        create_simple_upstairs_charge(order=order, actor=courier)
+                    record_event(actor=courier, event_type="ORDER_UPSTAIRS_CONFIRMED", entity=order,
+                                 metadata={"small": order.upstairs_small_medium_count,
+                                           "large": order.upstairs_large_oversize_count,
+                                           "suggested_total": str(order.upstairs_suggested_total) if order.upstairs_suggested_total is not None else None})
                 DeliveryDropItem.objects.create(drop=drop, order=order)
                 assignment = Assignment.objects.get(
                     order=order,
@@ -301,12 +331,12 @@ def complete_delivery_drop(
                     media=near_media,
                     role=EvidenceRole.NEAR,
                 )
-            if far_media:
+            if far_media or annotated_media:
                 DeliveryEvidence.objects.create(
                     drop=drop,
-                    media=far_media,
+                    media=far_media or annotated_media,
                     role=EvidenceRole.FAR,
-                    annotated_media=annotated_media,
+                    annotated_media=annotated_media if far_media else None,
                 )
             record_event(
                 actor=courier,

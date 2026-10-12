@@ -1,6 +1,7 @@
 """Recorder settlement forms; business validation remains in services."""
 
 import uuid
+from decimal import Decimal
 
 from django import forms
 from django.db.models import Q
@@ -189,3 +190,42 @@ class WageCalculatorForm(forms.Form):
             if cleaned["period_start"] > cleaned["period_end"]:
                 raise forms.ValidationError("开始日期不能晚于结束日期")
         return cleaned
+
+
+class WageAdjustmentForm(forms.Form):
+    from .models import WageAdjustmentType
+
+    adjustment_type = forms.ChoiceField(
+        label="薪资调整类型", choices=WageAdjustmentType.choices,
+        widget=forms.Select(attrs={"class": "form-select", "id": "wage-adjustment-type"}),
+    )
+    amount = forms.DecimalField(
+        label="金额（元）", min_value=Decimal("0.01"), max_digits=12, decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "id": "wage-adjustment-amount"}),
+    )
+    reason = forms.CharField(
+        label="其他类型的具体理由", max_length=255, required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    note = forms.CharField(
+        label="附加说明", max_length=255, required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("adjustment_type") == "OTHER" and not cleaned.get("reason", "").strip():
+            raise forms.ValidationError("选择其他时，具体理由必填")
+        return cleaned
+
+
+class WagePaymentForm(forms.Form):
+    payment_method = forms.ChoiceField(
+        label="实际发放方式",
+        choices=[("", "请选择"), ("TRANSFER", "转账"), ("CASH", "现金"), ("OTHER", "其他")],
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    payment_note = forms.CharField(
+        label="发放备注／凭据编号", max_length=255, required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )

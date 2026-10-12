@@ -44,7 +44,19 @@ from apps.orders.services import (
     create_luggage_upstairs_order,
     create_takeout_order,
 )
-from apps.settlements.models import CourierEarning, EarningStatus
+from apps.settlements.models import (
+    ChargeType,
+    CourierEarning,
+    EarningStatus,
+    SettlementStatus,
+    UpstairsPriceReview,
+)
+from apps.settlements.services import (
+    build_settlement,
+    confirm_settlement,
+    freeze_settlement_for_payment,
+)
+from apps.settlements.services.upstairs import review_upstairs_price
 
 
 @pytest.fixture(autouse=True)
@@ -160,12 +172,49 @@ def test_claim_is_idempotent_and_only_one_active_assignment(recorder, customer, 
 
 
 @pytest.mark.django_db
-def test_active_task_blocks_business_switch(recorder, customer, building, couriers):
+def test_active_simple_task_allows_simple_category_but_blocks_express(recorder, customer, building, couriers):
     courier, _ = couriers
     order = make_takeout(recorder, customer, building)
     claim_simple_task(order=order, courier=courier, operation_id=uuid.uuid4())
+    select_accepting_business(courier=courier, business_type=BusinessType.KFC)
+    courier.refresh_from_db()
+    assert courier.accepting_business == "SIMPLE"
     with pytest.raises(ValueError, match="活跃任务"):
-        select_accepting_business(courier=courier, business_type=BusinessType.KFC)
+        select_accepting_business(courier=courier, business_type=BusinessType.EXPRESS)
+
+
+@pytest.mark.django_db
+def test_simple_upstairs_count_at_delivery_requires_review_before_receipt(recorder, customer, building, couriers):
+    courier, _ = couriers
+    order = make_takeout(recorder, customer, building, requires_upstairs=True)
+    advance_to_delivering(order, courier)
+    with pytest.raises(ValidationError, match="上楼件数"):
+        complete_delivery_drop(
+            order_ids=[order.pk], courier=courier, final_location_text="401 室门口",
+            location_type=LocationType.ROOM, operation_id=uuid.uuid4(), near_photo=image_upload(),
+        )
+    complete_delivery_drop(
+        order_ids=[order.pk], courier=courier, final_location_text="401 室门口",
+        location_type=LocationType.ROOM, operation_id=uuid.uuid4(), near_photo=image_upload(),
+        upstairs_data={order.pk: {"small": 2, "large": 0, "suggested_total": 9, "note": "袋数核对后建议总价"}},
+    )
+    order.refresh_from_db()
+    assert order.upstairs_small_medium_count == 2
+    assert order.charge_items.filter(charge_type=ChargeType.UPSTAIRS).count() == 1
+    settlement = build_settlement(order_ids=[order.pk], actor=recorder, operation_id=uuid.uuid4())
+    with pytest.raises(ValidationError, match="价格建议"):
+        freeze_settlement_for_payment(settlement=settlement, actor=recorder)
+    review = review_upstairs_price(
+        settlement=settlement, order=order, actor=recorder,
+        decision=UpstairsPriceReview.Decision.ACCEPT_SUGGESTION,
+    )
+    assert review.suggested_total == 9
+    freeze_settlement_for_payment(settlement=settlement, actor=recorder)
+    settlement.refresh_from_db()
+    assert settlement.status == SettlementStatus.WAITING_PAYMENT
+    assert settlement.amount_due_snapshot == 9
+    confirm_settlement(settlement=settlement, actor=recorder)
+    assert CourierEarning.objects.filter(order=order, source_type="UPSTAIRS_REVIEW", status=EarningStatus.SETTLED).exists()
 
 
 @pytest.mark.django_db

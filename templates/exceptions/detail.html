@@ -5,7 +5,7 @@
 <main class="container py-3 {% if user.is_courier %}cdd-mobile-shell{% endif %}">
   <a class="btn btn-sm btn-outline-secondary" href="{% if user.is_courier %}{% url 'exceptions:courier-workspace' %}{% else %}{% url 'exceptions:workspace' %}{% endif %}">← 返回异常列表</a>
   <h1 class="h3 mt-2">异常 #{{ case.id }} <span class="badge text-bg-secondary">{{ case.get_status_display }}</span></h1>
-  <div class="card card-body mb-3"><dl class="row mb-0"><dt class="col-sm-3">类型</dt><dd class="col-sm-9">{{ case.reason_code }}</dd><dt class="col-sm-3">说明</dt><dd class="col-sm-9">{{ case.reason_text }}</dd><dt class="col-sm-3">关联</dt><dd class="col-sm-9">{% if case.order %}{{ case.order.display_id }}{% elif case.task %}任务 #{{ case.task_id }}{% elif case.drop %}配送 #{{ case.drop_id }}{% else %}归拢 #{{ case.consolidation_round_id }}{% endif %}</dd></dl>
+  <div class="card card-body mb-3"><dl class="row mb-0"><dt class="col-sm-3">类型</dt><dd class="col-sm-9">{{ case.reason_label }}</dd><dt class="col-sm-3">说明</dt><dd class="col-sm-9">{{ case.reason_text|default:'—' }}</dd><dt class="col-sm-3">关联</dt><dd class="col-sm-9">{% if case.order %}{{ case.order.display_id }}{% elif case.task %}任务 #{{ case.task_id }}{% elif case.drop %}配送 #{{ case.drop_id }}{% else %}归拢 #{{ case.consolidation_round_id }}{% endif %}</dd></dl>
     {% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %}{% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}
   </div>
   <div class="card card-body mb-3"><h2 class="h5">证据</h2>

@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.agents.models import ProxyBatch, ProxyBatchStatus
 from apps.audit.services import record_event
 from apps.common.enums import UserRole
+from apps.config_center.models import SiteConfiguration
 from apps.orders.models import Order, OrderSettlementStatus
 from apps.settlements.models import (
     AdjustmentType,
@@ -69,6 +70,12 @@ def _final_courier(order):
     return item.drop.courier
 
 
+def _wage_rate(courier):
+    if courier.wage_rate_override is not None:
+        return courier.wage_rate_override
+    return SiteConfiguration.load().default_wage_rate
+
+
 @transaction.atomic
 def confirm_settlement(*, settlement, actor):
     """Confirm customer payment once and derive immutable-source earning rows."""
@@ -123,7 +130,7 @@ def confirm_settlement(*, settlement, actor):
             earning=pending,
             settlement=settlement,
             amount_base=base_amount,
-            rate=None,
+            rate=_wage_rate(courier),
         )
 
     for line in lines:
@@ -133,7 +140,7 @@ def confirm_settlement(*, settlement, actor):
         if line.charge_type == ChargeType.UPSTAIRS and line.order_id:
             source_type = EarningSourceType.UPSTAIRS
             courier = _final_courier(next(order for order in orders if order.pk == line.order_id))
-            rate = None
+            rate = _wage_rate(courier)
         elif line.charge_type == ChargeType.CUSTOMER_EXTRA:
             source_type = EarningSourceType.CUSTOMER_EXTRA
             courier = line.beneficiary_courier
@@ -144,7 +151,7 @@ def confirm_settlement(*, settlement, actor):
         ):
             source_type = EarningSourceType.MANUAL_EXTRA
             courier = line.beneficiary_courier
-            rate = None
+            rate = _wage_rate(courier)
         if source_type is None:
             continue
         if courier is None:
@@ -172,6 +179,25 @@ def confirm_settlement(*, settlement, actor):
             amount_base=line.amount,
             rate=rate,
         )
+
+    for review in settlement.upstairs_reviews.select_related("order", "adjustment_charge"):
+        if review.decision != review.Decision.ACCEPT_SUGGESTION or review.adjustment_charge_id is None:
+            continue
+        delta = review.suggested_total - review.formula_total
+        courier = _final_courier(review.order)
+        key = make_earning_key(
+            source_type=EarningSourceType.UPSTAIRS_REVIEW,
+            order=review.order, settlement=settlement,
+            charge_item=review.adjustment_charge, courier=courier,
+        )
+        earning, _ = CourierEarning.objects.get_or_create(
+            earning_key=key,
+            defaults={"order": review.order, "settlement": settlement,
+                      "source_charge_item": review.adjustment_charge, "courier": courier,
+                      "source_type": EarningSourceType.UPSTAIRS_REVIEW},
+        )
+        _settle_earning(earning=earning, settlement=settlement, amount_base=delta,
+                        rate=_wage_rate(courier))
 
     now = timezone.now()
     Order.objects.filter(pk__in=[order.pk for order in orders]).update(

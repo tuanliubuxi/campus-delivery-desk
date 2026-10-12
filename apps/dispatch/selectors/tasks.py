@@ -2,6 +2,7 @@
 
 from django.db.models import Exists, OuterRef
 
+from apps.common.enums import AcceptingCategory
 from apps.orders.models import DeliveryStatus, Order
 
 from ..models import Assignment, DeliveryTask, TaskStatus
@@ -9,12 +10,12 @@ from ..services.simple import SIMPLE_BUSINESSES
 
 
 def simple_task_pool(courier):
-    if courier.accepting_business not in SIMPLE_BUSINESSES:
+    if courier.accepting_business not in {AcceptingCategory.SIMPLE, *SIMPLE_BUSINESSES}:
         return Order.objects.none()
     active_assignment = Assignment.objects.filter(order_id=OuterRef("pk"), is_active=True)
     return (
         Order.objects.filter(
-            business_type=courier.accepting_business,
+            business_type__in=SIMPLE_BUSINESSES,
             delivery_status=DeliveryStatus.NEW,
             source_type="DIRECT",
         )

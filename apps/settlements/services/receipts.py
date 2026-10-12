@@ -5,6 +5,7 @@ from pathlib import Path
 
 from django.core.exceptions import ValidationError
 from django.db.models import Max, Sum
+from django.utils import timezone
 from PIL import Image, ImageDraw, ImageFont
 
 from apps.config_center.models import SiteConfiguration
@@ -46,11 +47,11 @@ def _render_receipt(*, title, rows, photo_media_items=()):
         line = ""
         for char in value:
             if line and measure.textlength(line + char, font=body_font) > 890:
-                text_lines.append(line)
+                text_lines.append((label, line))
                 line = char
             else:
                 line += char
-        text_lines.append(line)
+        text_lines.append((label, line))
     photo_sizes = []
     for media in media_items:
         with Image.open(media_absolute_path(media)) as source:
@@ -66,8 +67,19 @@ def _render_receipt(*, title, rows, photo_media_items=()):
     )
     draw.text((90, 85), title, font=title_font, fill="#17324d")
     y = 165
-    for line in text_lines:
-        draw.text((90, y), line, font=body_font, fill="#25384b")
+    for label, line in text_lines:
+        if label == "放置位置":
+            draw.rounded_rectangle((79, y - 7, 1001, y + 43), radius=10, fill="#e5f3f7")
+            color = "#123f53"
+        elif label.startswith("第 ") and label.endswith(" 件"):
+            draw.rounded_rectangle((79, y - 7, 1001, y + 43), radius=10, fill="#fff0da")
+            color = "#563b17"
+        elif label in {"合计", "金额", "批次合计"}:
+            draw.rounded_rectangle((79, y - 7, 1001, y + 43), radius=10, fill="#dfebff")
+            color = "#173b73"
+        else:
+            color = "#25384b"
+        draw.text((90, y), line, font=body_font, fill=color)
         y += 54
     y = photo_top
     for photo_media, (width, height) in zip(media_items, photo_sizes):
@@ -179,6 +191,15 @@ def _parcel_rows(order_qs):
     return rows
 
 
+def _completion_time(order_qs):
+    from apps.dispatch.models import DeliveryDrop
+
+    delivered = DeliveryDrop.objects.filter(items__order__in=order_qs).aggregate(
+        latest=Max("delivered_at")
+    )["latest"]
+    return timezone.localtime(delivered).strftime("%Y-%m-%d %H:%M") if delivered else "—"
+
+
 def create_customer_settlement_image(settlement):
     if settlement.status not in {SettlementStatus.WAITING_PAYMENT, SettlementStatus.SETTLED}:
         raise ValidationError("正式客户结算图只能基于已冻结或已结算账单生成")
@@ -193,6 +214,7 @@ def create_customer_settlement_image(settlement):
     ]
     if settlement.business_type == "EXPRESS":
         rows.extend(_parcel_rows(order_qs))
+    rows.append(("最后送达时间", _completion_time(order_qs)))
     for line in settlement.lines.all():
         rows.append((line.label, f"{line.amount:.2f}"))
     rows.append(("合计", f"¥{settlement.amount_due_snapshot:.2f}"))
@@ -231,6 +253,7 @@ def create_proxy_recipient_receipt(*, settlement, recipient):
         ("放置位置", _final_locations(order_qs)),
     ]
     rows.extend(_parcel_rows(order_qs))
+    rows.append(("最后送达时间", _completion_time(order_qs)))
     if recipient.show_price_on_receipt:
         total = (
             settlement.lines.filter(proxy_recipient=recipient).aggregate(total=Sum("amount"))[
@@ -274,6 +297,7 @@ def create_proxy_delivery_receipt(*, recipient):
         ("放置位置", _final_locations(order_qs)),
     ]
     rows.extend(_parcel_rows(order_qs))
+    rows.append(("最后送达时间", _completion_time(order_qs)))
     upload = _render_with_photo_state(
         title=_receipt_title("配送凭证"), rows=rows, order_qs=order_qs
     )

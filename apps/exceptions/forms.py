@@ -15,7 +15,7 @@ from apps.mediafiles.models import DeliveryEvidence, MediaFile
 from apps.orders.models import Order
 from apps.settlements.models import Settlement
 
-from .models import ManualHandlingAction
+from .models import EXCEPTION_REASON_CHOICES, ManualHandlingAction
 
 
 class MultipleImageInput(forms.ClearableFileInput):
@@ -31,6 +31,7 @@ class MultipleImageField(forms.FileField):
 
 
 class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
+    REASON_CHOICES = EXCEPTION_REASON_CHOICES
     operation_id = forms.UUIDField(widget=forms.HiddenInput)
     order = forms.ModelChoiceField(queryset=Order.objects.none(), required=False, label="关联订单")
     task = forms.ModelChoiceField(
@@ -42,12 +43,10 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
     consolidation_round = forms.ModelChoiceField(
         queryset=ConsolidationRound.objects.none(), required=False, label="关联归拢轮次"
     )
-    reason_code = forms.CharField(
-        max_length=40,
-        label="异常类型",
-        help_text="例如：无法联系、物品缺失、地址有误、配送受阻。",
+    reason_code = forms.ChoiceField(choices=REASON_CHOICES, label="异常类型")
+    reason_text = forms.CharField(
+        required=False, label="异常说明", widget=forms.Textarea(attrs={"rows": 3})
     )
-    reason_text = forms.CharField(label="异常说明", widget=forms.Textarea(attrs={"rows": 3}))
     blocks_consolidation = forms.BooleanField(required=False, label="阻塞归拢")
     blocks_settlement = forms.BooleanField(required=False, label="阻塞结算")
     attachments = MultipleImageField(
@@ -59,13 +58,13 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
         queryset=DeliveryEvidence.objects.none(),
         required=False,
         label="引用已有配送证据",
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.MultipleHiddenInput,
     )
     media_evidence = forms.ModelMultipleChoiceField(
         queryset=MediaFile.objects.none(),
         required=False,
         label="引用已有归拢图片",
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.MultipleHiddenInput,
     )
 
     def __init__(self, *args, actor=None, **kwargs):
@@ -83,11 +82,21 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
         self.fields["media_evidence"].queryset = MediaFile.objects.filter(
             models.Q(consolidation_near_rounds__isnull=False)
             | models.Q(consolidation_far_rounds__isnull=False)
-            | models.Q(consolidation_annotated_rounds__isnull=False),
+            | models.Q(consolidation_annotated_rounds__isnull=False)
+            | models.Q(consolidationnearphoto__isnull=False),
             deleted_at__isnull=True,
         ).distinct()
         self.fields["media_evidence"].label_from_instance = (
             lambda media: f"归拢图片 #{media.pk} · {media.created_at:%Y-%m-%d %H:%M}"
+        )
+        self.fields["task"].label_from_instance = (
+            lambda task: f"{task.accepted_at:%m-%d %H:%M} · {task.get_business_type_display()} · {task.courier.display_name}"
+        )
+        self.fields["drop"].label_from_instance = (
+            lambda drop: f"{drop.delivered_at:%m-%d %H:%M} · {drop.get_business_type_display()} · {drop.final_location_text[:24]}"
+        )
+        self.fields["consolidation_round"].label_from_instance = (
+            lambda round_: f"{round_.express_round.service_date} · 归拢第 {round_.round_no} 轮 · {round_.assigned_courier.display_name}"
         )
         if actor and actor.is_courier:
             self.fields["order"].queryset = Order.objects.filter(
@@ -104,7 +113,8 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
             self.fields["media_evidence"].queryset = MediaFile.objects.filter(
                 models.Q(consolidation_near_rounds__assigned_courier=actor)
                 | models.Q(consolidation_far_rounds__assigned_courier=actor)
-                | models.Q(consolidation_annotated_rounds__assigned_courier=actor),
+                | models.Q(consolidation_annotated_rounds__assigned_courier=actor)
+                | models.Q(consolidationnearphoto__round__assigned_courier=actor),
                 deleted_at__isnull=True,
             ).distinct()
             # Couriers report facts; recorder/admin decide exceptional business blocking.
@@ -122,6 +132,12 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
             cleaned.get(field) for field in ("order", "task", "drop", "consolidation_round")
         ):
             raise forms.ValidationError("至少关联订单、任务、配送记录或归拢轮次之一")
+        if cleaned.get("reason_code") == "OTHER" and not cleaned.get("reason_text", "").strip():
+            self.add_error("reason_text", "选择其他时，异常说明必填")
+        if len(cleaned.get("delivery_evidence") or ()) > 4:
+            self.add_error("delivery_evidence", "已有配送证据最多引用 4 张")
+        if len(cleaned.get("media_evidence") or ()) > 4:
+            self.add_error("media_evidence", "已有归拢图片最多引用 4 张")
         return cleaned
 
 

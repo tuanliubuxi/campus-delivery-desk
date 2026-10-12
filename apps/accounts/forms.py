@@ -3,7 +3,7 @@
 from django import forms
 
 from apps.accounts.models import User
-from apps.common.enums import BusinessType, UserRole
+from apps.common.enums import AcceptingCategory, UserRole
 from apps.common.forms import BootstrapFormMixin
 
 EMOJI_CHOICES = (
@@ -78,7 +78,7 @@ class UserCreateForm(BootstrapFormMixin, forms.ModelForm):
 
 
 class BusinessSelectionForm(BootstrapFormMixin, forms.Form):
-    business_type = forms.ChoiceField(label="当前业务", choices=BusinessType.choices)
+    business_type = forms.ChoiceField(label="当前接单类别", choices=AcceptingCategory.choices)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -187,6 +187,8 @@ def void_draft_charge(*, item, actor, reason):
         raise ValidationError("只能作废 DRAFT 结算中的结算级费用项")
     if item.status == ChargeStatus.VOIDED:
         return item
+    if item.upstairs_reviews.exists():
+        raise ValidationError("此费用来自已审定的上楼价格建议；如需改动请作废整份草稿后重建")
     reason = reason.strip()
     if not reason:
         raise ValidationError("作废原因必填")

@@ -11,7 +11,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from apps.common.enums import BusinessType, Theme, UserRole
+from apps.common.enums import AcceptingCategory, Theme, UserRole
 
 
 class UserManager(DjangoUserManager):
@@ -30,7 +30,7 @@ class User(AbstractUser):
     accepting_orders = models.BooleanField(default=False)
     accepting_business = models.CharField(
         max_length=24,
-        choices=BusinessType.choices,
+        choices=AcceptingCategory.choices,
         null=True,
         blank=True,
     )

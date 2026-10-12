@@ -24,6 +24,9 @@ def download_media(request, media_id):
             or media.consolidation_annotated_rounds.filter(
                 assigned_courier=request.user
             ).exists()
+            or media.consolidationnearphoto_set.filter(
+                round__assigned_courier=request.user
+            ).exists()
         )
         if not (owns_evidence or owns_annotation or owns_exception or owns_consolidation):
             raise PermissionDenied("不能访问其他配送员的媒体")

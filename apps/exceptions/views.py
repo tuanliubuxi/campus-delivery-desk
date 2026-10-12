@@ -1,14 +1,20 @@
 """Thin responsive exception views for recorder, administrator, and courier roles."""
 
+from datetime import date
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.common.enums import UserRole
 from apps.common.permissions import recorder_or_admin_required, role_required
+from apps.mediafiles.models import DeliveryEvidence, MediaFile
 
 from .forms import (
     ExceptionBlockersForm,
@@ -27,6 +33,84 @@ from .services import (
 )
 
 exception_operator_required = role_required(UserRole.ADMIN, UserRole.RECORDER, UserRole.COURIER)
+
+
+@exception_operator_required
+def evidence_choices(request):
+    """Date-scoped evidence data for the picker; form validation remains authoritative."""
+    try:
+        selected_date = date.fromisoformat(request.GET.get("date") or str(timezone.localdate()))
+    except ValueError:
+        return JsonResponse({"error": "日期格式无效"}, status=400)
+    kind = request.GET.get("kind")
+    if kind not in {"delivery", "consolidation"}:
+        return JsonResponse({"error": "证据类型无效"}, status=400)
+    requested_ids = request.GET.get("ids", "")
+    if requested_ids and not all(part.isdigit() for part in requested_ids.split(",")):
+        return JsonResponse({"error": "证据编号无效"}, status=400)
+    id_values = [int(part) for part in requested_ids.split(",")] if requested_ids else []
+    if len(id_values) > 4:
+        return JsonResponse({"error": "证据数量超限"}, status=400)
+    task_id = request.GET.get("task", "")
+    if task_id and not task_id.isdigit():
+        return JsonResponse({"error": "任务无效"}, status=400)
+    if kind == "delivery":
+        rows = DeliveryEvidence.objects.filter(media__deleted_at__isnull=True)
+        rows = rows.filter(pk__in=id_values) if id_values else rows.filter(media__created_at__date=selected_date)
+        rows = rows.select_related("media", "drop", "order", "drop__customer", "drop__proxy_recipient")
+        if request.user.is_courier:
+            rows = rows.filter(drop__courier=request.user)
+        tasks = {}
+        evidence = []
+        for row in rows.order_by("-media__created_at", "-pk")[:500]:
+            drop = row.drop
+            person = drop.customer.display_name if drop.customer_id else str(drop.proxy_recipient)
+            label = f"{person} · {drop.get_business_type_display()} · {drop.delivered_at:%H:%M} · 配送 #{drop.pk}"
+            tasks[str(drop.pk)] = label
+            if task_id and str(drop.pk) != task_id:
+                continue
+            evidence.append({
+                "id": row.pk, "media_id": row.media_id,
+                "url": reverse("mediafiles:download", args=[row.media_id]),
+                "label": f"{label} · {row.get_role_display()} · {row.order.display_id if row.order_id else '共同配送'}",
+                "time": timezone.localtime(row.media.created_at).strftime("%Y-%m-%d %H:%M"),
+                "task": str(drop.pk),
+            })
+    else:
+        rows = MediaFile.objects.filter(deleted_at__isnull=True)
+        rows = rows.filter(pk__in=id_values) if id_values else rows.filter(created_at__date=selected_date)
+        rows = rows.filter(
+            Q(consolidation_near_rounds__isnull=False)
+            | Q(consolidation_far_rounds__isnull=False)
+            | Q(consolidation_annotated_rounds__isnull=False)
+            | Q(consolidationnearphoto__isnull=False)
+        ).distinct()
+        if request.user.is_courier:
+            rows = rows.filter(
+                Q(consolidation_near_rounds__assigned_courier=request.user)
+                | Q(consolidation_far_rounds__assigned_courier=request.user)
+                | Q(consolidation_annotated_rounds__assigned_courier=request.user)
+                | Q(consolidationnearphoto__round__assigned_courier=request.user)
+            ).distinct()
+        tasks = {}
+        evidence = []
+        for media in rows.order_by("-created_at", "-pk")[:500]:
+            rounds = list(media.consolidation_near_rounds.all()) + list(media.consolidation_far_rounds.all()) + list(media.consolidation_annotated_rounds.all())
+            rounds += [item.round for item in media.consolidationnearphoto_set.select_related("round").all()]
+            for round_ in rounds:
+                person = round_.customer.display_name if round_.customer_id else str(round_.proxy_recipient)
+                label = f"{person} · 归拢第 {round_.round_no} 轮 · #{round_.pk}"
+                tasks[str(round_.pk)] = label
+                if task_id and str(round_.pk) != task_id:
+                    continue
+                evidence.append({
+                    "id": media.pk, "media_id": media.pk,
+                    "url": reverse("mediafiles:download", args=[media.pk]),
+                    "label": f"{label} · 归拢图片 #{media.pk}",
+                    "time": timezone.localtime(media.created_at).strftime("%Y-%m-%d %H:%M"),
+                    "task": str(round_.pk),
+                })
+    return JsonResponse({"tasks": [{"id": k, "label": v} for k, v in tasks.items()], "evidence": evidence})
 
 
 def _workspace_url(actor):
@@ -93,6 +177,7 @@ def workspace(request):
             "filter_query": other_query.urlencode(),
             "selected_tab": "resolved" if request.GET.get("tab") == "resolved" else "open",
             "open_create_modal": form.is_bound or bool(request.GET.get("order")),
+            "today": timezone.localdate(),
         },
     )
 

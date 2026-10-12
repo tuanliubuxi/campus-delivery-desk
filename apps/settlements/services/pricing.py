@@ -180,6 +180,25 @@ def create_initial_order_charges(*, order, actor):
                 config_snapshot={"base_price": str(business.base_price)},
             )
         )
+        if order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order.requires_upstairs:
+            small = order.upstairs_small_medium_count
+            large = order.upstairs_large_oversize_count
+            if small is not None or large is not None:
+                floor = Decimal(order.floor_snapshot)
+                amount = floor * (
+                    Decimal(small or 0) * (order.upstairs_small_rate_snapshot or config.upstairs_small_medium_rate)
+                    + Decimal(large or 0) * (order.upstairs_large_rate_snapshot or config.upstairs_large_oversize_rate)
+                )
+                created.append(_create_system_charge(
+                    order=order, actor=actor, charge_type=ChargeType.UPSTAIRS,
+                    label="上楼费", amount=amount,
+                    config_snapshot={
+                        "floor": str(floor), "small_medium_count": small or 0,
+                        "large_oversize_count": large or 0,
+                        "small_medium_rate": str(order.upstairs_small_rate_snapshot or config.upstairs_small_medium_rate),
+                        "large_oversize_rate": str(order.upstairs_large_rate_snapshot or config.upstairs_large_oversize_rate),
+                    },
+                ))
 
     if order.is_urgent:
         created.append(
@@ -193,6 +212,27 @@ def create_initial_order_charges(*, order, actor):
             )
         )
     return created
+
+
+def create_simple_upstairs_charge(*, order, actor):
+    """Price a previously unknown simple-business upstairs count at delivery."""
+    if order.business_type not in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} or not order.requires_upstairs:
+        raise ValueError("该订单不能建立简单业务上楼费")
+    small = order.upstairs_small_medium_count or 0
+    large = order.upstairs_large_oversize_count or 0
+    if small + large <= 0:
+        raise ValueError("上楼件数至少一类大于零")
+    config = SiteConfiguration.load()
+    small_rate = order.upstairs_small_rate_snapshot or config.upstairs_small_medium_rate
+    large_rate = order.upstairs_large_rate_snapshot or config.upstairs_large_oversize_rate
+    floor = Decimal(order.floor_snapshot)
+    return _create_system_charge(
+        order=order, actor=actor, charge_type=ChargeType.UPSTAIRS,
+        label="上楼费", amount=floor * (small * small_rate + large * large_rate),
+        config_snapshot={"floor": str(floor), "small_medium_count": small,
+                         "large_oversize_count": large, "small_medium_rate": str(small_rate),
+                         "large_oversize_rate": str(large_rate)},
+    )
 
 
 @transaction.atomic

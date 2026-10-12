@@ -179,6 +179,8 @@ def _create_order(
     destination_type=DestinationType.CAMPUS_BUILDING,
     off_campus_address="",
     requires_upstairs=False,
+    upstairs_small_medium_count=None,
+    upstairs_large_oversize_count=None,
     is_urgent=False,
     order_note="",
     entry_mode=EntryMode.NORMAL,
@@ -196,7 +198,13 @@ def _create_order(
         room=room,
         is_urgent=is_urgent,
     )
+    simple_upstairs = business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY}
+    counts = (upstairs_small_medium_count, upstairs_large_oversize_count)
+    if any(value is not None for value in counts):
+        if not simple_upstairs or not requires_upstairs or sum(value or 0 for value in counts) <= 0:
+            raise ValidationError("仅外卖、KFC、果蔬的上楼订单可填写数量，且至少一类大于零")
     sequence_date = timezone.localdate()
+    upstairs_config = SiteConfiguration.load() if simple_upstairs and requires_upstairs else None
     recipient_name, recipient_phone = _recipient_snapshots(customer, proxy_recipient)
     order = Order(
         creation_operation_id=operation_id,
@@ -214,6 +222,10 @@ def _create_order(
         proxy_batch=proxy_recipient.proxy_batch if proxy_recipient else None,
         is_urgent=is_urgent,
         requires_upstairs=requires_upstairs,
+        upstairs_small_medium_count=upstairs_small_medium_count if simple_upstairs and requires_upstairs else None,
+        upstairs_large_oversize_count=upstairs_large_oversize_count if simple_upstairs and requires_upstairs else None,
+        upstairs_small_rate_snapshot=upstairs_config.upstairs_small_medium_rate if upstairs_config else None,
+        upstairs_large_rate_snapshot=upstairs_config.upstairs_large_oversize_rate if upstairs_config else None,
         entry_mode=entry_mode,
         destination_type=destination_type,
         building_snapshot=building.name if building else "",

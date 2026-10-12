@@ -65,6 +65,7 @@ class AdjustmentType(models.TextChoices):
 class EarningSourceType(models.TextChoices):
     BASE_DELIVERY = "BASE_DELIVERY", "基础配送"
     UPSTAIRS = "UPSTAIRS", "上楼服务"
+    UPSTAIRS_REVIEW = "UPSTAIRS_REVIEW", "上楼价格审定差额"
     CUSTOMER_EXTRA = "CUSTOMER_EXTRA", "客户自愿加价"
     MANUAL_EXTRA = "MANUAL_EXTRA", "人工额外服务"
     WAGE_ADJUSTMENT = "WAGE_ADJUSTMENT", "工资调整"

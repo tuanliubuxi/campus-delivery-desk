@@ -113,7 +113,26 @@ class ExpressOrderForm(CommonOrderForm):
         return cleaned
 
 
-class TakeoutOrderForm(CommonOrderForm):
+class SimpleUpstairsOrderForm(CommonOrderForm):
+    upstairs_small_medium_count = forms.IntegerField(
+        required=False, min_value=0, label="小／中件数（独立搬运的袋／箱／包）"
+    )
+    upstairs_large_oversize_count = forms.IntegerField(
+        required=False, min_value=0, label="大／超大件数（独立搬运的袋／箱／包）"
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        counts = (cleaned.get("upstairs_small_medium_count"), cleaned.get("upstairs_large_oversize_count"))
+        if not cleaned.get("requires_upstairs"):
+            cleaned["upstairs_small_medium_count"] = None
+            cleaned["upstairs_large_oversize_count"] = None
+        elif any(value is not None for value in counts) and sum(value or 0 for value in counts) <= 0:
+            self.add_error("upstairs_small_medium_count", "填写件数时，至少一类必须大于零；不知道数量可暂时留空")
+        return cleaned
+
+
+class TakeoutOrderForm(SimpleUpstairsOrderForm):
     pickup_gate = forms.ChoiceField(choices=TakeoutGate.choices, label="取餐校门")
     other_pickup_location = forms.CharField(required=False, max_length=160, label="其他取餐地点")
     identifier = forms.CharField(max_length=255, label="取餐标识")
@@ -128,12 +147,12 @@ class TakeoutOrderForm(CommonOrderForm):
         return cleaned
 
 
-class KfcOrderForm(CommonOrderForm):
+class KfcOrderForm(SimpleUpstairsOrderForm):
     pickup_location = forms.CharField(max_length=160, label="取餐地点")
     pickup_code = forms.CharField(max_length=128, label="取餐码")
 
 
-class GroceryOrderForm(CommonOrderForm):
+class GroceryOrderForm(SimpleUpstairsOrderForm):
     pickup_location = forms.CharField(max_length=160, label="取货地点")
     item_list = forms.CharField(label="商品清单", widget=forms.Textarea(attrs={"rows": 3}))
 

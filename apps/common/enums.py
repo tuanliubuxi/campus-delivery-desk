@@ -18,6 +18,11 @@ class BusinessType(models.TextChoices):
     LUGGAGE_UPSTAIRS = "LUGGAGE_UPSTAIRS", "行李搬上楼"
 
 
+class AcceptingCategory(models.TextChoices):
+    EXPRESS = "EXPRESS", "快递代取"
+    SIMPLE = "SIMPLE", "其他业务（可混接）"
+
+
 class Theme(models.TextChoices):
     LIGHT = "light", "亮色"
     DARK = "dark", "暗色"

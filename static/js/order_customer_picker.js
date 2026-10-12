@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
       dialog.querySelector("[data-customer-building-field]").hidden = mode !== "building";
     });
   });
-  dialog.querySelector("[data-customer-picker-search]").addEventListener("click", async () => {
+  const runSearch = async () => {
     const url = new URL(dialog.dataset.customerPickerUrl, window.location.origin);
     const value = mode === "building" ? building.value : query.value.trim();
     if (!value) { message.textContent = mode === "building" ? "请先选择楼栋" : "请输入客户名称或手机尾号"; return; }
@@ -51,7 +51,8 @@ document.addEventListener("DOMContentLoaded", () => {
         results.append(label);
       });
     } catch (error) { message.textContent = error.message; }
-  });
+  };
+  dialog.querySelectorAll("[data-customer-picker-search]").forEach((button) => button.addEventListener("click", runSearch));
   query.addEventListener("keydown", (event) => {
     if (event.key === "Enter") { event.preventDefault(); dialog.querySelector("[data-customer-picker-search]").click(); }
   });
