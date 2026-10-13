@@ -200,6 +200,16 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-sort-options { position: absolute; top: calc(100% + 4px); left: 0; z-index: 1050; min-width: 9rem; padding: .35rem; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; box-shadow: 0 6px 20px var(--cdd-shadow); }
 .cdd-sort-options button { display: block; width: 100%; padding: .4rem .6rem; color: var(--cdd-text); text-align: left; background: transparent; border: 0; border-radius: .25rem; }
 .cdd-sort-options button:hover,.cdd-sort-options button:focus-visible { background: var(--cdd-focus); color: #081322; }
+.cdd-wage-slip-panel { width: min(96vw, 1200px); max-width: 1200px; }
+.cdd-wage-slip-tabs { display: flex; width: fit-content; max-width: 100%; margin: 0 auto 1rem; border: 1px solid var(--cdd-primary); border-radius: .65rem; overflow: hidden; }
+.cdd-wage-slip-tabs button { min-height: 44px; padding: .45rem 1.1rem; border: 0; background: var(--cdd-elevated); color: var(--cdd-text); }
+.cdd-wage-slip-tabs button + button { border-left: 1px solid var(--cdd-primary); }
+.cdd-wage-slip-tabs button[aria-pressed="true"] { background: var(--cdd-primary); color: var(--cdd-primary-text); font-weight: 700; }
+.cdd-wage-slip-tabs button:focus-visible { outline: 3px solid var(--cdd-focus); outline-offset: -3px; }
+.cdd-wage-slip-preview { min-height: 12rem; max-height: min(65vh, 700px); overflow: auto; text-align: center; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; }
+.cdd-wage-slip-preview img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.cdd-wage-slip-preview img[hidden] { display: none; }
+.cdd-wage-slip-preview p { padding: 2rem; }
 .cdd-detail-key { display: inline-block; max-width: 100%; padding: .2rem .55rem; border: 1px solid var(--cdd-primary); border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 16%, var(--cdd-surface)); color: var(--cdd-text); overflow-wrap: anywhere; }
 .cdd-detail-key--person { background: var(--cdd-person-bg); color: var(--cdd-person-text); border-color: var(--cdd-person-border); }
 .cdd-detail-key--place { background: var(--cdd-place-bg); color: var(--cdd-place-text); border-color: var(--cdd-place-border); }

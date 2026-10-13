@@ -34,6 +34,7 @@ class WagePayout(models.Model):
     )
     work_date = models.DateField(db_index=True)
     sequence = models.PositiveIntegerField(default=1)
+    brand_name_snapshot = models.CharField(max_length=32, blank=True)
     status = models.CharField(
         max_length=12, choices=WagePayoutStatus.choices, default=WagePayoutStatus.DRAFT
     )

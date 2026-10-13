@@ -49,12 +49,65 @@ document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-cdd-modal-open]");
   if (opener) {
     const dialog = document.getElementById(opener.dataset.cddModalOpen);
-    if (dialog?.showModal) dialog.showModal();
+    if (dialog?.showModal) {
+      dialog.showModal();
+      if (dialog.matches("[data-cdd-wage-slip]")) cddShowWageSlip(dialog, "card");
+    }
     return;
   }
   const closer = event.target.closest("[data-cdd-modal-close]");
   if (closer) closer.closest("dialog")?.close();
 });
+function cddShowWageSlip(dialog, style) {
+  const theme = document.documentElement.dataset.theme || "light";
+  const url = new URL(style === "formal" ? dialog.dataset.formalUrl : dialog.dataset.cardUrl, location.href);
+  url.searchParams.set("theme", theme);
+  dialog.querySelectorAll("[data-cdd-slip-style]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.cddSlipStyle === style));
+  });
+  const preview = dialog.querySelector("[data-cdd-slip-image]");
+  const message = dialog.querySelector("[data-cdd-slip-message]");
+  const download = dialog.querySelector("[data-cdd-slip-download]");
+  preview.hidden = true;
+  message.hidden = false;
+  message.textContent = "正在载入预览……";
+  download.classList.add("disabled");
+  download.setAttribute("aria-disabled", "true");
+  preview.onload = () => {
+    preview.hidden = false;
+    message.hidden = true;
+    download.classList.remove("disabled");
+    download.removeAttribute("aria-disabled");
+  };
+  preview.onerror = () => {
+    preview.hidden = true;
+    message.textContent = "预览加载失败，请确认登录状态后重试。";
+  };
+  preview.src = url.toString();
+  url.searchParams.set("download", "1");
+  download.href = url.toString();
+}
+document.addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-cdd-slip-style]");
+  if (tab) cddShowWageSlip(tab.closest("[data-cdd-wage-slip]"), tab.dataset.cddSlipStyle);
+});
+function cddCloseSortMenus(except = null) {
+  document.querySelectorAll("details.cdd-sort-menu[open]").forEach((menu) => {
+    if (menu !== except) menu.open = false;
+  });
+}
+document.addEventListener("pointerdown", (event) => {
+  cddCloseSortMenus(event.target.closest("details.cdd-sort-menu"));
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") cddCloseSortMenus();
+});
+document.addEventListener("scroll", () => cddCloseSortMenus(), true);
+document.addEventListener("toggle", (event) => {
+  if (event.target.matches?.("details.cdd-sort-menu") && event.target.open) {
+    cddCloseSortMenus(event.target);
+  }
+}, true);
 document.addEventListener("toggle", async (event) => {
   const panel = event.target;
   if (!panel.matches?.("details[data-cdd-evidence-url]") || !panel.open || panel.dataset.cddEvidenceLoaded) return;

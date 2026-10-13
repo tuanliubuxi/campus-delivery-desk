@@ -3,16 +3,20 @@
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from io import BytesIO
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.http import Http404
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 
 from apps.common.enums import BusinessType
 from apps.config_center.models import SiteConfiguration
 from apps.dispatch.models import DeliveryTask, TaskStatus, TaskType
+from apps.settlements import views as wage_views
 from apps.settlements.models import WageAdjustmentType, WagePayout, WagePayoutStatus
 from apps.settlements.selectors.payroll import pending_work_dates, unfinished_tasks_for_day
 from apps.settlements.services import confirm_settlement
@@ -25,11 +29,10 @@ from apps.settlements.services.payroll import (
 )
 
 from .test_phase7_finance import _waiting_settlement
-from apps.settlements import views as wage_views
 
 
 @pytest.mark.django_db
-def test_wage_workbench_and_dynamic_slip_access():
+def test_wage_workbench_and_dynamic_slip_access(tmp_path):
     recorder, admin, courier, order, settlement = _waiting_settlement(with_extras=False)
     work_date = timezone.localtime(order.delivery_drop_items.first().drop.delivered_at).date()
     confirm_settlement(settlement=settlement, actor=recorder)
@@ -54,14 +57,67 @@ def test_wage_workbench_and_dynamic_slip_access():
     )["Location"].endswith("?embedded=1")
     assert get_view(wage_views.wage_slip, reverse("settlements:wage-slip", args=[payout.pk, "card"]), admin, payout_id=payout.pk, style="card").status_code == 403
     ready_wage_payout(payout=payout, actor=admin)
+    payout.refresh_from_db()
+    assert payout.brand_name_snapshot == SiteConfiguration.load().receipt_brand_name
     slip_url = reverse("settlements:wage-slip", args=[payout.pk, "card"])
-    assert "待发放" in get_view(wage_views.wage_slip, slip_url, admin, payout_id=payout.pk, style="card").content.decode()
-    assert "attachment" in get_view(wage_views.wage_slip, slip_url + "?download=1", admin, payout_id=payout.pk, style="card")["Content-Disposition"]
+    preview = get_view(wage_views.wage_slip, slip_url, admin, payout_id=payout.pk, style="card")
+    assert preview.content.startswith(b"\x89PNG\r\n\x1a\n")
+    assert preview["Content-Type"] == "image/png"
+    (tmp_path / "wage-card.png").write_bytes(preview.content)
+    with Image.open(BytesIO(preview.content)) as image:
+        assert image.format == "PNG"
+        assert image.width == 1000
+        assert image.height > 600
+    download = get_view(wage_views.wage_slip, slip_url + "?download=1", admin, payout_id=payout.pk, style="card")
+    assert download["Content-Disposition"].endswith('.png"')
+    assert download.content == preview.content
+    dark = get_view(wage_views.wage_slip, slip_url + "?theme=dark", admin, payout_id=payout.pk, style="card")
+    assert dark.content != preview.content
+    (tmp_path / "wage-card-dark.png").write_bytes(dark.content)
+    for theme in ("warm", "fresh"):
+        themed = get_view(wage_views.wage_slip, slip_url + f"?theme={theme}", admin, payout_id=payout.pk, style="card")
+        assert themed.content.startswith(b"\x89PNG")
+        assert themed.content != preview.content
+    with pytest.raises(Http404):
+        get_view(wage_views.wage_slip, slip_url + "?theme=bad", admin, payout_id=payout.pk, style="card")
     assert get_view(wage_views.wage_slip, slip_url, courier, payout_id=payout.pk, style="card").status_code == 403
     assert "待发放" in get_view(wage_views.courier_wages, reverse("settlements:courier-wages"), courier).content.decode()
     confirm_wage_paid(payout=payout, actor=admin, payment_method="TRANSFER")
     assert get_view(wage_views.wage_slip, slip_url, courier, payout_id=payout.pk, style="card").status_code == 200
-    assert get_view(wage_views.wage_slip, reverse("settlements:wage-slip", args=[payout.pk, "formal"]), courier, payout_id=payout.pk, style="formal").status_code == 200
+    formal = get_view(wage_views.wage_slip, reverse("settlements:wage-slip", args=[payout.pk, "formal"]), courier, payout_id=payout.pk, style="formal")
+    with Image.open(BytesIO(formal.content)) as image:
+        assert image.format == "PNG"
+        assert image.width == 1450
+    (tmp_path / "wage-formal.png").write_bytes(formal.content)
+    courier_page = get_view(wage_views.courier_wages, reverse("settlements:courier-wages"), courier).content.decode()
+    assert "data-cdd-wage-slip" in courier_page
+    assert "<iframe" not in courier_page
+
+
+@pytest.mark.django_db
+def test_wage_slip_long_adjustments_expand_image_without_clipping(tmp_path):
+    recorder, admin, courier, order, settlement = _waiting_settlement(with_extras=False)
+    work_date = timezone.localtime(order.delivery_drop_items.first().drop.delivered_at).date()
+    confirm_settlement(settlement=settlement, actor=recorder)
+    payout = create_wage_draft(
+        courier=courier, work_date=work_date, actor=admin, operation_id=uuid.uuid4()
+    )
+    for index in range(12):
+        add_wage_adjustment(
+            payout=payout, actor=admin, adjustment_type=WageAdjustmentType.OTHER,
+            amount=Decimal("0.10"), reason=f"第{index + 1}项：" + "长理由测试" * 18,
+            note="逐项核对后补发，需完整显示" * 5,
+        )
+    ready_wage_payout(payout=payout, actor=admin)
+    response = RequestFactory().get("/wage-slip/?theme=warm")
+    response.user = admin
+    for style in ("card", "formal"):
+        slip = wage_views.wage_slip(response, payout.pk, style)
+        with Image.open(BytesIO(slip.content)) as image:
+            assert image.width == (1000 if style == "card" else 1450)
+            assert image.height > 2500
+            assert image.format == "PNG"
+        (tmp_path / f"wage-long-{style}.png").write_bytes(slip.content)
 
 
 @pytest.mark.django_db

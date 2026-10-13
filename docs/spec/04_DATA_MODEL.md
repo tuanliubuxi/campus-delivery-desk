@@ -599,7 +599,7 @@ CourierEarning 按收益来源拆行，正常业务收益的粒度为“Settleme
 
 ## 18. 每日薪资单
 
-旧 WageCalculationRun 历史快照保留，不再作为新业务入口。新记录采用 WagePayout（配送员、订单完成日、补发序号、DRAFT/READY/PAID/VOIDED、基数/调整/应发合计、建立/核算/发放/作废人和时间）、WagePayoutEarning（订单收入快照）、WagePayoutAdjustment（类型、带符号金额、理由、说明和添加人）及 WagePayoutRefund（关联退款扣减）。PAID 明细不可修改；同日迟到付款可建立补发单。UpstairsPriceReview 固定结算草稿中逐单采纳或保留建议的决定、原件数、公式价、建议价、理由与审定人。
+旧 WageCalculationRun 历史快照保留，不再作为新业务入口。新记录采用 WagePayout（配送员、订单完成日、补发序号、DRAFT/READY/PAID/VOIDED、确认核算时的团队名称快照、基数/调整/应发合计、建立/核算/发放/作废人和时间）、WagePayoutEarning（订单收入快照）、WagePayoutAdjustment（类型、带符号金额、理由、说明和添加人）及 WagePayoutRefund（关联退款扣减）。PAID 明细不可修改；同日迟到付款可建立补发单。UpstairsPriceReview 固定结算草稿中逐单采纳或保留建议的决定、原件数、公式价、建议价、理由与审定人。
 
 旧版结构仅供兼容历史：
 

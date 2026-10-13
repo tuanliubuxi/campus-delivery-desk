@@ -226,9 +226,10 @@ def ready_wage_payout(*, payout, actor):
         raise ValidationError("仅草稿可以确认核算")
     _validate_source_facts(payout)
     payout.status = WagePayoutStatus.READY
+    payout.brand_name_snapshot = SiteConfiguration.load().receipt_brand_name.strip() or "校驿"
     payout.ready_by = actor
     payout.ready_at = timezone.now()
-    payout.save(update_fields=["status", "ready_by", "ready_at"])
+    payout.save(update_fields=["status", "brand_name_snapshot", "ready_by", "ready_at"])
     record_event(actor=actor, event_type="WAGE_PAYOUT_READY", entity=payout)
     return payout
 

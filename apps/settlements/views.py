@@ -8,8 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.http import Http404, HttpResponseForbidden
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse as url_reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -44,8 +43,8 @@ from .selectors import (
     settlement_charge_items,
     settlement_preview_total,
 )
+from .selectors.payroll import earning_work_date, unpaid_earnings
 from .selectors.settlements import consolidated_delivery_notes
-from .selectors.payroll import unpaid_earnings, earning_work_date
 from .services import (
     add_draft_charge,
     build_settlement_group,
@@ -632,7 +631,15 @@ def wage_slip(request, payout_id, style):
         return HttpResponseForbidden("无权查看该工资条")
     if payout.status not in ([WagePayoutStatus.READY, WagePayoutStatus.PAID] if is_admin else [WagePayoutStatus.PAID]):
         return HttpResponseForbidden("该状态不能查看工资条")
-    response = render(request, "settlements/wage_slip.html", {"payout": payout, "style": style})
+    from apps.common.enums import Theme
+    from apps.config_center.models import SiteConfiguration
+    from apps.settlements.services.wage_slips import render_wage_slip
+
+    theme = request.GET.get("theme") or request.user.ui_theme or SiteConfiguration.load().default_theme
+    if theme not in Theme.values:
+        raise Http404
+    response = HttpResponse(render_wage_slip(payout, style=style, theme=theme), content_type="image/png")
+    response["Cache-Control"] = "private, no-store"
     if request.GET.get("download") == "1":
-        response["Content-Disposition"] = f'attachment; filename="wage-{payout.pk}-{style}.html"'
+        response["Content-Disposition"] = f'attachment; filename="wage-{payout.pk}-{style}.png"'
     return response
