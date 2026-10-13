@@ -73,8 +73,8 @@ def create_exception_case(
         raise ValidationError("异常类型必填")
     if reason_code == "OTHER" and not reason_text.strip():
         raise ValidationError("选择其他时，异常说明必填")
-    if len(delivery_evidence) > 4 or len(media_evidence) > 4:
-        raise ValidationError("每类已有证据最多引用 4 张")
+    if len(attachments) > 4 or len(delivery_evidence) > 4 or len(media_evidence) > 4:
+        raise ValidationError("异常图片、配送证据和归拢图片每类最多 4 张")
     if not any((order, task, drop, consolidation_round)):
         raise ValidationError("异常必须关联订单、任务、配送记录或归拢轮次")
     if actor.role == UserRole.COURIER:

@@ -53,11 +53,23 @@ def business_config_toggle(request, config_id):
 def site_config_edit(request):
     config = SiteConfiguration.load()
     form = SiteConfigurationForm(request.POST or None, instance=config)
+    for field_name, short_label in {"express_small_price": "小件", "express_medium_price": "中件", "express_large_price": "大件", "express_oversize_price": "超大件"}.items():
+        form.fields[field_name].label = short_label
     if request.method == "POST" and form.is_valid():
         save_site_configuration(actor=request.user, config=config, **form.cleaned_data)
         messages.success(request, "系统价格与规则配置已保存")
         return redirect("config_center:index")
-    return render(request, "config_center/form.html", {"form": form, "title": "系统规则配置"})
+    groups = [
+        ("快递大小基础费与目的地附加费", "express", ["express_small_price", "express_medium_price", "express_large_price", "express_oversize_price", "outside_pickup_fee", "campus_to_outside_fee"]),
+        ("上楼与行李", "upstairs", ["upstairs_small_medium_rate", "upstairs_large_oversize_rate", "outside_luggage_base_price"]),
+        ("天气与优惠", "discount", ["weather_fee", "multi_item_discount_enabled", "multi_item_threshold", "multi_item_discount"]),
+        ("薪资与凭证", "finance", ["default_wage_rate", "receipt_brand_name", "image_quality"]),
+        ("系统运行", "system", ["default_theme", "kfc_open_weekday", "heartbeat_interval_seconds", "lease_stale_seconds", "media_retention_days"]),
+    ]
+    return render(request, "config_center/form.html", {
+        "form": form, "title": "系统规则配置",
+        "field_groups": [(title, color, [form[name] for name in names]) for title, color, names in groups],
+    })
 
 
 @admin_required

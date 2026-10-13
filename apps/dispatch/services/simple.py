@@ -11,7 +11,7 @@ from apps.audit.services import record_event
 from apps.common.enums import AcceptingCategory, BusinessType, UserRole
 from apps.mediafiles.models import DeliveryEvidence, EvidenceRole, MediaVariant
 from apps.mediafiles.services import media_absolute_path, store_delivery_image
-from apps.orders.models import DeliveryStatus, DispatchMode, Order, RecipientKind
+from apps.orders.models import DeliveryStatus, DestinationType, DispatchMode, Order, RecipientKind
 from apps.settlements.services import record_pending_earning
 
 from ..models import (
@@ -189,7 +189,10 @@ def _validate_drop_orders(*, orders, courier, location_type, final_location_text
             room_missing = (
                 not order.room_snapshot and order.business_type != BusinessType.LUGGAGE_UPSTAIRS
             )
-            if not order.building_snapshot or not order.floor_snapshot or room_missing:
+            if (
+                (order.destination_type == DestinationType.CAMPUS_BUILDING and not order.building_snapshot)
+                or not order.floor_snapshot or room_missing
+            ):
                 raise ValidationError("上楼订单地址不完整")
             if location_type not in {LocationType.ROOM, LocationType.HANDOFF}:
                 raise ValidationError("上楼订单的实际放置类型不兼容")
@@ -208,6 +211,7 @@ def complete_delivery_drop(
     far_photo=None,
     annotated_photo=None,
     upstairs_data=None,
+    delivery_note="",
 ):
     _require_courier(courier)
     existing = DeliveryDrop.objects.filter(operation_id=operation_id).first()
@@ -228,7 +232,8 @@ def complete_delivery_drop(
     )
     upstairs_data = upstairs_data or {}
     for order in orders:
-        if order.business_type not in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} or not order.requires_upstairs:
+        if (order.business_type not in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY}
+                or not order.requires_upstairs or order.destination_type == DestinationType.OFF_CAMPUS_ADDRESS):
             continue
         details = upstairs_data.get(order.pk, {})
         if order.upstairs_small_medium_count is None and order.upstairs_large_oversize_count is None:
@@ -283,12 +288,14 @@ def complete_delivery_drop(
                 building_snapshot=first.building_snapshot,
                 location_type=location_type,
                 final_location_text=final_location_text.strip(),
+                delivery_note=delivery_note.strip(),
                 operation_id=operation_id,
                 delivered_at=now,
             )
             express_rounds = {}
             for order in orders:
-                if order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order.requires_upstairs:
+                if (order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY}
+                        and order.requires_upstairs and order.destination_type != DestinationType.OFF_CAMPUS_ADDRESS):
                     from apps.settlements.services.pricing import create_simple_upstairs_charge
 
                     details = upstairs_data.get(order.pk, {})

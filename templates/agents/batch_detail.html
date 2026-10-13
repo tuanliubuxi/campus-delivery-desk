@@ -54,13 +54,14 @@
         </div>
         {% endif %}
         {% if batch.accepts_new_members and not recipient.orders.exists and not recipient.receipts.exists %}<form method="post" action="{% url 'agents:recipient-delete' recipient.pk %}" class="mt-2" onsubmit="return confirm('确认删除这个空临时收件人？')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">删除空收件人</button></form>{% endif %}
-        {% if not recipient.delivery_receipt_reasons %}<form method="post" action="{% url 'agents:recipient-generate-receipt' recipient.pk %}" class="mt-2">
-          {% csrf_token %}<button class="btn btn-sm btn-outline-primary">生成配送凭证（不含最终价格）</button>
-        </form>{% else %}<p class="small cdd-muted mt-2">暂不能生成配送凭证：{{ recipient.delivery_receipt_reasons|join:"；" }}</p>{% endif %}
-        {% for receipt in recipient.receipts.all %}{% if receipt.is_active and not receipt.media.deleted_at %}
-          <button class="btn btn-sm btn-outline-primary mt-2" type="button" data-cdd-modal-open="recipient-receipt-{{ receipt.pk }}">查看{% if receipt.settlement_id %}结算{% else %}配送{% endif %}凭证 v{{ receipt.version_no }}{% if receipt.settlement_id and not receipt.show_price %}（隐藏价格）{% endif %}</button>
-          {% url 'agents:recipient-receipt-evidence' recipient.pk as evidence_url %}{% include "includes/receipt_preview_dialog.html" with dialog_id=receipt.dialog_id receipt_title=recipient.display_name media_id=receipt.media_id evidence_url=evidence_url %}
-        {% endif %}{% endfor %}
+        <section class="cdd-card p-2 mt-3"><h3 class="h6">配送凭证（不含最终价格）</h3>
+          {% if not recipient.delivery_receipt_reasons %}<form method="post" action="{% url 'agents:recipient-generate-receipt' recipient.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary">{% if recipient.has_delivery_receipt %}重建配送凭证{% else %}生成配送凭证{% endif %}</button></form>{% else %}<p class="small cdd-muted">暂不能生成：{{ recipient.delivery_receipt_reasons|join:"；" }}</p>{% endif %}
+          <div class="cdd-action-row cdd-scroll-region mt-2" style="max-height:11rem">{% for receipt in recipient.receipts.all %}{% if receipt.kind == 'DELIVERY' and not receipt.media.deleted_at %}<button class="btn btn-sm btn-outline-primary" type="button" data-cdd-modal-open="recipient-receipt-{{ receipt.pk }}">查看配送凭证 v{{ receipt.version_no }}{% if receipt.is_active %} · 最新{% endif %}</button>{% url 'agents:recipient-receipt-evidence' recipient.pk as evidence_url %}{% include "includes/receipt_preview_dialog.html" with dialog_id=receipt.dialog_id receipt_title=recipient.display_name media_id=receipt.media_id evidence_url=evidence_url %}{% endif %}{% endfor %}</div>
+        </section>
+        <section class="cdd-card p-2 mt-2"><h3 class="h6">结算凭证</h3>
+          {% if recipient.has_settlement_receipt %}<form method="post" action="{% url 'agents:recipient-rebuild-settlement-receipt' recipient.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">重建结算凭证</button></form>{% else %}<p class="small cdd-muted">结算冻结后生成。</p>{% endif %}
+          <div class="cdd-action-row cdd-scroll-region mt-2" style="max-height:11rem">{% for receipt in recipient.receipts.all %}{% if receipt.kind == 'SETTLEMENT' and not receipt.media.deleted_at %}<button class="btn btn-sm btn-outline-success" type="button" data-cdd-modal-open="recipient-receipt-{{ receipt.pk }}">查看结算凭证 v{{ receipt.version_no }}{% if receipt.is_active %} · 最新{% endif %}{% if not receipt.show_price %} · 隐藏价格{% endif %}</button>{% url 'agents:recipient-receipt-evidence' recipient.pk as evidence_url %}{% include "includes/receipt_preview_dialog.html" with dialog_id=receipt.dialog_id receipt_title=recipient.display_name media_id=receipt.media_id evidence_url=evidence_url %}{% endif %}{% endfor %}</div>
+        </section>
       </article>
     </div>
     {% empty %}

@@ -21,6 +21,7 @@
       {% for item in group.orders %}
       <section class="cdd-task-order cdd-task-order--{{ item.order.business_type|lower }}">
         <div class="d-flex justify-content-between gap-2"><strong>{{ item.task.get_business_type_display }}</strong><span class="cdd-task-status {% if item.order.delivery_status == 'ASSIGNED' %}text-bg-primary{% elif item.order.delivery_status == 'PICKED' %}text-bg-warning{% elif item.order.delivery_status == 'DELIVERING' %}text-bg-info{% else %}text-bg-success{% endif %}">{{ item.order.get_delivery_status_display }}</span></div>
+        <div class="d-flex flex-wrap gap-1 mt-1">{% if item.order.is_urgent %}<span class="badge text-bg-danger">加急</span>{% endif %}{% if item.order.requires_upstairs %}<span class="badge text-bg-warning">需上楼</span>{% if item.order.off_campus_address %}<span class="badge text-bg-secondary">校外上楼不自动计费</span>{% endif %}{% endif %}</div>
         <div class="cdd-task-primary cdd-ellipsis" title="{{ item.order.building_snapshot }}">{{ item.order.building_snapshot|default:item.order.zone_snapshot|default:item.order.off_campus_address|default:"地点待确认" }}</div>
         <div class="cdd-task-identifiers">
           {% if item.order.recipient_phone_snapshot %}<span>尾号 {{ item.order.recipient_phone_snapshot|slice:"-4:" }}</span>{% endif %}

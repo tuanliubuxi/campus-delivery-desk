@@ -4,6 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Max, Sum
 from django.utils import timezone
 from PIL import Image, ImageDraw, ImageFont
@@ -17,6 +18,36 @@ from apps.settlements.models import (
     SettlementImageVersion,
     SettlementStatus,
 )
+
+
+def _store_proxy_receipt(*, recipient, kind, media, settlement=None, show_price=False):
+    scope = ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient, kind=kind)
+    scope.filter(is_active=True).update(is_active=False)
+    version = (scope.aggregate(Max("version_no"))["version_no__max"] or 0) + 1
+    receipt = ProxyRecipientReceipt.objects.create(
+        proxy_recipient=recipient, proxy_batch=recipient.proxy_batch,
+        settlement=settlement, kind=kind, version_no=version,
+        show_price=show_price, media=media,
+    )
+    # Keep three downloadable files per type. Historical rows remain auditable.
+    old_media_ids = list(
+        scope.filter(media__deleted_at__isnull=True)
+        .order_by("-version_no", "-pk").values_list("media_id", flat=True)[3:]
+    )
+    if old_media_ids:
+        def prune():
+            from apps.mediafiles.models import MediaFile
+            from apps.mediafiles.services import delete_media_file
+
+            for old in MediaFile.objects.filter(pk__in=old_media_ids):
+                try:
+                    delete_media_file(media=old, reason="代理凭证超过每类三版保留上限")
+                except ValidationError:
+                    # Open exception evidence takes precedence over version pruning.
+                    continue
+
+        transaction.on_commit(prune)
+    return receipt
 
 
 def _font(size):
@@ -269,22 +300,10 @@ def create_proxy_recipient_receipt(*, settlement, recipient):
         title=_receipt_title("结算凭证"), rows=rows, order_qs=order_qs
     )
     media = store_delivery_image(upload=upload, variant_type=MediaVariant.GENERATED_RECEIPT)
-    ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient, is_active=True).update(
-        is_active=False
-    )
-    version = (
-        ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient).aggregate(
-            Max("version_no")
-        )["version_no__max"]
-        or 0
-    ) + 1
-    return ProxyRecipientReceipt.objects.create(
-        proxy_recipient=recipient,
-        proxy_batch=recipient.proxy_batch,
-        settlement=settlement,
-        version_no=version,
+    return _store_proxy_receipt(
+        recipient=recipient, kind=ProxyRecipientReceipt.Kind.SETTLEMENT,
+        media=media, settlement=settlement,
         show_price=recipient.show_price_on_receipt,
-        media=media,
     )
 
 
@@ -305,20 +324,8 @@ def create_proxy_delivery_receipt(*, recipient):
         title=_receipt_title("配送凭证"), rows=rows, order_qs=order_qs
     )
     media = store_delivery_image(upload=upload, variant_type=MediaVariant.GENERATED_RECEIPT)
-    ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient, is_active=True).update(
-        is_active=False
-    )
-    version = (
-        ProxyRecipientReceipt.objects.filter(proxy_recipient=recipient).aggregate(
-            Max("version_no")
-        )["version_no__max"]
-        or 0
-    ) + 1
-    return ProxyRecipientReceipt.objects.create(
-        proxy_recipient=recipient,
-        proxy_batch=recipient.proxy_batch,
-        version_no=version,
-        show_price=False,
+    return _store_proxy_receipt(
+        recipient=recipient, kind=ProxyRecipientReceipt.Kind.DELIVERY,
         media=media,
     )
 

@@ -8,7 +8,7 @@ from django.db import transaction
 from apps.audit.services import record_event
 from apps.common.enums import BusinessType
 from apps.config_center.models import SiteConfiguration
-from apps.orders.models import DeliveryStatus
+from apps.orders.models import DeliveryStatus, DestinationType
 from apps.settlements.models import (
     BeneficiaryType,
     ChargeItem,
@@ -127,6 +127,16 @@ def add_draft_charge(
         elif amount < 0:
             raise ValidationError("增费或客户加价不能为负数")
     beneficiary_type = BeneficiaryType.PLATFORM
+    if (charge_type == ChargeType.MANUAL_SURCHARGE
+            and settlement.business_type == BusinessType.LUGGAGE_UPSTAIRS
+            and settlement.settlement_orders.filter(order__destination_type=DestinationType.OFF_CAMPUS_ADDRESS).exists()):
+        if beneficiary_courier is None:
+            raise ValidationError("校外行李附加服务费必须选择配送员，基础费与附加费均按比例计薪")
+        final_ids = set(settlement.settlement_orders.values_list(
+            "order__delivery_drop_items__drop__courier_id", flat=True))
+        final_ids.discard(None)
+        if beneficiary_courier.pk not in final_ids:
+            raise ValidationError("附加服务费收益人必须是本结算的最终配送员")
     if charge_type == ChargeType.CUSTOMER_EXTRA:
         if beneficiary_courier is None:
             # Only a single final courier is safe to infer.

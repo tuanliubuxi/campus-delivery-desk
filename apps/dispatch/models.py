@@ -197,6 +197,7 @@ class DeliveryDrop(models.Model):
     building_snapshot = models.CharField(max_length=80, blank=True)
     location_type = models.CharField(max_length=12, choices=LocationType.choices)
     final_location_text = models.CharField(max_length=255)
+    delivery_note = models.CharField(max_length=500, blank=True)
     operation_id = models.UUIDField(unique=True)
     delivered_at = models.DateTimeField()
 

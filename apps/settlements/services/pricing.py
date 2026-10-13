@@ -128,7 +128,8 @@ def create_initial_order_charges(*, order, actor):
                     config_snapshot={"campus_to_outside_fee": str(config.campus_to_outside_fee)},
                 )
             )
-        if order.requires_upstairs and detail.size_class != SizeClass.UNKNOWN:
+        if (order.requires_upstairs and order.destination_type != DestinationType.OFF_CAMPUS_ADDRESS
+                and detail.size_class != SizeClass.UNKNOWN):
             floor = Decimal(order.floor_snapshot)
             rate = (
                 config.upstairs_small_medium_rate
@@ -149,26 +150,36 @@ def create_initial_order_charges(*, order, actor):
             )
     elif order.business_type == BusinessType.LUGGAGE_UPSTAIRS:
         detail = order.luggage_detail
-        amount = detail.calculate_upstairs_amount(
-            config.upstairs_small_medium_rate,
-            config.upstairs_large_oversize_rate,
-        )
-        created.append(
-            _create_system_charge(
-                order=order,
-                actor=actor,
-                charge_type=ChargeType.UPSTAIRS,
-                label="行李搬上楼服务费",
-                amount=amount,
-                config_snapshot={
-                    "floor": detail.floor,
-                    "small_medium_count": detail.small_medium_count,
-                    "large_oversize_count": detail.large_oversize_count,
-                    "small_medium_rate": str(config.upstairs_small_medium_rate),
-                    "large_oversize_rate": str(config.upstairs_large_oversize_rate),
-                },
+        if order.destination_type == DestinationType.OFF_CAMPUS_ADDRESS:
+            amount = order.outside_luggage_base_price_snapshot
+            if amount is None:
+                amount = config.outside_luggage_base_price
+            created.append(_create_system_charge(
+                order=order, actor=actor, charge_type=ChargeType.BASE_SERVICE,
+                label="校外行李基础服务费", amount=amount,
+                config_snapshot={"outside_luggage_base_price": str(amount)},
+            ))
+        else:
+            amount = detail.calculate_upstairs_amount(
+                config.upstairs_small_medium_rate,
+                config.upstairs_large_oversize_rate,
             )
-        )
+            created.append(
+                _create_system_charge(
+                    order=order,
+                    actor=actor,
+                    charge_type=ChargeType.UPSTAIRS,
+                    label="行李搬上楼服务费",
+                    amount=amount,
+                    config_snapshot={
+                        "floor": detail.floor,
+                        "small_medium_count": detail.small_medium_count,
+                        "large_oversize_count": detail.large_oversize_count,
+                        "small_medium_rate": str(config.upstairs_small_medium_rate),
+                        "large_oversize_rate": str(config.upstairs_large_oversize_rate),
+                    },
+                )
+            )
     elif business.base_price is not None:
         created.append(
             _create_system_charge(
@@ -180,7 +191,8 @@ def create_initial_order_charges(*, order, actor):
                 config_snapshot={"base_price": str(business.base_price)},
             )
         )
-        if order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order.requires_upstairs:
+        if (order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY}
+                and order.requires_upstairs and order.destination_type != DestinationType.OFF_CAMPUS_ADDRESS):
             small = order.upstairs_small_medium_count
             large = order.upstairs_large_oversize_count
             if small is not None or large is not None:
@@ -216,7 +228,8 @@ def create_initial_order_charges(*, order, actor):
 
 def create_simple_upstairs_charge(*, order, actor):
     """Price a previously unknown simple-business upstairs count at delivery."""
-    if order.business_type not in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} or not order.requires_upstairs:
+    if (order.business_type not in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY}
+            or not order.requires_upstairs or order.destination_type == DestinationType.OFF_CAMPUS_ADDRESS):
         raise ValueError("该订单不能建立简单业务上楼费")
     small = order.upstairs_small_medium_count or 0
     large = order.upstairs_large_oversize_count or 0

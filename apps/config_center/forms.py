@@ -63,6 +63,7 @@ class SiteConfigurationForm(BootstrapFormMixin, forms.ModelForm):
             "express_oversize_price": "超大件快递价格（元）",
             "outside_pickup_fee": "校外取件附加费（元）",
             "campus_to_outside_fee": "校内送校外附加费（元）",
+            "outside_luggage_base_price": "校外行李搬上楼基础服务费（元）",
             "upstairs_small_medium_rate": "小/中件上楼费率（元/层）",
             "upstairs_large_oversize_rate": "大/超大件上楼费率（元/层）",
             "weather_fee": "特殊天气附加费（元）",

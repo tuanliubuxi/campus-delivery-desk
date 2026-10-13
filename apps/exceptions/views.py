@@ -63,6 +63,8 @@ def evidence_choices(request):
         tasks = {}
         evidence = []
         for row in rows.order_by("-media__created_at", "-pk")[:500]:
+            if not row.media.is_available:
+                continue
             drop = row.drop
             person = drop.customer.display_name if drop.customer_id else str(drop.proxy_recipient)
             label = f"{person} · {drop.get_business_type_display()} · {drop.delivered_at:%H:%M} · 配送 #{drop.pk}"
@@ -95,6 +97,8 @@ def evidence_choices(request):
         tasks = {}
         evidence = []
         for media in rows.order_by("-created_at", "-pk")[:500]:
+            if not media.is_available:
+                continue
             rounds = list(media.consolidation_near_rounds.all()) + list(media.consolidation_far_rounds.all()) + list(media.consolidation_annotated_rounds.all())
             rounds += [item.round for item in media.consolidationnearphoto_set.select_related("round").all()]
             for round_ in rounds:

@@ -9,6 +9,7 @@
   {% for order, operation_id in pool %}
     <article class="cdd-card p-3">
       <div class="d-flex justify-content-between"><strong>{{ order.display_id }}</strong>{% if order.is_urgent %}<span class="badge text-bg-danger">加急</span>{% endif %}</div>
+      {% if order.requires_upstairs %}<div class="mt-1"><span class="badge text-bg-warning">需上楼</span>{% if order.off_campus_address %}<span class="badge text-bg-secondary">不自动计上楼费</span>{% endif %}</div>{% endif %}
       <div class="mt-2 cdd-clamp" title="{{ order.recipient_name_snapshot }}">{{ order.recipient_name_snapshot }} · {% if order.off_campus_address %}{{ order.off_campus_address }}{% else %}{{ order.building_snapshot }} {{ order.floor_snapshot }} {{ order.room_snapshot }}{% endif %}</div>
       <form method="post" class="mt-3">{% csrf_token %}<input type="hidden" name="order_id" value="{{ order.pk }}"><input type="hidden" name="operation_id" value="{{ operation_id }}"><button class="btn btn-primary w-100 cdd-touch">确认接取</button></form>
     </article>

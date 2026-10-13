@@ -293,6 +293,7 @@ def complete_task(request, task_id):
                     order_ids=sorted(selected_ids),
                     courier=request.user,
                     final_location_text=form.cleaned_data["final_location_text"],
+                    delivery_note=form.cleaned_data["delivery_note"],
                     location_type=form.cleaned_data["location_type"],
                     operation_id=form.cleaned_data["operation_id"],
                     near_photos=(

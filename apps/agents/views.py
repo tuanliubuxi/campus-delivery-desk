@@ -22,7 +22,7 @@ from apps.agents.services import (
     update_proxy_recipient,
 )
 from apps.common.permissions import recorder_or_admin_required
-from apps.settlements.services import generate_proxy_recipient_receipt
+from apps.settlements.services import generate_proxy_recipient_receipt, rebuild_proxy_settlement_receipt
 
 
 @recorder_or_admin_required
@@ -102,7 +102,7 @@ def agent_toggle(request, agent_id):
     except ValidationError as exc:
         messages.error(request, "; ".join(exc.messages))
     else:
-        messages.success(request, "代理人已启用，可新建批次" if active else "代理人已停用")
+        messages.success(request, f"{agent.name}：代理人已启用，可新建批次" if active else f"{agent.name}：代理人已停用")
     return redirect("agents:workspace")
 
 
@@ -134,8 +134,14 @@ def batch_detail(request, batch_id):
 
     for recipient in batch.recipients.all():
         recipient.delivery_receipt_reasons = proxy_delivery_receipt_readiness(recipient)
+        recipient.has_delivery_receipt = False
+        recipient.has_settlement_receipt = False
         for receipt in recipient.receipts.all():
             receipt.dialog_id = f"recipient-receipt-{receipt.pk}"
+            if receipt.kind == receipt.Kind.DELIVERY:
+                recipient.has_delivery_receipt = True
+            else:
+                recipient.has_settlement_receipt = True
 
     from_order_id = request.GET.get("from_order", "")
     from_order = (
@@ -207,6 +213,19 @@ def recipient_generate_receipt(request, recipient_id):
         messages.error(request, str(exc))
     else:
         messages.success(request, "临时收件人配送凭证已生成；最终金额请以结算凭证为准")
+    return redirect("agents:batch-detail", batch_id=recipient.proxy_batch_id)
+
+
+@require_POST
+@recorder_or_admin_required
+def recipient_rebuild_settlement_receipt(request, recipient_id):
+    recipient = get_object_or_404(ProxyRecipient, pk=recipient_id)
+    try:
+        rebuild_proxy_settlement_receipt(recipient=recipient, actor=request.user)
+    except (ValidationError, ValueError) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "临时收件人结算凭证已重建；配送凭证保持不变")
     return redirect("agents:batch-detail", batch_id=recipient.proxy_batch_id)
 
 

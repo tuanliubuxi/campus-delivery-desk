@@ -101,6 +101,7 @@ AUDIT_EVENT_LABELS = {
     "SETTLEMENT_ARTIFACTS_REBUILT": "重建结算凭证",
     "UPSTAIRS_PRICE_REVIEWED": "审定配送员上楼价格建议",
     "PROXY_RECIPIENT_RECEIPT_GENERATED": "生成临时收件人凭证",
+    "PROXY_SETTLEMENT_RECEIPT_REBUILT": "重建代理结算凭证",
     "WAGE_CALCULATION_SAVED": "保存工资计算结果",
     "WAGE_DRAFT_CREATED": "建立每日薪资草稿",
     "WAGE_ADJUSTMENT_ADDED": "新增薪资调整",
@@ -291,6 +292,7 @@ def user_list(request):
             "users": users,
             "form": form,
             "generated_password": generated_password,
+            "site_wage_rate": config.default_wage_rate,
         },
     )
 

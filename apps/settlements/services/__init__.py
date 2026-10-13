@@ -6,7 +6,7 @@ from .confirmation import confirm_settlement, record_refund, reverse_settlement
 from .earnings import make_earning_key, record_pending_earning
 from .freeze import freeze_settlement_for_payment
 from .pricing import create_initial_order_charges, void_charge_item
-from .proxy_receipts import generate_proxy_recipient_receipt
+from .proxy_receipts import generate_proxy_recipient_receipt, rebuild_proxy_settlement_receipt
 from .rebuild import rebuild_settlement_artifacts
 from .void import void_settlement
 from .wages import calculate_wages, overlapping_wage_runs, save_wage_calculation
@@ -21,6 +21,7 @@ __all__ = [
     "create_initial_order_charges",
     "freeze_settlement_for_payment",
     "generate_proxy_recipient_receipt",
+    "rebuild_proxy_settlement_receipt",
     "make_earning_key",
     "record_pending_earning",
     "record_refund",

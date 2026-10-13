@@ -185,6 +185,21 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-modal-panel { position: relative; max-height: 88vh; overflow: auto; padding: 1.35rem; border: 1px solid var(--cdd-border); border-radius: 1rem; background: var(--cdd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 35%); }
 .cdd-modal-close { position: sticky; z-index: 2; top: 0; float: right; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 1px solid var(--cdd-border); border-radius: 50%; background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.35rem; }
 .cdd-receipt-viewport { max-height: 65vh; overflow: auto; touch-action: pinch-zoom; }
+.cdd-media-preview-viewport { max-height: min(65vh, 760px); overflow: auto; text-align: center; }
+.cdd-media-preview-viewport img { display: block; max-width: 100%; height: auto; margin: auto; }
+.cdd-compact-scroll { max-height: min(62vh, 640px); overflow-y: auto; scrollbar-gutter: stable; }
+.cdd-rule-group { border-left: 5px solid var(--rule-accent); background: color-mix(in srgb, var(--rule-accent) 12%, var(--cdd-elevated)); }
+.cdd-rule-group--express { --rule-accent: #397bd1; }
+.cdd-rule-group--upstairs { --rule-accent: #8d62c7; }
+.cdd-rule-group--discount { --rule-accent: #bc7930; }
+.cdd-rule-group--finance { --rule-accent: #178e71; }
+.cdd-rule-group--system { --rule-accent: #667b9b; }
+.cdd-sort-menu { position: relative; }
+.cdd-sort-menu summary { list-style: none; cursor: pointer; }
+.cdd-sort-menu summary::-webkit-details-marker { display: none; }
+.cdd-sort-options { position: absolute; top: calc(100% + 4px); left: 0; z-index: 1050; min-width: 9rem; padding: .35rem; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; box-shadow: 0 6px 20px var(--cdd-shadow); }
+.cdd-sort-options button { display: block; width: 100%; padding: .4rem .6rem; color: var(--cdd-text); text-align: left; background: transparent; border: 0; border-radius: .25rem; }
+.cdd-sort-options button:hover,.cdd-sort-options button:focus-visible { background: var(--cdd-focus); color: #081322; }
 .cdd-detail-key { display: inline-block; max-width: 100%; padding: .2rem .55rem; border: 1px solid var(--cdd-primary); border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 16%, var(--cdd-surface)); color: var(--cdd-text); overflow-wrap: anywhere; }
 .cdd-detail-key--person { background: var(--cdd-person-bg); color: var(--cdd-person-text); border-color: var(--cdd-person-border); }
 .cdd-detail-key--place { background: var(--cdd-place-bg); color: var(--cdd-place-text); border-color: var(--cdd-place-border); }
@@ -319,7 +334,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
   .cdd-roster-list { height: auto; max-height: none; overflow-x: auto; overflow-y: visible; }
   .cdd-settlement-heading { align-items: flex-start; }
   .cdd-settlement-layout { grid-template-columns: 1fr; }
-  .cdd-scroll-region { max-height: none; overflow-y: visible; }
+  .cdd-scroll-region { max-height: min(58vh, 600px); overflow: auto; }
   .cdd-action-row { width: 100%; overflow-x: auto; padding-bottom: .2rem; }
   .cdd-feedback-actions { overflow-x: visible; }
   .cdd-compact-row { align-items: flex-start; flex-direction: column; }

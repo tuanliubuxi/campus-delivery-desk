@@ -1,11 +1,14 @@
 """Thin recorder/admin views for DRAFT editing and receipt freezing."""
 
 import uuid
+from collections import defaultdict
 from datetime import date
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse as url_reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -14,6 +17,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts.models import User
 from apps.common.enums import BusinessType, UserRole
 from apps.common.permissions import admin_required, courier_required, recorder_or_admin_required
+from apps.dispatch.models import DeliveryDrop
 from apps.orders.models import Order, OrderSettlementStatus
 
 from .forms import (
@@ -39,7 +43,8 @@ from .selectors import (
     settlement_charge_items,
     settlement_preview_total,
 )
-from .selectors.payroll import open_payout, pending_work_dates
+from .selectors.settlements import consolidated_delivery_notes
+from .selectors.payroll import unpaid_earnings, earning_work_date
 from .services import (
     add_draft_charge,
     build_settlement_group,
@@ -186,10 +191,11 @@ def detail(request, settlement_id):
     ).order_by("proxy_recipient_id", "-version_no"):
         if receipt.media.deleted_at:
             continue
-        receipt.is_latest_available = receipt.proxy_recipient_id not in seen_recipients
+        key = (receipt.proxy_recipient_id, receipt.kind)
+        receipt.is_latest_available = key not in seen_recipients
         receipt.dialog_id = f"proxy-receipt-{receipt.pk}"
-        receipt.receipt_title = f"{receipt.proxy_recipient.display_name} 凭证 v{receipt.version_no}"
-        seen_recipients.add(receipt.proxy_recipient_id)
+        receipt.receipt_title = f"{receipt.proxy_recipient.display_name} {receipt.get_kind_display()} v{receipt.version_no}"
+        seen_recipients.add(key)
         available_receipts.append(receipt)
     reviews_by_order = {review.order_id: review for review in settlement.upstairs_reviews.all()}
     for member in settlement.settlement_orders.all():
@@ -222,6 +228,7 @@ def detail(request, settlement_id):
             "available_versions": available_versions,
             "available_receipts": available_receipts,
             "available_evidence": evidence_media,
+            "consolidated_delivery_notes": consolidated_delivery_notes(settlement),
             "deleted_version_count": settlement.image_versions.filter(
                 media__deleted_at__isnull=False
             ).count(),
@@ -374,27 +381,50 @@ def rebuild_artifacts(request, settlement_id):
 
 @admin_required
 def wages(request):
-    """Daily wage workspace; legacy calculator snapshots remain read-only history."""
-    couriers = User.objects.filter(role=UserRole.COURIER).order_by("display_name", "pk")
+    """Daily wage workbench: open calculations and payments, including late supplements."""
+    couriers = list(User.objects.filter(role=UserRole.COURIER).order_by("display_name", "pk"))
+    queue = []
+    pending_pairs = {(earning.courier_id, work_date)
+                     for earning in unpaid_earnings(None)
+                     if (work_date := earning_work_date(earning))}
+    paid_counts = defaultdict(int)
+    for courier_id, paid_day in WagePayout.objects.filter(status=WagePayoutStatus.PAID).values_list("courier_id", "work_date"):
+        paid_counts[(courier_id, paid_day)] += 1
+    open_payouts = list(WagePayout.objects.filter(status__in=[WagePayoutStatus.DRAFT, WagePayoutStatus.READY]).select_related("courier"))
+    open_pairs = {(payout.courier_id, payout.work_date) for payout in open_payouts}
+    courier_by_id = {courier.pk: courier for courier in couriers}
+    for courier_id, work_date in pending_pairs - open_pairs:
+        courier = courier_by_id.get(courier_id)
+        if courier is not None:
+            queue.append({"courier": courier, "work_date": work_date, "status": "PENDING",
+                          "supplement": paid_counts[(courier_id, work_date)] + 1})
+    for payout in open_payouts:
+        queue.append({"courier": payout.courier, "work_date": payout.work_date,
+                      "status": payout.status, "payout": payout, "supplement": payout.sequence})
+    available_dates = sorted({row["work_date"] for row in queue}, reverse=True)
     courier_id = request.GET.get("courier", "")
-    selected = couriers.filter(pk=int(courier_id)).first() if courier_id.isdigit() else None
-    dates = pending_work_dates(selected) if selected else []
-    selected_date = None
-    if selected and request.GET.get("work_date"):
-        try:
-            selected_date = date.fromisoformat(request.GET["work_date"])
-        except ValueError:
-            pass
-    existing = open_payout(selected, selected_date) if selected and selected_date else None
+    selected = next((courier for courier in couriers if courier.pk == int(courier_id)), None) if courier_id.isdigit() else None
+    selected_date = request.GET.get("work_date", "")
+    selected_status = request.GET.get("status", "")
+    if selected:
+        queue = [row for row in queue if row["courier"].pk == selected.pk]
+    if selected_date:
+        queue = [row for row in queue if row["work_date"].isoformat() == selected_date]
+    if selected_status:
+        queue = [row for row in queue if row["status"] == selected_status]
+    queue.sort(key=lambda row: (row["work_date"], row["courier"].pk), reverse=True)
+    page = Paginator(queue, 10).get_page(request.GET.get("page"))
     return render(
         request,
         "settlements/wages.html",
         {
             "couriers": couriers,
             "selected": selected,
-            "dates": dates,
+            "dates": available_dates,
             "selected_date": selected_date,
-            "existing": existing,
+            "selected_status": selected_status,
+            "queue": page,
+            "page_obj": page,
             "operation_id": uuid.uuid4(),
         },
     )
@@ -527,8 +557,11 @@ def wage_history(request):
         payouts = payouts.filter(status=request.GET["status"])
     if request.GET.get("operator", "").isdigit():
         payouts = payouts.filter(paid_by_id=int(request.GET["operator"]))
+    sort = request.GET.get("sort", "newest")
+    payouts = payouts.order_by({"oldest": "created_at", "amount_high": "-total_amount", "amount_low": "total_amount"}.get(sort, "-created_at"), "-pk")
+    page = Paginator(payouts, 10).get_page(request.GET.get("page"))
     return render(request, "settlements/wage_history.html", {
-        "payouts": payouts[:100],
+        "payouts": page, "page_obj": page,
         "couriers": User.objects.filter(role=UserRole.COURIER).order_by("display_name"),
         "operators": User.objects.filter(role=UserRole.ADMIN).order_by("display_name"),
         "status_choices": WagePayoutStatus.choices,
@@ -537,16 +570,29 @@ def wage_history(request):
 
 @courier_required
 def courier_wages(request):
-    payouts = WagePayout.objects.filter(courier=request.user).select_related("paid_by")
-    if request.GET.get("work_date"):
-        try:
-            payouts = payouts.filter(work_date=date.fromisoformat(request.GET["work_date"]))
-        except ValueError:
-            pass
-    if request.GET.get("status") in WagePayoutStatus.values:
+    payouts = WagePayout.objects.filter(courier=request.user, status__in=[WagePayoutStatus.READY, WagePayoutStatus.PAID]).select_related("paid_by")
+    completed = DeliveryDrop.objects.filter(courier=request.user, items__isnull=False).distinct()
+    years = sorted(set(completed.values_list("delivered_at__year", flat=True)), reverse=True)
+    year = request.GET.get("year", "")
+    month = request.GET.get("month", "")
+    if year.isdigit() and int(year) in years:
+        payouts = payouts.filter(work_date__year=int(year))
+    else:
+        year = ""
+    months = sorted(set(completed.filter(delivered_at__year=int(year)).values_list("delivered_at__month", flat=True)), reverse=True) if year else []
+    if year and month.isdigit() and int(month) in months:
+        payouts = payouts.filter(work_date__month=int(month))
+    else:
+        month = ""
+    if request.GET.get("status") in [WagePayoutStatus.READY, WagePayoutStatus.PAID]:
         payouts = payouts.filter(status=request.GET["status"])
+    sort = request.GET.get("sort", "newest")
+    payouts = payouts.order_by({"oldest": "work_date", "amount_high": "-total_amount", "amount_low": "total_amount"}.get(sort, "-work_date"), "-pk")
+    page = Paginator(payouts, 10).get_page(request.GET.get("page"))
     return render(request, "settlements/courier_wages.html", {
-        "payouts": payouts[:100], "status_choices": WagePayoutStatus.choices,
+        "payouts": page, "page_obj": page, "years": years, "months": months,
+        "year": year, "month": month,
+        "status_choices": [(WagePayoutStatus.READY, "待发放"), (WagePayoutStatus.PAID, "已发放")],
     })
 
 
@@ -560,3 +606,23 @@ def courier_wage_detail(request, payout_id):
     return render(request, "settlements/wage_detail.html", {
         "payout": payout, "is_admin_view": False,
     })
+
+
+@login_required
+def wage_slip(request, payout_id, style):
+    """Render a wage slip from immutable payout facts; never persist generated artifacts."""
+    if style not in {"card", "formal"}:
+        raise Http404
+    payout = get_object_or_404(
+        WagePayout.objects.select_related("courier", "ready_by", "paid_by")
+        .prefetch_related("earnings__order", "adjustments", "refunds"), pk=payout_id,
+    )
+    is_admin = request.user.role == UserRole.ADMIN
+    if not is_admin and payout.courier_id != request.user.pk:
+        return HttpResponseForbidden("无权查看该工资条")
+    if payout.status not in ([WagePayoutStatus.READY, WagePayoutStatus.PAID] if is_admin else [WagePayoutStatus.PAID]):
+        return HttpResponseForbidden("该状态不能查看工资条")
+    response = render(request, "settlements/wage_slip.html", {"payout": payout, "style": style})
+    if request.GET.get("download") == "1":
+        response["Content-Disposition"] = f'attachment; filename="wage-{payout.pk}-{style}.html"'
+    return response

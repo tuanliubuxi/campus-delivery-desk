@@ -2,6 +2,13 @@
 (() => {
   const dialog = document.getElementById("exception-evidence-picker");
   if (!dialog) return;
+  const attachmentInput = document.querySelector('input[name="attachments"]');
+  attachmentInput?.addEventListener("change", () => {
+    if (attachmentInput.files.length > 4) {
+      attachmentInput.value = "";
+      window.alert("异常图片最多上传 4 张，请重新选择。");
+    }
+  });
   const dateInput = document.getElementById("exception-evidence-date");
   const taskSelect = document.getElementById("exception-evidence-task");
   const list = document.getElementById("exception-evidence-list");

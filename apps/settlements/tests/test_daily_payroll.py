@@ -6,6 +6,8 @@ from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.test import RequestFactory
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.common.enums import BusinessType
@@ -23,6 +25,36 @@ from apps.settlements.services.payroll import (
 )
 
 from .test_phase7_finance import _waiting_settlement
+from apps.settlements import views as wage_views
+
+
+@pytest.mark.django_db
+def test_wage_workbench_and_dynamic_slip_access():
+    recorder, admin, courier, order, settlement = _waiting_settlement(with_extras=False)
+    work_date = timezone.localtime(order.delivery_drop_items.first().drop.delivered_at).date()
+    confirm_settlement(settlement=settlement, actor=recorder)
+    factory = RequestFactory()
+    def get_view(view, path, user, **kwargs):
+        request = factory.get(path)
+        request.user = user
+        return view(request, **kwargs)
+    workspace = get_view(wage_views.wages, reverse("settlements:wages"), admin)
+    assert workspace.status_code == 200
+    assert "待核算" in workspace.content.decode()
+    assert get_view(wage_views.wages, reverse("settlements:wages") + f"?courier={courier.pk}", admin).status_code == 200
+    payout = create_wage_draft(
+        courier=courier, work_date=work_date, actor=admin, operation_id=uuid.uuid4()
+    )
+    assert get_view(wage_views.wage_slip, reverse("settlements:wage-slip", args=[payout.pk, "card"]), admin, payout_id=payout.pk, style="card").status_code == 403
+    ready_wage_payout(payout=payout, actor=admin)
+    slip_url = reverse("settlements:wage-slip", args=[payout.pk, "card"])
+    assert "待发放" in get_view(wage_views.wage_slip, slip_url, admin, payout_id=payout.pk, style="card").content.decode()
+    assert "attachment" in get_view(wage_views.wage_slip, slip_url + "?download=1", admin, payout_id=payout.pk, style="card")["Content-Disposition"]
+    assert get_view(wage_views.wage_slip, slip_url, courier, payout_id=payout.pk, style="card").status_code == 403
+    assert "待发放" in get_view(wage_views.courier_wages, reverse("settlements:courier-wages"), courier).content.decode()
+    confirm_wage_paid(payout=payout, actor=admin, payment_method="TRANSFER")
+    assert get_view(wage_views.wage_slip, slip_url, courier, payout_id=payout.pk, style="card").status_code == 200
+    assert get_view(wage_views.wage_slip, reverse("settlements:wage-slip", args=[payout.pk, "formal"]), courier, payout_id=payout.pk, style="formal").status_code == 200
 
 
 @pytest.mark.django_db

@@ -17,7 +17,7 @@ DETAIL_RELATIONS = (
 )
 
 
-def search_orders(query="", *, business_type="", delivery_status=""):
+def search_orders(query="", *, business_type="", delivery_status="", destination=""):
     queryset = Order.objects.select_related(
         "customer",
         "proxy_recipient",
@@ -28,6 +28,10 @@ def search_orders(query="", *, business_type="", delivery_status=""):
         queryset = queryset.filter(business_type=business_type)
     if delivery_status:
         queryset = queryset.filter(delivery_status=delivery_status)
+    if destination == "OUTSIDE":
+        queryset = queryset.filter(destination_type="OFF_CAMPUS_ADDRESS")
+    elif destination in {"SOUTH", "NORTH"}:
+        queryset = queryset.filter(destination_type="CAMPUS_BUILDING", zone_snapshot=destination)
     query = (query or "").strip()
     if not query:
         return queryset

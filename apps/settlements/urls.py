@@ -44,4 +44,5 @@ urlpatterns = [
     path("admin-console/wages/<int:payout_id>/void/", views.wage_void, name="wage-void"),
     path("courier/wages/", views.courier_wages, name="courier-wages"),
     path("courier/wages/<int:payout_id>/", views.courier_wage_detail, name="courier-wage-detail"),
+    path("wage-slips/<int:payout_id>/<str:style>/", views.wage_slip, name="wage-slip"),
 ]

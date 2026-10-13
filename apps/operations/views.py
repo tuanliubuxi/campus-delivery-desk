@@ -10,12 +10,13 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.common.permissions import admin_required
-from apps.mediafiles.models import MediaFile
+from apps.mediafiles.models import MediaFile, MediaVariant
 from apps.mediafiles.services import delete_media_file
 from apps.operations.forms import DeleteReasonForm, MaintenanceForm, OperationForm, RestoreForm
 from apps.operations.models import BackupRecord, BackupStatus, BackupType
@@ -198,10 +199,21 @@ def recovery_check(request):
 
 @admin_required
 def media_library(request):
+    overview = media_overview()
+    files = MediaFile.objects.select_related("parent_media")
+    if request.GET.get("variant") in MediaVariant.values:
+        files = files.filter(variant_type=request.GET["variant"])
+    if request.GET.get("status") == "available":
+        files = files.filter(deleted_at__isnull=True)
+    elif request.GET.get("status") == "deleted":
+        files = files.filter(deleted_at__isnull=False)
+    ordering = {"newest": "-created_at", "oldest": "created_at", "largest": "-size_bytes", "smallest": "size_bytes"}.get(request.GET.get("sort"), "-created_at")
+    page = Paginator(files.order_by(ordering, "-pk"), 20).get_page(request.GET.get("page"))
     return render(
         request,
         "operations/media.html",
-        {**media_overview(), "delete_form": DeleteReasonForm()},
+        {**overview, "media": page, "page_obj": page, "variant_choices": MediaVariant.choices,
+         "delete_form": DeleteReasonForm()},
     )
 
 

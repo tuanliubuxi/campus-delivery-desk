@@ -124,7 +124,7 @@ id                        BigAutoField
 business_type             EXPRESS / TAKEOUT / KFC / GROCERY / ERRAND / LUGGAGE_UPSTAIRS
 sequence_date             date
 daily_sequence            int
-service_date              date nullable   # 全局字段可空；business_type=EXPRESS 时必须非空，默认当前本地日期
+service_date              date nullable   # 新录各业务默认本地当天；旧记录允许为空，EXPRESS 必须非空
 
 source_type               DIRECT / AGENT
 customer_id               nullable
@@ -139,6 +139,7 @@ upstairs_small_medium_count / upstairs_large_oversize_count   nullable int，简
 upstairs_small_rate_snapshot / upstairs_large_rate_snapshot   nullable money，录单时费率
 upstairs_suggested_total   nullable money，配送员整单建议总额
 upstairs_suggestion_note   text，填写建议时必填
+outside_luggage_base_price_snapshot nullable money，校外行李基础费快照
 entry_mode                NORMAL / DIRECT_COMPLETE / HISTORICAL_BACKFILL
 
 destination_type          CAMPUS_BUILDING / OFF_CAMPUS_ADDRESS
@@ -335,6 +336,7 @@ business_type
 building_snapshot nullable
 location_type             RACK / ROOM / HANDOFF / OTHER
 final_location_text       必填（行李当面完成可允许固定值“客户现场确认”）
+delivery_note             可选文本，单次真实配送共用；归拢结算按前序 Drop 和人员展示
 delivered_at
 ```
 
@@ -547,12 +549,15 @@ id
 proxy_recipient_id
 proxy_batch_id
 settlement_id nullable
+kind                      DELIVERY / SETTLEMENT，分别独立版本序列及最新标记
 version_no
 show_price                bool
 media_id
 is_active                 bool
 created_at
 ```
+
+代理临时收件人配送凭证与结算凭证按 `kind` 分别保持最新版本；每类最多保留三份可用媒体，超出时清理最旧实体而保留版本和媒体元数据。
 
 ## 16. FinancialAdjustment
 

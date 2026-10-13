@@ -25,6 +25,12 @@ class CommonOrderForm(BootstrapFormMixin, forms.Form):
     # Legacy/manual POSTs may omit the key; services still generate one, while rendered forms persist it.
     operation_id = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4, required=False)
     customer = forms.ModelChoiceField(queryset=Customer.objects.none(), label="客户")
+    service_date = forms.DateField(
+        initial=timezone.localdate,
+        required=False,
+        label="服务日期",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+    )
     destination_type = forms.ChoiceField(choices=DestinationType.choices, label="目的地类型")
     building = forms.ModelChoiceField(
         queryset=Building.objects.none(), required=False, label="楼栋"
@@ -33,6 +39,9 @@ class CommonOrderForm(BootstrapFormMixin, forms.Form):
     room = forms.CharField(required=False, max_length=40, label="房间")
     off_campus_address = forms.CharField(required=False, max_length=255, label="校外地址")
     requires_upstairs = forms.BooleanField(required=False, label="需要上楼")
+    confirm_off_campus_upstairs = forms.BooleanField(
+        required=False, label="已了解：送校外需上楼，但系统不自动收取上楼费",
+    )
     is_urgent = forms.BooleanField(required=False, label="加急")
     order_note = forms.CharField(
         required=False, label="本单备注", widget=forms.Textarea(attrs={"rows": 2})
@@ -60,6 +69,17 @@ class CommonOrderForm(BootstrapFormMixin, forms.Form):
             self.fields["building"].initial = customer.building
             self.fields["floor"].initial = customer.floor
             self.fields["room"].initial = customer.room
+        self.order_fields([
+            "operation_id", "customer", "service_date", "destination_type", "building",
+            "floor", "room", "off_campus_address", "pickup_area",
+            "outside_pickup_location", "pickup_gate", "other_pickup_location",
+            "pickup_location", "pickup_identifier_type", "size_class",
+            "pickup_identifier", "identifier", "pickup_code", "item_list",
+            "item_description", "delivery_location_text", "small_medium_count",
+            "large_oversize_count", "special_pickup_note", "requires_upstairs",
+            "is_urgent", "upstairs_small_medium_count", "upstairs_large_oversize_count",
+            "confirm_off_campus_upstairs", "order_note", "confirm_duplicate",
+        ])
         self._apply_bootstrap_classes()
 
     def clean(self):
@@ -75,13 +95,18 @@ class CommonOrderForm(BootstrapFormMixin, forms.Form):
         ):
             self.add_error("off_campus_address", "送校外必须填写地址")
         if cleaned.get("requires_upstairs"):
-            for field in ("building", "floor", "room"):
+            fields = ("floor", "room") if destination == DestinationType.OFF_CAMPUS_ADDRESS else ("building", "floor", "room")
+            for field in fields:
                 if not cleaned.get(field):
                     self.add_error(field, "上楼订单必须填写此项")
+            if (destination == DestinationType.OFF_CAMPUS_ADDRESS
+                    and not cleaned.get("confirm_off_campus_upstairs")):
+                self.add_error("confirm_off_campus_upstairs", "请确认校外上楼不自动计费")
         return cleaned
 
     def service_kwargs(self):
         data = self.cleaned_data.copy()
+        data.pop("confirm_off_campus_upstairs", None)
         data["allow_duplicate"] = data.pop("confirm_duplicate", False)
         if self.proxy_recipient:
             data["proxy_recipient"] = self.proxy_recipient
@@ -89,11 +114,6 @@ class CommonOrderForm(BootstrapFormMixin, forms.Form):
 
 
 class ExpressOrderForm(CommonOrderForm):
-    service_date = forms.DateField(
-        initial=timezone.localdate,
-        label="服务日期",
-        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
-    )
     pickup_area = forms.ChoiceField(choices=PickupArea.choices, label="取件区域")
     outside_pickup_location = forms.CharField(required=False, max_length=160, label="校外取件地点")
     pickup_identifier_type = forms.ChoiceField(
@@ -133,7 +153,7 @@ class SimpleUpstairsOrderForm(CommonOrderForm):
 
 
 class TakeoutOrderForm(SimpleUpstairsOrderForm):
-    pickup_gate = forms.ChoiceField(choices=TakeoutGate.choices, label="取餐校门")
+    pickup_gate = forms.ChoiceField(choices=TakeoutGate.choices, label="取餐地点")
     other_pickup_location = forms.CharField(required=False, max_length=160, label="其他取餐地点")
     identifier = forms.CharField(max_length=255, label="取餐标识")
 
@@ -184,7 +204,7 @@ class LuggageOrderForm(CommonOrderForm):
         cleaned = super().clean()
         if not cleaned.get("small_medium_count") and not cleaned.get("large_oversize_count"):
             self.add_error("small_medium_count", "行李数量至少一类大于 0")
-        if not cleaned.get("building"):
+        if cleaned.get("destination_type") != DestinationType.OFF_CAMPUS_ADDRESS and not cleaned.get("building"):
             self.add_error("building", "行李业务必须选择楼栋")
         if not cleaned.get("floor"):
             self.add_error("floor", "行李业务必须填写楼层")

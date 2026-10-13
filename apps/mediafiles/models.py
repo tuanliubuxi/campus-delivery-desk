@@ -1,6 +1,7 @@
 """Local-file metadata and delivery evidence relationships."""
 
 from django.db import models
+from django.utils.functional import cached_property
 
 
 class MediaVariant(models.TextChoices):
@@ -37,6 +38,18 @@ class MediaFile(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     delete_reason = models.CharField(max_length=255, blank=True)
     protected_until = models.DateTimeField(null=True, blank=True)
+
+    @cached_property
+    def is_available(self):
+        if self.deleted_at is not None:
+            return False
+        from django.core.exceptions import ValidationError
+        from .services.images import media_absolute_path
+
+        try:
+            return media_absolute_path(self).is_file()
+        except ValidationError:
+            return False
 
     class Meta:
         ordering = ["-created_at", "-id"]

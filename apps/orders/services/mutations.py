@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.audit.services import record_event
 from apps.common.enums import BusinessType, UserRole
+from apps.config_center.models import SiteConfiguration
 from apps.orders.models import DeliveryStatus, DestinationType, PickupArea
 from apps.settlements.models import ChargeScope, ChargeStatus
 from apps.settlements.services import create_initial_order_charges, void_charge_item
@@ -69,10 +70,11 @@ def update_order(*, order, actor, building=None, detail_changes=None, **changes)
     else:
         order.building_snapshot = ""
         order.zone_snapshot = ""
-        order.floor_snapshot = ""
-        order.room_snapshot = ""
+        if not order.requires_upstairs:
+            order.floor_snapshot = ""
+            order.room_snapshot = ""
     if order.requires_upstairs and (
-        not order.building_snapshot
+        (order.destination_type == DestinationType.CAMPUS_BUILDING and not order.building_snapshot)
         or not order.floor_snapshot
         or (not order.room_snapshot and order.business_type != BusinessType.LUGGAGE_UPSTAIRS)
     ):
@@ -85,6 +87,10 @@ def update_order(*, order, actor, building=None, detail_changes=None, **changes)
             raise ValidationError("上楼订单楼层必须是正整数") from exc
     if order.business_type == BusinessType.LUGGAGE_UPSTAIRS and order.is_urgent:
         raise ValidationError("行李业务不支持加急")
+    if (order.business_type == BusinessType.LUGGAGE_UPSTAIRS
+            and order.destination_type == DestinationType.OFF_CAMPUS_ADDRESS
+            and order.outside_luggage_base_price_snapshot is None):
+        order.outside_luggage_base_price_snapshot = SiteConfiguration.load().outside_luggage_base_price
     if order.business_type == BusinessType.EXPRESS:
         order.service_date = order.service_date or timezone.localdate()
     order.version += 1

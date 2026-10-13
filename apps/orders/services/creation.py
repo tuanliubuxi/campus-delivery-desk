@@ -79,9 +79,10 @@ def _validate_common(
     if destination_type == DestinationType.OFF_CAMPUS_ADDRESS and not off_campus_address.strip():
         raise ValidationError("送校外必须填写校外地址")
     if requires_upstairs and (
-        not building or not floor or (not room and business_type != BusinessType.LUGGAGE_UPSTAIRS)
+        (destination_type == DestinationType.CAMPUS_BUILDING and not building)
+        or not floor or (not room and business_type != BusinessType.LUGGAGE_UPSTAIRS)
     ):
-        raise ValidationError("上楼订单必须填写楼栋、楼层和房间（行李业务房间可空）")
+        raise ValidationError("上楼订单必须填写楼层和房间；校内还须选择楼栋（行李业务房间可空）")
     if requires_upstairs:
         try:
             if int(floor) < 1:
@@ -203,8 +204,14 @@ def _create_order(
     if any(value is not None for value in counts):
         if not simple_upstairs or not requires_upstairs or sum(value or 0 for value in counts) <= 0:
             raise ValidationError("仅外卖、KFC、果蔬的上楼订单可填写数量，且至少一类大于零")
+    service_date = service_date or timezone.localdate()
     sequence_date = timezone.localdate()
     upstairs_config = SiteConfiguration.load() if simple_upstairs and requires_upstairs else None
+    outside_luggage_config = (
+        SiteConfiguration.load()
+        if business_type == BusinessType.LUGGAGE_UPSTAIRS
+        and destination_type == DestinationType.OFF_CAMPUS_ADDRESS else None
+    )
     recipient_name, recipient_phone = _recipient_snapshots(customer, proxy_recipient)
     order = Order(
         creation_operation_id=operation_id,
@@ -226,10 +233,13 @@ def _create_order(
         upstairs_large_oversize_count=upstairs_large_oversize_count if simple_upstairs and requires_upstairs else None,
         upstairs_small_rate_snapshot=upstairs_config.upstairs_small_medium_rate if upstairs_config else None,
         upstairs_large_rate_snapshot=upstairs_config.upstairs_large_oversize_rate if upstairs_config else None,
+        outside_luggage_base_price_snapshot=(
+            outside_luggage_config.outside_luggage_base_price if outside_luggage_config else None
+        ),
         entry_mode=entry_mode,
         destination_type=destination_type,
-        building_snapshot=building.name if building else "",
-        zone_snapshot=building.zone if building else "",
+        building_snapshot=(building.name if building and destination_type == DestinationType.CAMPUS_BUILDING else ""),
+        zone_snapshot=(building.zone if building and destination_type == DestinationType.CAMPUS_BUILDING else ""),
         floor_snapshot=str(floor or ""),
         room_snapshot=room or "",
         off_campus_address=(

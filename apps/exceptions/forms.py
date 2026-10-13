@@ -51,7 +51,7 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
     blocks_settlement = forms.BooleanField(required=False, label="阻塞结算")
     attachments = MultipleImageField(
         required=False,
-        label="异常图片（可多选）",
+        label="异常图片（最多 4 张）",
         widget=MultipleImageInput(attrs={"accept": "image/*"}),
     )
     delivery_evidence = forms.ModelMultipleChoiceField(
@@ -128,6 +128,8 @@ class ExceptionCreateForm(BootstrapFormMixin, forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        if len(cleaned.get("attachments") or ()) > 4:
+            self.add_error("attachments", "异常图片最多上传 4 张")
         if not any(
             cleaned.get(field) for field in ("order", "task", "drop", "consolidation_round")
         ):

@@ -87,6 +87,9 @@ class SiteConfiguration(models.Model):
     campus_to_outside_fee = models.DecimalField(
         max_digits=8, decimal_places=2, default=2, validators=[MinValueValidator(Decimal("0"))]
     )
+    outside_luggage_base_price = models.DecimalField(
+        max_digits=8, decimal_places=2, default=3, validators=[MinValueValidator(Decimal("0"))]
+    )
     upstairs_small_medium_rate = models.DecimalField(
         max_digits=8,
         decimal_places=2,

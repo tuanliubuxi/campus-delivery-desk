@@ -9,7 +9,7 @@ from apps.accounts.models import User
 from apps.common.enums import BusinessType, UserRole
 from apps.common.forms import BootstrapFormMixin
 from apps.config_center.models import QuickLocationPhrase
-from apps.orders.models import PickupArea, SizeClass
+from apps.orders.models import DestinationType, PickupArea, SizeClass
 
 from .models import DestinationZone, LocationType
 
@@ -84,6 +84,10 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
     )
     location_type = forms.ChoiceField(choices=LocationType.choices, label="实际放置类型")
     final_location_text = forms.CharField(max_length=255, label="最终位置")
+    delivery_note = forms.CharField(
+        required=False, max_length=500, label="本次配送说明（可选）",
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
     near_photos = MultipleImageField(
         required=False,
         label="近景照片（最多 4 张）",
@@ -157,7 +161,8 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
                 else:
                     self.known_size_fields.append(field_pair)
             order = item.order
-            if order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order.requires_upstairs:
+            if (order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY}
+                    and order.requires_upstairs and order.destination_type != DestinationType.OFF_CAMPUS_ADDRESS):
                 self.upstairs_order_ids.add(str(order.pk))
                 suggested = f"upstairs_suggested_total_{order.pk}"
                 note = f"upstairs_suggestion_note_{order.pk}"

@@ -245,15 +245,19 @@ def order_history(request):
     query = request.GET.get("q", "").strip()
     business_type = request.GET.get("business_type", "")
     delivery_status = request.GET.get("delivery_status", "")
+    destination = request.GET.get("destination", "")
     if business_type not in BusinessType.values:
         business_type = ""
     if delivery_status not in DeliveryStatus.values:
         delivery_status = ""
+    if destination not in {"SOUTH", "NORTH", "OUTSIDE"}:
+        destination = ""
     page = Paginator(
         search_orders(
             query,
             business_type=business_type,
             delivery_status=delivery_status,
+            destination=destination,
         ),
         50,
     ).get_page(request.GET.get("page"))
@@ -270,6 +274,7 @@ def order_history(request):
             "query": query,
             "business_type": business_type,
             "delivery_status": delivery_status,
+            "destination": destination,
             "business_choices": BusinessType.choices,
             "status_choices": DeliveryStatus.choices,
             "filter_query": filters.urlencode(),

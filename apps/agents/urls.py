@@ -45,5 +45,10 @@ urlpatterns = [
         views.recipient_generate_receipt,
         name="recipient-generate-receipt",
     ),
+    path(
+        "recorder/proxy/recipients/<int:recipient_id>/rebuild-settlement-receipt/",
+        views.recipient_rebuild_settlement_receipt,
+        name="recipient-rebuild-settlement-receipt",
+    ),
     path("admin-console/agents/", views.proxy_workspace, name="admin-workspace"),
 ]

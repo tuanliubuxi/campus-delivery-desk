@@ -249,6 +249,10 @@ class SettlementImageVersion(models.Model):
 
 
 class ProxyRecipientReceipt(models.Model):
+    class Kind(models.TextChoices):
+        DELIVERY = "DELIVERY", "配送凭证"
+        SETTLEMENT = "SETTLEMENT", "结算凭证"
+
     proxy_recipient = models.ForeignKey(
         ProxyRecipient, on_delete=models.PROTECT, related_name="receipts"
     )
@@ -263,6 +267,7 @@ class ProxyRecipientReceipt(models.Model):
         related_name="proxy_recipient_receipts",
     )
     version_no = models.PositiveIntegerField()
+    kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.DELIVERY)
     show_price = models.BooleanField(default=True)
     media = models.ForeignKey(
         "mediafiles.MediaFile",
@@ -275,11 +280,11 @@ class ProxyRecipientReceipt(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["proxy_recipient", "version_no"],
+                fields=["proxy_recipient", "kind", "version_no"],
                 name="settlements_unique_proxy_receipt_version",
             ),
             models.UniqueConstraint(
-                fields=["proxy_recipient"],
+                fields=["proxy_recipient", "kind"],
                 condition=Q(is_active=True),
                 name="settlements_one_active_proxy_receipt",
             ),

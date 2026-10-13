@@ -86,6 +86,7 @@ class BusinessSelectionForm(BootstrapFormMixin, forms.Form):
 
 
 class WageRateOverrideForm(BootstrapFormMixin, forms.ModelForm):
+    rate_mode = forms.ChoiceField(label="计薪比例来源", choices=[("default", "继承系统默认"), ("override", "单独设定")])
     class Meta:
         model = User
         fields = ["wage_rate_override"]
@@ -94,4 +95,15 @@ class WageRateOverrideForm(BootstrapFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from apps.config_center.models import SiteConfiguration
+        self.fields["rate_mode"].initial = "override" if self.instance.wage_rate_override is not None else "default"
+        self.fields["wage_rate_override"].initial = self.instance.wage_rate_override if self.instance.wage_rate_override is not None else SiteConfiguration.load().default_wage_rate
         self._apply_bootstrap_classes()
+
+    def clean(self):
+        data = super().clean()
+        if data.get("rate_mode") == "override" and data.get("wage_rate_override") is None:
+            self.add_error("wage_rate_override", "单独设定时请输入比例")
+        if data.get("rate_mode") == "default":
+            data["wage_rate_override"] = None
+        return data

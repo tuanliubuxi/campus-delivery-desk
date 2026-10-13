@@ -23,6 +23,12 @@ from .enums import (
 class Order(models.Model):
     """Stable order identity; mutable delivery and settlement states remain separate."""
 
+    @property
+    def destination_area_label(self):
+        if self.destination_type == DestinationType.OFF_CAMPUS_ADDRESS:
+            return "校外"
+        return {"SOUTH": "南区", "NORTH": "北区"}.get(self.zone_snapshot, "校内")
+
     business_type = models.CharField(max_length=24, choices=BusinessType.choices, db_index=True)
     # A stable browser-generated key makes retries return the original order instead of duplicating it.
     creation_operation_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -74,6 +80,9 @@ class Order(models.Model):
     upstairs_suggestion_note = models.CharField(max_length=255, blank=True)
     upstairs_small_rate_snapshot = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     upstairs_large_rate_snapshot = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    outside_luggage_base_price_snapshot = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True
+    )
     entry_mode = models.CharField(
         max_length=24,
         choices=EntryMode.choices,

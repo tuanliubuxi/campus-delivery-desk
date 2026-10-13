@@ -58,6 +58,7 @@ def delete_media_file(*, media, reason, actor=None, now=None):
         previous = (
             ProxyRecipientReceipt.objects.filter(
                 proxy_recipient=receipt.proxy_recipient,
+                kind=receipt.kind,
                 media__deleted_at__isnull=True,
                 created_at__gte=receipt.proxy_batch.ready_at,
             )

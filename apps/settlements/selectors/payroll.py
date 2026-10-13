@@ -31,12 +31,14 @@ def earning_work_date(earning):
 
 
 def unpaid_earnings(courier):
-    return (
-        CourierEarning.objects.filter(
-            courier=courier,
+    queryset = CourierEarning.objects.filter(
             status=EarningStatus.SETTLED,
             settlement__status=SettlementStatus.SETTLED,
         )
+    if courier is not None:
+        queryset = queryset.filter(courier=courier)
+    return (
+        queryset
         .exclude(wage_payout_lines__payout__status__in=[
             WagePayoutStatus.DRAFT, WagePayoutStatus.READY, WagePayoutStatus.PAID,
         ])
