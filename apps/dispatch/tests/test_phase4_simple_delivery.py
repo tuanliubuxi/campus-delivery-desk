@@ -596,3 +596,13 @@ def test_delivery_media_is_visible_only_to_owning_courier(recorder, customer, bu
     assert login(other_client, other).status_code == 302
     assert owner_client.get(reverse("mediafiles:download", args=[media_id])).status_code == 200
     assert other_client.get(reverse("mediafiles:download", args=[media_id])).status_code == 403
+
+
+@pytest.mark.django_db
+def test_completion_order_checkboxes_do_not_render_as_text_input():
+    from apps.dispatch.forms import CompleteDropForm
+
+    form = CompleteDropForm(assignments=[])
+    html = str(form["order_ids"])
+    assert 'class="cdd-choice-group"' in html
+    assert "form-control" not in html

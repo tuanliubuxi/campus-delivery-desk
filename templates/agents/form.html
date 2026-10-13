@@ -15,7 +15,7 @@
         {% if agent %}<button class="btn btn-outline-danger cdd-touch" type="submit" form="agent-delete-form" {% if agent.proxy_batches.exists %}disabled title="已有批次记录，只能停用"{% endif %}>删除</button>{% endif %}
       </div>
     </form>
-    {% if agent %}<form id="agent-delete-form" method="post" action="{% url 'agents:agent-delete' agent.pk %}" onsubmit="return confirm('仅未产生批次记录的代理人可以删除。确认继续？')">{% csrf_token %}</form>{% if agent.proxy_batches.exists %}<p class="form-text text-center mt-2">该代理人已有历史批次，不能删除；可以在代理人列表中停用新批次。</p>{% endif %}{% endif %}
+    {% if agent %}<form id="agent-delete-form" method="post" action="{% url 'agents:agent-delete' agent.pk %}" onsubmit="return confirm('仅未产生批次记录的代理人可以删除。确认继续？')">{% csrf_token %}</form>{% if agent.proxy_batches.exists %}<p class="form-text text-center mt-2">该代理人已有历史批次，不能删除；全部批次已结算或已取消后，才可在列表中停用。</p>{% endif %}{% endif %}
   </section>
 </main>
 {% endblock %}

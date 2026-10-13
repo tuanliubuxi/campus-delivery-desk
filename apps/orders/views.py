@@ -130,6 +130,7 @@ def order_create(request, business_type):
             "business_label": BusinessType(business_type).label,
             "is_create": True,
             "selected_customer_id": customer.pk if customer else None,
+            "customer_entry": request.GET.get("entry", "")[:32] if request.GET.get("entry", "").isdigit() else "",
             "picker_buildings": Building.objects.filter(is_active=True),
         },
     )
@@ -283,6 +284,15 @@ def order_show(request, order_id):
     except Order.DoesNotExist:
         order = get_object_or_404(search_orders(), pk=order_id)
     return render(request, "orders/detail.html", {"order": order})
+
+
+@recorder_or_admin_required
+def order_receipt_evidence(request, order_id):
+    order = get_object_or_404(Order, pk=order_id, soft_deleted_at__isnull=True)
+    from apps.settlements.services.receipts import _receipt_photo_state
+
+    available_evidence, _ = _receipt_photo_state(Order.objects.filter(pk=order.pk))
+    return render(request, "includes/receipt_evidence.html", {"available_evidence": available_evidence})
 
 
 def _edit_initial(order):

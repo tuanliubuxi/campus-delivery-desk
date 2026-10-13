@@ -1,15 +1,18 @@
 """Daily payroll eligibility, adjustments, and actual-payment boundary."""
 
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from apps.common.enums import BusinessType
 from apps.config_center.models import SiteConfiguration
+from apps.dispatch.models import DeliveryTask, TaskStatus, TaskType
 from apps.settlements.models import WageAdjustmentType, WagePayout, WagePayoutStatus
-from apps.settlements.selectors.payroll import pending_work_dates
+from apps.settlements.selectors.payroll import pending_work_dates, unfinished_tasks_for_day
 from apps.settlements.services import confirm_settlement
 from apps.settlements.services.payroll import (
     add_wage_adjustment,
@@ -20,6 +23,21 @@ from apps.settlements.services.payroll import (
 )
 
 from .test_phase7_finance import _waiting_settlement
+
+
+@pytest.mark.django_db
+def test_prior_day_active_task_blocks_work_date_payroll():
+    _, _, courier, order, _ = _waiting_settlement(with_extras=False)
+    work_date = timezone.localtime(order.delivery_drop_items.first().drop.delivered_at).date()
+    DeliveryTask.objects.create(
+        task_type=TaskType.SIMPLE,
+        business_type=BusinessType.TAKEOUT,
+        courier=courier,
+        status=TaskStatus.ACTIVE,
+        operation_id=uuid.uuid4(),
+        accepted_at=timezone.now() - timedelta(days=1),
+    )
+    assert unfinished_tasks_for_day(courier, work_date) == 1
 
 
 @pytest.mark.django_db

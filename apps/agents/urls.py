@@ -39,6 +39,7 @@ urlpatterns = [
         name="recipient-edit",
     ),
     path("recorder/proxy/recipients/<int:recipient_id>/delete/", views.recipient_delete, name="recipient-delete"),
+    path("recorder/proxy/recipients/<int:recipient_id>/receipt-evidence/", views.recipient_receipt_evidence, name="recipient-receipt-evidence"),
     path(
         "recorder/proxy/recipients/<int:recipient_id>/generate-receipt/",
         views.recipient_generate_receipt,

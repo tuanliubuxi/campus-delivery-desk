@@ -378,6 +378,23 @@ def login(client, user):
 
 
 @pytest.mark.django_db
+def test_order_receipt_evidence_requires_login_and_card_entry_uses_fresh_draft_key(
+    client, recorder, customer, building
+):
+    order = create_express_order(actor=recorder, **express_args(customer, building))
+    evidence_url = reverse("orders:receipt-evidence", args=[order.pk])
+    assert client.get(evidence_url).status_code == 302
+    login(client, recorder)
+    response = client.get(evidence_url)
+    assert response.status_code == 200
+    assert "原始" in response.content.decode()
+    create_url = reverse("orders:create", args=[BusinessType.TAKEOUT])
+    response = client.get(create_url, {"customer": customer.pk, "entry": "123456789"})
+    assert response.status_code == 200
+    assert f"customer-{customer.pk}-entry-123456789" in response.content.decode()
+
+
+@pytest.mark.django_db
 def test_recorder_order_ui_requires_login_and_creates_order(client, recorder, customer, building):
     assert client.get(reverse("orders:new")).status_code == 302
     login(client, recorder)

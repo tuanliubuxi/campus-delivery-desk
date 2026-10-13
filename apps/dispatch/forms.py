@@ -105,7 +105,20 @@ class CompleteDropForm(BootstrapFormMixin, OperationForm):
         self.unknown_upstairs_fields = []
         self.known_upstairs_fields = []
         self.fields["order_ids"].choices = [
-            (str(item.order_id), item.order.display_id) for item in assignments
+            (
+                str(item.order_id),
+                " · ".join(
+                    value for value in (
+                        item.order.recipient_name_snapshot or "未命名收件人",
+                        item.order.get_business_type_display(),
+                        item.order.off_campus_address or " ".join(value for value in (
+                            item.order.building_snapshot, item.order.floor_snapshot, item.order.room_snapshot
+                        ) if value),
+                        f"订单 {item.order.display_id}",
+                    ) if value
+                ),
+            )
+            for item in assignments
         ]
         self.fields["order_ids"].initial = [str(item.order_id) for item in assignments]
         self.fields["order_ids"].widget.attrs["data-cdd-draft-ignore"] = ""

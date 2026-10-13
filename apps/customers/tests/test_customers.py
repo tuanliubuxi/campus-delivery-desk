@@ -92,6 +92,26 @@ def test_customer_create_view_never_overwrites_an_existing_customer(client, reco
 
 
 @pytest.mark.django_db
+def test_customer_duplicate_requires_review_before_create(client, recorder):
+    existing = create_customer(actor=recorder, wechat_nickname="同名客户", phone_suffixes="7759")
+    client.post(
+        reverse("accounts:login"),
+        {"role": recorder.role, "user": recorder.pk, "password": "Strong-pass-123"},
+    )
+    payload = {
+        "wechat_nickname": "同名客户", "recipient_names": "另一收件人", "phone_suffixes": "7759",
+        "building": "", "floor": "", "room": "", "long_term_note": "",
+    }
+    response = client.post(reverse("customers:create"), payload)
+    assert response.status_code == 200
+    assert existing in response.context["duplicate_candidates"]
+    assert Customer.objects.count() == 1
+    response = client.post(reverse("customers:create"), {**payload, "confirm_duplicate_customer": "on"})
+    assert response.status_code == 302
+    assert Customer.objects.count() == 2
+
+
+@pytest.mark.django_db
 def test_customer_picker_filters_and_order_form_prefills_selected_customer(client, recorder):
     customer = create_customer(
         actor=recorder,

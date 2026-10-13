@@ -90,15 +90,19 @@ def agent_delete(request, agent_id):
 def agent_toggle(request, agent_id):
     agent = get_object_or_404(Agent, pk=agent_id)
     active = request.POST.get("is_active") == "on"
-    update_agent(
-        actor=request.user,
-        agent=agent,
-        name=agent.name,
-        contact_text=agent.contact_text,
-        note=agent.note,
-        is_active=active,
-    )
-    messages.success(request, "代理人已启用，可新建批次" if active else "代理人已停用新批次；现有批次仍可完成")
+    try:
+        update_agent(
+            actor=request.user,
+            agent=agent,
+            name=agent.name,
+            contact_text=agent.contact_text,
+            note=agent.note,
+            is_active=active,
+        )
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
+    else:
+        messages.success(request, "代理人已启用，可新建批次" if active else "代理人已停用")
     return redirect("agents:workspace")
 
 
@@ -130,6 +134,8 @@ def batch_detail(request, batch_id):
 
     for recipient in batch.recipients.all():
         recipient.delivery_receipt_reasons = proxy_delivery_receipt_readiness(recipient)
+        for receipt in recipient.receipts.all():
+            receipt.dialog_id = f"recipient-receipt-{receipt.pk}"
 
     from_order_id = request.GET.get("from_order", "")
     from_order = (
@@ -149,6 +155,16 @@ def batch_detail(request, batch_id):
             else [],
         },
     )
+
+
+@recorder_or_admin_required
+def recipient_receipt_evidence(request, recipient_id):
+    recipient = get_object_or_404(ProxyRecipient, pk=recipient_id)
+    from apps.orders.models import Order
+    from apps.settlements.services.receipts import _receipt_photo_state
+
+    available_evidence, _ = _receipt_photo_state(Order.objects.filter(proxy_recipient=recipient))
+    return render(request, "includes/receipt_evidence.html", {"available_evidence": available_evidence})
 
 
 @require_POST

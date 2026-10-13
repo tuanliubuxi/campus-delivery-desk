@@ -147,11 +147,11 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-order-timeline li { padding-left: .2rem; }
 .cdd-order-timeline time { display: inline-block; min-width: 8.5rem; color: var(--cdd-muted); font-variant-numeric: tabular-nums; }
 .cdd-task-card { border-left: .3rem solid var(--cdd-primary); }
-.cdd-recipient-badge { max-width: min(76%, 19rem); padding: .3rem .65rem; border: 1px solid var(--cdd-primary); border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 18%, var(--cdd-surface)); color: var(--cdd-text); }
+.cdd-recipient-badge { max-width: min(76%, 19rem); padding: .3rem .65rem; border: 1px solid var(--cdd-person-border); border-radius: .45rem; background: var(--cdd-person-bg); color: var(--cdd-person-text); }
 .cdd-task-order { padding: .72rem 0; border-bottom: 1px solid var(--cdd-border); }
 .cdd-task-primary { margin-top: .2rem; font-size: 1.02rem; font-weight: 650; }
 .cdd-task-identifiers { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem .5rem; margin-top: .3rem; font-size: .92rem; }
-.cdd-pickup-badge { max-width: 100%; padding: .2rem .45rem; border: 1px solid var(--cdd-focus); border-radius: .35rem; background: color-mix(in srgb, var(--cdd-focus) 22%, var(--cdd-surface)); color: var(--cdd-text); }
+.cdd-pickup-badge { max-width: 100%; padding: .2rem .45rem; border: 1px solid var(--cdd-pickup-border); border-radius: .35rem; background: var(--cdd-pickup-bg); color: var(--cdd-pickup-text); }
 .cdd-task-status { color: var(--cdd-muted); font-size: .82rem; white-space: nowrap; }
 .cdd-task-order summary { color: var(--cdd-primary); cursor: pointer; font-size: .84rem; margin-top: .35rem; }
 .cdd-status-dot { width: .65rem; height: .65rem; border-radius: 50%; background: #8793a5; box-shadow: 0 0 0 3px color-mix(in srgb, #8793a5 22%, transparent); }
@@ -186,6 +186,14 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-modal-close { position: sticky; z-index: 2; top: 0; float: right; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 1px solid var(--cdd-border); border-radius: 50%; background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.35rem; }
 .cdd-receipt-viewport { max-height: 65vh; overflow: auto; touch-action: pinch-zoom; }
 .cdd-detail-key { display: inline-block; max-width: 100%; padding: .2rem .55rem; border: 1px solid var(--cdd-primary); border-radius: .45rem; background: color-mix(in srgb, var(--cdd-primary) 16%, var(--cdd-surface)); color: var(--cdd-text); overflow-wrap: anywhere; }
+.cdd-detail-key--person { background: var(--cdd-person-bg); color: var(--cdd-person-text); border-color: var(--cdd-person-border); }
+.cdd-detail-key--place { background: var(--cdd-place-bg); color: var(--cdd-place-text); border-color: var(--cdd-place-border); }
+.cdd-detail-key--fee { background: var(--cdd-fee-bg); color: var(--cdd-fee-text); border-color: var(--cdd-fee-border); }
+.cdd-choice-group { display: grid; gap: .4rem; width: 100%; }
+.cdd-choice-group > div > label { display: flex; align-items: flex-start; gap: .6rem; padding: .65rem .75rem; border: 1px solid var(--cdd-border); border-radius: .55rem; background: var(--cdd-elevated); cursor: pointer; overflow-wrap: anywhere; }
+.cdd-choice-group > div > label:has(input:checked) { background: var(--cdd-place-bg); color: var(--cdd-place-text); border-color: var(--cdd-place-border); }
+.cdd-choice-group > div > label:focus-within, .cdd-settlement-group:focus-within { outline: 3px solid var(--cdd-focus); outline-offset: 2px; }
+.cdd-choice-group > div > label:has(input:disabled) { opacity: .65; cursor: not-allowed; }
 .cdd-settlement-groups { max-height: min(64vh, 640px); }
 .cdd-settlement-group { display: block; margin-bottom: .7rem; padding: .85rem; border: 1px solid var(--cdd-border); border-radius: .75rem; background: var(--cdd-elevated); cursor: pointer; }
 .cdd-settlement-group:hover:not(.is-blocked), .cdd-settlement-group:has(input:checked) { border-color: var(--cdd-primary); box-shadow: inset 0 0 0 1px var(--cdd-primary); }

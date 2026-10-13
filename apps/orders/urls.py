@@ -17,6 +17,7 @@ urlpatterns = [
     ),
     path("recorder/orders/history/", views.order_history, name="history"),
     path("recorder/orders/<int:order_id>/", views.order_show, name="detail"),
+    path("recorder/orders/<int:order_id>/receipt-evidence/", views.order_receipt_evidence, name="receipt-evidence"),
     path("recorder/orders/<int:order_id>/edit/", views.order_edit, name="edit"),
     path("recorder/orders/<int:order_id>/cancel/", views.order_cancel, name="cancel"),
     path(

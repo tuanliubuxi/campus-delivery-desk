@@ -113,6 +113,18 @@ def test_receipt_title_uses_global_brand():
     assert _receipt_title("配送凭证") == "校园服务队 · 配送凭证"
 
 
+def test_receipt_emphasizes_customer_location_parcel_and_total():
+    receipt = _render_receipt(
+        title="校驿 · 配送结算凭证",
+        rows=[("客户", "测试客户"), ("放置位置", "快递架"), ("第 1 件", "取件码 1234"), ("合计", "¥4.00")],
+    )
+    with Image.open(receipt) as image:
+        # Sample the colored band away from text; JPEG tolerance is intentional.
+        band_colors = [image.getpixel((900, 175 + index * 54)) for index in range(4)]
+        assert len(set(band_colors)) == 4
+        assert all(color != (255, 255, 255) for color in band_colors)
+
+
 def make_context(size=SizeClass.SMALL):
     recorder = User.objects.create_user(username=f"rec-{uuid.uuid4().hex}", role=UserRole.RECORDER)
     courier = User.objects.create_user(username=f"cour-{uuid.uuid4().hex}", role=UserRole.COURIER)

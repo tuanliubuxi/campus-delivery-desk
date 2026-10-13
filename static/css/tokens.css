@@ -6,6 +6,10 @@
   --cdd-primary: #2456a6; --cdd-primary-text: #ffffff; --cdd-border: #ccd6e5;
   --cdd-active: #17488f; --cdd-focus: #78a8f2;
   --cdd-input: #ffffff; --cdd-danger: #b42318; --cdd-shadow: rgb(35 54 86 / 12%);
+  --cdd-person-bg: #dce8ff; --cdd-person-text: #173c79; --cdd-person-border: #6691d3;
+  --cdd-place-bg: #d8f2ee; --cdd-place-text: #13554f; --cdd-place-border: #50a79d;
+  --cdd-pickup-bg: #ffe8bf; --cdd-pickup-text: #68410b; --cdd-pickup-border: #bd8330;
+  --cdd-fee-bg: #e8ddff; --cdd-fee-text: #523484; --cdd-fee-border: #9374c7;
 }
 [data-theme="dark"] {
   color-scheme: dark;
@@ -14,6 +18,10 @@
   --cdd-primary: #83adff; --cdd-primary-text: #07162d; --cdd-border: #3b4d67;
   --cdd-active: #a9c7ff; --cdd-focus: #f0b45d;
   --cdd-input: #111b2a; --cdd-danger: #ff8d8d; --cdd-shadow: rgb(0 0 0 / 35%);
+  --cdd-person-bg: #233e70; --cdd-person-text: #dceaff; --cdd-person-border: #7fa9ef;
+  --cdd-place-bg: #164b48; --cdd-place-text: #d1fff3; --cdd-place-border: #5bc5ad;
+  --cdd-pickup-bg: #61441d; --cdd-pickup-text: #fff0c7; --cdd-pickup-border: #e3ab4a;
+  --cdd-fee-bg: #423068; --cdd-fee-text: #f0dfff; --cdd-fee-border: #b694e4;
 }
 [data-theme="warm"] {
   color-scheme: light;
@@ -22,6 +30,10 @@
   --cdd-primary: #9b4b22; --cdd-primary-text: #ffffff; --cdd-border: #d9c3aa;
   --cdd-active: #7f3515; --cdd-focus: #df8a42;
   --cdd-input: #fffdf8; --cdd-danger: #a52f28; --cdd-shadow: rgb(91 55 31 / 14%);
+  --cdd-person-bg: #f6dfc5; --cdd-person-text: #713917; --cdd-person-border: #bf824c;
+  --cdd-place-bg: #dfebd2; --cdd-place-text: #365729; --cdd-place-border: #8ca96a;
+  --cdd-pickup-bg: #ffe4ae; --cdd-pickup-text: #684007; --cdd-pickup-border: #c19039;
+  --cdd-fee-bg: #eddcf4; --cdd-fee-text: #683b6f; --cdd-fee-border: #b788ba;
 }
 [data-theme="fresh"] {
   color-scheme: light;
@@ -30,6 +42,10 @@
   --cdd-primary: #08788c; --cdd-primary-text: #ffffff; --cdd-border: #a9d7dc;
   --cdd-active: #045f70; --cdd-focus: #37b7ae;
   --cdd-input: #ffffff; --cdd-danger: #b22c3c; --cdd-shadow: rgb(8 85 101 / 13%);
+  --cdd-person-bg: #cfe9fc; --cdd-person-text: #164a72; --cdd-person-border: #5d9bc4;
+  --cdd-place-bg: #c7f0e5; --cdd-place-text: #075a50; --cdd-place-border: #3cae9b;
+  --cdd-pickup-bg: #ffe7b6; --cdd-pickup-text: #654007; --cdd-pickup-border: #c38b32;
+  --cdd-fee-bg: #e9d8f8; --cdd-fee-text: #563077; --cdd-fee-border: #ac78c6;
 }
 
 [data-theme] {

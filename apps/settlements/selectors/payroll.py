@@ -64,6 +64,6 @@ def open_payout(courier, work_date):
 def unfinished_tasks_for_day(courier, work_date):
     return DeliveryTask.objects.filter(
         courier=courier,
-        accepted_at__date=work_date,
+        accepted_at__date__lte=work_date,
         status=TaskStatus.ACTIVE,
     ).count()

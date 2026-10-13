@@ -198,6 +198,14 @@ def test_agent_and_open_recipient_edits_are_audited(recorder, agent, building):
         display_name="修改前",
         building=building,
     )
+    update_proxy_recipient(
+        actor=recorder,
+        recipient=recipient,
+        display_name="修改后",
+        building=building,
+        show_price_on_receipt=False,
+    )
+    ProxyBatch.objects.filter(pk=batch.pk).update(status=ProxyBatchStatus.SETTLED)
     update_agent(
         actor=recorder,
         agent=agent,
@@ -205,13 +213,6 @@ def test_agent_and_open_recipient_edits_are_audited(recorder, agent, building):
         contact_text="新联系方式",
         note="停用但保留历史",
         is_active=False,
-    )
-    update_proxy_recipient(
-        actor=recorder,
-        recipient=recipient,
-        display_name="修改后",
-        building=building,
-        show_price_on_receipt=False,
     )
     agent.refresh_from_db()
     recipient.refresh_from_db()
@@ -303,15 +304,27 @@ def test_proxy_ui_requires_role_and_preserves_default_show_price(client, recorde
 
 
 @pytest.mark.django_db
-def test_agent_switch_only_blocks_new_batches_and_keeps_existing_batch(client, recorder, agent):
+def test_agent_switch_requires_all_batches_terminal(client, recorder, agent):
     batch = create_proxy_batch(actor=recorder, agent=agent, batch_date=date.today())
     assert login(client, recorder).status_code == 302
     response = client.post(reverse("agents:agent-toggle", args=[agent.pk]), {})
     assert response.status_code == 302
     agent.refresh_from_db()
-    batch.refresh_from_db()
+    assert agent.is_active
+    with pytest.raises(ValidationError, match="全部结算或取消"):
+        update_agent(actor=recorder, agent=agent, name=agent.name, is_active=False)
+    ProxyBatch.objects.filter(pk=batch.pk).update(status=ProxyBatchStatus.READY_TO_SETTLE)
+    response = client.post(reverse("agents:agent-toggle", args=[agent.pk]), {})
+    agent.refresh_from_db()
+    assert response.status_code == 302
+    assert agent.is_active
+    ProxyBatch.objects.filter(pk=batch.pk).update(status=ProxyBatchStatus.SETTLED)
+    response = client.post(reverse("agents:agent-toggle", args=[agent.pk]), {})
+    agent.refresh_from_db()
+    assert response.status_code == 302
     assert not agent.is_active
-    assert batch.status == ProxyBatchStatus.OPEN
+    batch.refresh_from_db()
+    assert batch.status == ProxyBatchStatus.SETTLED
     response = client.get(reverse("agents:workspace"))
     assert response.status_code == 200
     assert f"?agent={agent.pk}" not in response.content.decode()
@@ -319,6 +332,29 @@ def test_agent_switch_only_blocks_new_batches_and_keeps_existing_batch(client, r
     agent.refresh_from_db()
     assert response.status_code == 302
     assert agent.is_active
+
+
+@pytest.mark.django_db
+def test_agent_can_be_disabled_when_every_batch_is_canceled(client, recorder, agent):
+    first = create_proxy_batch(actor=recorder, agent=agent, batch_date=date.today())
+    second = create_proxy_batch(actor=recorder, agent=agent, batch_date=date.today())
+    ProxyBatch.objects.filter(pk__in=[first.pk, second.pk]).update(status=ProxyBatchStatus.CANCELED)
+    update_agent(actor=recorder, agent=agent, name=agent.name, is_active=False)
+    agent.refresh_from_db()
+    assert not agent.is_active
+
+
+@pytest.mark.django_db
+def test_proxy_receipt_evidence_endpoint_requires_login(client, recorder, agent):
+    batch = create_proxy_batch(actor=recorder, agent=agent, batch_date=date.today())
+    recipient = create_proxy_recipient(actor=recorder, proxy_batch=batch, display_name="取证测试")
+    url = reverse("agents:recipient-receipt-evidence", args=[recipient.pk])
+    assert client.get(url).status_code == 302
+    assert login(client, recorder).status_code == 302
+    response = client.get(url)
+    assert response.status_code == 200
+    assert "原始" in response.content.decode()
+    assert client.get(reverse("agents:batch-detail", args=[batch.pk])).status_code == 200
 
 
 @pytest.mark.django_db

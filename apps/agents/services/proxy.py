@@ -66,6 +66,10 @@ def create_agent(*, actor, name, contact_text="", note=""):
 def update_agent(*, actor, agent, name, contact_text="", note="", is_active=True):
     _require_operator(actor)
     agent = Agent.objects.get(pk=agent.pk)
+    if not is_active and agent.proxy_batches.exclude(
+        status__in=[ProxyBatchStatus.SETTLED, ProxyBatchStatus.CANCELED]
+    ).exists():
+        raise ValidationError("该代理人还有录入中或待结算批次；全部结算或取消后才能停用")
     before = {
         "name": agent.name,
         "contact_text": agent.contact_text,

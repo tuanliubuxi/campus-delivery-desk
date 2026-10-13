@@ -76,12 +76,14 @@ def customer_create(request):
     form = CustomerForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         duplicates = list(form.duplicate_candidates()[:5])
+        if duplicates and request.POST.get("confirm_duplicate_customer") != "on":
+            return render(
+                request,
+                "customers/form.html",
+                {"form": form, "title": "新建客户", "duplicate_candidates": duplicates},
+            )
         customer = create_customer(actor=request.user, **form.cleaned_data)
-        if duplicates:
-            names = "、".join(item.display_name for item in duplicates)
-            messages.warning(request, f"已创建；请留意疑似重复客户：{names}")
-        else:
-            messages.success(request, "客户已创建")
+        messages.success(request, "客户已创建")
         return redirect("customers:edit", customer_id=customer.pk)
     return render(request, "customers/form.html", {"form": form, "title": "新建客户"})
 
@@ -92,12 +94,14 @@ def customer_edit(request, customer_id):
     form = CustomerForm(request.POST or None, instance=customer)
     if request.method == "POST" and form.is_valid():
         duplicates = list(form.duplicate_candidates()[:5])
+        if duplicates and request.POST.get("confirm_duplicate_customer") != "on":
+            return render(
+                request,
+                "customers/form.html",
+                {"form": form, "title": "编辑客户", "customer": customer, "duplicate_candidates": duplicates},
+            )
         customer = update_customer(customer=customer, actor=request.user, **form.cleaned_data)
-        if duplicates:
-            names = "、".join(item.display_name for item in duplicates)
-            messages.warning(request, f"已保存；请留意疑似重复客户：{names}")
-        else:
-            messages.success(request, "客户资料已保存；历史订单快照不受影响")
+        messages.success(request, "客户资料已保存；历史订单快照不受影响")
         return redirect("customers:edit", customer_id=customer.pk)
     return render(
         request,

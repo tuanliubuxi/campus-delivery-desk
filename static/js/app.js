@@ -55,6 +55,21 @@ document.addEventListener("click", (event) => {
   const closer = event.target.closest("[data-cdd-modal-close]");
   if (closer) closer.closest("dialog")?.close();
 });
+document.addEventListener("toggle", async (event) => {
+  const panel = event.target;
+  if (!panel.matches?.("details[data-cdd-evidence-url]") || !panel.open || panel.dataset.cddEvidenceLoaded) return;
+  const result = panel.querySelector("[data-cdd-evidence-result]");
+  if (!result) return;
+  result.textContent = "正在加载原始证据……";
+  try {
+    const response = await fetch(panel.dataset.cddEvidenceUrl, {credentials: "same-origin"});
+    if (!response.ok || response.redirected) throw new Error("证据不可读取");
+    result.innerHTML = await response.text();
+    panel.dataset.cddEvidenceLoaded = "1";
+  } catch (_error) {
+    result.textContent = "原始证据暂不可读取，请检查登录状态后重试。";
+  }
+}, true);
 async function loadRemoteModal(dialog, url) {
   const content = dialog.querySelector("[data-cdd-remote-content]");
   if (!content) return;

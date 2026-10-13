@@ -17,6 +17,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!customerId || !business.value) return;
     const target = new URL(business.value, window.location.origin);
     target.searchParams.set("customer", customerId);
+    // A new card action starts a fresh draft, while reloads of this URL keep that draft.
+    target.searchParams.set("entry", String(Date.now()));
     window.location.assign(target.toString());
   });
 });

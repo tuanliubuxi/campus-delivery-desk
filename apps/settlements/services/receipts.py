@@ -68,7 +68,10 @@ def _render_receipt(*, title, rows, photo_media_items=()):
     draw.text((90, 85), title, font=title_font, fill="#17324d")
     y = 165
     for label, line in text_lines:
-        if label == "放置位置":
+        if label in {"客户", "收件人"}:
+            draw.rounded_rectangle((79, y - 7, 1001, y + 43), radius=10, fill="#e2ebff")
+            color = "#244577"
+        elif label == "放置位置":
             draw.rounded_rectangle((79, y - 7, 1001, y + 43), radius=10, fill="#e5f3f7")
             color = "#123f53"
         elif label.startswith("第 ") and label.endswith(" 件"):
