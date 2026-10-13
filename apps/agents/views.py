@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.html import format_html
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
@@ -102,7 +103,16 @@ def agent_toggle(request, agent_id):
     except ValidationError as exc:
         messages.error(request, "; ".join(exc.messages))
     else:
-        messages.success(request, f"{agent.name}：代理人已启用，可新建批次" if active else f"{agent.name}：代理人已停用")
+        if active:
+            messages.success(request, format_html(
+                "代理人 <span class='cdd-detail-key cdd-detail-key--person'>{}</span> 已启用<br>可新建批次",
+                agent.name,
+            ))
+        else:
+            messages.success(request, format_html(
+                "代理人 <span class='cdd-detail-key cdd-detail-key--person'>{}</span> 已停用",
+                agent.name,
+            ))
     return redirect("agents:workspace")
 
 

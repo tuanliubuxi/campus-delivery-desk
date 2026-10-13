@@ -45,6 +45,13 @@ def test_wage_workbench_and_dynamic_slip_access():
     payout = create_wage_draft(
         courier=courier, work_date=work_date, actor=admin, operation_id=uuid.uuid4()
     )
+    embedded = get_view(wage_views.wage_detail, reverse("settlements:wage-detail", args=[payout.pk]) + "?embedded=1", admin, payout_id=payout.pk)
+    assert embedded.status_code == 200
+    assert "确认核算" in embedded.content.decode()
+    assert "返回上一级" not in embedded.content.decode()
+    assert wage_views._wage_detail_redirect(
+        factory.post("/admin-console/wages/", {"embedded": "1"}), payout.pk
+    )["Location"].endswith("?embedded=1")
     assert get_view(wage_views.wage_slip, reverse("settlements:wage-slip", args=[payout.pk, "card"]), admin, payout_id=payout.pk, style="card").status_code == 403
     ready_wage_payout(payout=payout, actor=admin)
     slip_url = reverse("settlements:wage-slip", args=[payout.pk, "card"])

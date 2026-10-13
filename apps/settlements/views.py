@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.http import Http404, HttpResponseForbidden
+from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse as url_reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -444,7 +445,14 @@ def wage_draft_create(request):
     except (ValidationError, ValueError, KeyError, PermissionError) as exc:
         messages.error(request, str(exc))
         return redirect(f"/admin-console/wages/?courier={courier.pk}")
-    return redirect("settlements:wage-detail", payout_id=payout.pk)
+    return _wage_detail_redirect(request, payout.pk)
+
+
+def _wage_detail_redirect(request, payout_id):
+    url = url_reverse("settlements:wage-detail", kwargs={"payout_id": payout_id})
+    if request.POST.get("embedded") == "1":
+        url += "?embedded=1"
+    return HttpResponseRedirect(url)
 
 
 @admin_required
@@ -457,7 +465,9 @@ def wage_detail(request, payout_id):
     return render(
         request, "settlements/wage_detail.html",
         {"payout": payout, "adjustment_form": WageAdjustmentForm(),
-         "payment_form": WagePaymentForm(), "is_admin_view": True},
+         "payment_form": WagePaymentForm(), "is_admin_view": True,
+         "embedded": request.GET.get("embedded") == "1",
+         "parent_template": "layouts/embedded.html" if request.GET.get("embedded") == "1" else "layouts/base.html"},
     )
 
 
@@ -475,7 +485,7 @@ def wage_adjustment_add(request, payout_id):
             messages.success(request, "薪资调整已加入草稿")
     else:
         messages.error(request, "请检查薪资调整类型、金额和理由")
-    return redirect("settlements:wage-detail", payout_id=payout_id)
+    return _wage_detail_redirect(request, payout_id)
 
 
 @require_POST
@@ -486,7 +496,7 @@ def wage_adjustment_remove(request, payout_id, item_id):
         remove_wage_adjustment(item=item, actor=request.user)
     except (ValidationError, PermissionError) as exc:
         messages.error(request, str(exc))
-    return redirect("settlements:wage-detail", payout_id=payout_id)
+    return _wage_detail_redirect(request, payout_id)
 
 
 @require_POST
@@ -497,7 +507,7 @@ def wage_adjustments_clear(request, payout_id):
         clear_wage_adjustments(payout=payout, actor=request.user)
     except (ValidationError, PermissionError) as exc:
         messages.error(request, str(exc))
-    return redirect("settlements:wage-detail", payout_id=payout_id)
+    return _wage_detail_redirect(request, payout_id)
 
 
 @require_POST
@@ -510,7 +520,7 @@ def wage_ready(request, payout_id):
         messages.error(request, str(exc))
     else:
         messages.success(request, "核算已确认；这还不表示工资已发放")
-    return redirect("settlements:wage-detail", payout_id=payout_id)
+    return _wage_detail_redirect(request, payout_id)
 
 
 @require_POST
@@ -527,7 +537,7 @@ def wage_paid(request, payout_id):
             messages.success(request, "已登记实际发放，金额与明细不可修改")
     else:
         messages.error(request, "请选择实际发放方式")
-    return redirect("settlements:wage-detail", payout_id=payout_id)
+    return _wage_detail_redirect(request, payout_id)
 
 
 @require_POST
@@ -540,7 +550,7 @@ def wage_void(request, payout_id):
         messages.error(request, str(exc))
     else:
         messages.success(request, "未发放的草稿已作废，可重新建立该日核算")
-    return redirect("settlements:wage-detail", payout_id=payout_id)
+    return _wage_detail_redirect(request, payout_id)
 
 
 @admin_required
