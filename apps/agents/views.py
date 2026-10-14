@@ -146,7 +146,12 @@ def batch_detail(request, batch_id):
         proxy_delivery_receipt_readiness,
     )
 
-    for recipient in batch.recipients.all():
+    recipient_page, recipient_query = paginate(
+        request,
+        batch.recipients.select_related("building").prefetch_related("receipts__media", "orders__express_detail")
+        .order_by("created_at", "pk"),
+    )
+    for recipient in recipient_page:
         recipient.delivery_receipt_reasons = proxy_delivery_receipt_readiness(recipient)
         recipient.has_delivery_receipt = False
         recipient.has_settlement_receipt = False
@@ -169,6 +174,9 @@ def batch_detail(request, batch_id):
         "agents/batch_detail.html",
         {
             "batch": batch,
+            "recipients": recipient_page,
+            "recipient_page": recipient_page,
+            "recipient_query": recipient_query,
             "from_order": from_order,
             "readiness_reasons": proxy_batch_readiness(batch)
             if batch.status == "OPEN"

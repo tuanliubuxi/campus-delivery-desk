@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.common.enums import UserRole
+from apps.common.pagination import paginate
 from apps.common.permissions import recorder_or_admin_required, role_required
 from apps.mediafiles.models import DeliveryEvidence, MediaFile
 
@@ -178,6 +179,10 @@ def workspace(request):
     other_query = request.GET.copy()
     for key in ("page", "open_page", "resolved_page", "order", "tab"):
         other_query.pop(key, None)
+    open_query = other_query.copy()
+    open_query.update({"tab": "open", "resolved_page": resolved_page.number})
+    resolved_query = other_query.copy()
+    resolved_query.update({"tab": "resolved", "open_page": open_page.number})
     return render(
         request,
         "exceptions/workspace.html",
@@ -188,6 +193,8 @@ def workspace(request):
             "resolved_page": resolved_page,
             "page": open_page,
             "filter_query": other_query.urlencode(),
+            "open_query": open_query.urlencode(),
+            "resolved_query": resolved_query.urlencode(),
             "selected_tab": "resolved" if request.GET.get("tab") == "resolved" else "open",
             "open_create_modal": form.is_bound or bool(request.GET.get("order")),
             "today": timezone.localdate(),
@@ -198,11 +205,15 @@ def workspace(request):
 @exception_operator_required
 def detail(request, case_id):
     case = get_object_or_404(visible_exception_cases(request.user), pk=case_id)
+    handling_page, handling_query = paginate(request, case.manual_handlings.select_related("created_by").order_by("-created_at", "-pk"))
     return render(
         request,
         "exceptions/detail.html",
         {
             "case": case,
+            "handlings": handling_page,
+            "handling_page": handling_page,
+            "handling_query": handling_query,
             "resolve_form": ExceptionResolveForm(),
             "manual_handling_form": ManualHandlingForm(exception_case=case),
             "blockers_form": ExceptionBlockersForm(

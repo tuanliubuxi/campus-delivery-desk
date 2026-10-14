@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import User
 from apps.common.enums import BusinessType, UserRole
+from apps.common.pagination import paginate
 from apps.common.permissions import admin_required, courier_required, recorder_or_admin_required
 from apps.dispatch.models import DeliveryDrop
 from apps.orders.models import Order, OrderSettlementStatus
@@ -71,12 +72,15 @@ from .services.upstairs import review_upstairs_price
 
 @recorder_or_admin_required
 def workspace(request):
+    group_page, group_query = paginate(request, settlement_candidate_groups())
     return render(
         request,
         "settlements/workspace.html",
         {
             "build_form": BuildSettlementForm(),
-            "candidate_groups": settlement_candidate_groups(),
+            "candidate_groups": group_page,
+            "group_page": group_page,
+            "group_query": group_query,
         },
     )
 

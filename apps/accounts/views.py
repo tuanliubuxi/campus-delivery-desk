@@ -118,6 +118,8 @@ AUDIT_EVENT_LABELS = {
     "BACKUP_PHOTOS_DELETED": "清理备份照片",
     "BACKUP_DELETED": "删除备份",
     "BACKUP_RESTORED": "恢复备份",
+    "BACKUP_RESTORE_FAILED": "备份恢复失败",
+    "OPERATION_JOB_FAILED": "运维任务失败",
     "MEDIA_FILE_DELETED": "删除媒体文件",
     "MAINTENANCE_ENABLED": "开启维护模式",
     "MAINTENANCE_DISABLED": "退出维护模式",

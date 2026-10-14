@@ -41,19 +41,25 @@ def courier_list(request):
 @courier_required
 def courier_detail(request, round_id):
     consolidation = get_object_or_404(
-        ConsolidationRound.objects.prefetch_related(
-            "items__order__express_detail",
-            "items__order__customer",
-            "items__order__delivery_drop_items__drop__evidence__media"
-        ),
+        ConsolidationRound,
         pk=round_id,
         assigned_courier=request.user,
+    )
+    item_page, item_query = paginate(
+        request,
+        ConsolidationItem.objects.filter(round=consolidation)
+        .select_related("order__express_detail", "order__customer")
+        .prefetch_related("order__delivery_drop_items__drop__evidence__media")
+        .order_by("pk"),
     )
     return render(
         request,
         "consolidation/detail.html",
         {
             "round": consolidation,
+            "items": item_page,
+            "item_page": item_page,
+            "item_query": item_query,
             "found_count": consolidation.items.filter(found_status=FoundStatus.FOUND).count(),
             "pending_count": consolidation.items.filter(found_status=FoundStatus.PENDING).count(),
             "complete_form": CompleteConsolidationForm(

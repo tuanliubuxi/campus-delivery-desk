@@ -26,5 +26,6 @@
       {% empty %}<tr><td colspan="5">暂无日志</td></tr>{% endfor %}</tbody>
     </table>
   </div>
+  {% include "includes/list_pagination.html" with page=page query=request.GET.urlencode label="系统日志" %}
 </main>
 {% endblock %}

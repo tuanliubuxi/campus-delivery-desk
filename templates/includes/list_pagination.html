@@ -1,5 +1,15 @@
-{% if page.has_other_pages %}<nav class="d-flex flex-wrap align-items-center gap-2 mt-3" aria-label="{{ label|default:'列表' }}分页">
-  <span class="small cdd-muted">第 {{ page.number }} / {{ page.paginator.num_pages }} 页，共 {{ page.paginator.count }} 条</span>
-  {% if page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{{ query }}&{{ parameter|default:'page' }}={{ page.previous_page_number }}">上一页</a>{% endif %}
-  {% if page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{{ query }}&{{ parameter|default:'page' }}={{ page.next_page_number }}">下一页</a>{% endif %}
+{% if page.has_other_pages %}<nav class="cdd-pagination d-flex flex-wrap align-items-center gap-2 mt-3" aria-label="{{ label|default:'列表' }}分页">
+  <a class="btn btn-sm btn-outline-primary {% if not page.has_previous %}disabled{% endif %}" href="?{{ query }}&{{ parameter|default:'page' }}=1" {% if remote %}data-cdd-remote-page{% endif %} {% if not page.has_previous %}aria-disabled="true" tabindex="-1"{% endif %}>首页</a>
+  <a class="btn btn-sm btn-outline-primary {% if not page.has_previous %}disabled{% endif %}" href="?{{ query }}&{{ parameter|default:'page' }}={% if page.has_previous %}{{ page.previous_page_number }}{% else %}1{% endif %}" {% if remote %}data-cdd-remote-page{% endif %} {% if not page.has_previous %}aria-disabled="true" tabindex="-1"{% endif %}>上一页</a>
+  <form method="get" class="d-inline-flex align-items-center gap-1" {% if remote %}data-cdd-remote-page-form{% endif %}>
+    {% for key, value in request.GET.items %}{% if key != parameter|default:'page' and key != 'tab' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+    {% if tab %}<input type="hidden" name="tab" value="{{ tab }}">{% elif request.GET.tab %}<input type="hidden" name="tab" value="{{ request.GET.tab }}">{% endif %}
+    <label class="small mb-0" for="page-jump-{{ parameter|default:'page' }}">第</label>
+    <input class="form-control form-control-sm cdd-page-number" id="page-jump-{{ parameter|default:'page' }}" type="text" inputmode="numeric" pattern="[0-9]+" name="{{ parameter|default:'page' }}" value="{{ page.number }}" data-cdd-page-number data-max-page="{{ page.paginator.num_pages }}" aria-label="{{ label|default:'列表' }}页码" required>
+    <span class="small cdd-muted text-nowrap">/ {{ page.paginator.num_pages }} 页</span>
+    <button class="btn btn-sm btn-primary" type="submit">跳转</button>
+  </form>
+  <a class="btn btn-sm btn-outline-primary {% if not page.has_next %}disabled{% endif %}" href="?{{ query }}&{{ parameter|default:'page' }}={% if page.has_next %}{{ page.next_page_number }}{% else %}{{ page.paginator.num_pages }}{% endif %}" {% if remote %}data-cdd-remote-page{% endif %} {% if not page.has_next %}aria-disabled="true" tabindex="-1"{% endif %}>下一页</a>
+  <a class="btn btn-sm btn-outline-primary {% if not page.has_next %}disabled{% endif %}" href="?{{ query }}&{{ parameter|default:'page' }}={{ page.paginator.num_pages }}" {% if remote %}data-cdd-remote-page{% endif %} {% if not page.has_next %}aria-disabled="true" tabindex="-1"{% endif %}>尾页</a>
+  <span class="small cdd-muted">共 {{ page.paginator.count }} 条</span>
 </nav>{% endif %}

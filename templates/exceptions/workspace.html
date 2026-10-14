@@ -22,7 +22,7 @@
         <div class="mt-2">{% if case.blocks_consolidation %}<span class="badge text-bg-warning">阻塞归拢</span>{% endif %} {% if case.blocks_settlement %}<span class="badge text-bg-danger">阻塞结算</span>{% endif %}</div>
       </a>{% empty %}<p class="cdd-muted">暂无待处理异常。</p>{% endfor %}
       </div>
-      {% if open_page.has_other_pages %}<nav aria-label="待处理异常分页" class="d-flex gap-2 mt-2">{% if open_page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=open&open_page={{ open_page.previous_page_number }}&resolved_page={{ resolved_page.number }}">上一页</a>{% endif %}<span class="small cdd-muted align-self-center">{{ open_page.number }} / {{ open_page.paginator.num_pages }}</span>{% if open_page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=open&open_page={{ open_page.next_page_number }}&resolved_page={{ resolved_page.number }}">下一页</a>{% endif %}</nav>{% endif %}
+      {% include "includes/list_pagination.html" with page=open_page query=open_query parameter="open_page" label="待处理异常" tab="open" %}
     </section>
     <section class="cdd-exception-pane {% if selected_tab == 'resolved' %}is-mobile-active{% endif %}" data-cdd-exception-panel="resolved"><h2 class="h5">已处理 <small class="cdd-muted">{{ resolved_page.paginator.count }}</small></h2>
       <div class="cdd-exception-list">
@@ -32,7 +32,7 @@
         <div class="cdd-clamp" title="{{ case.reason_text }}">{{ case.reason_text }}</div>
       </a>{% empty %}<p class="cdd-muted">暂无已处理异常。</p>{% endfor %}
       </div>
-      {% if resolved_page.has_other_pages %}<nav aria-label="已处理异常分页" class="d-flex gap-2 mt-2">{% if resolved_page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=resolved&open_page={{ open_page.number }}&resolved_page={{ resolved_page.previous_page_number }}">上一页</a>{% endif %}<span class="small cdd-muted align-self-center">{{ resolved_page.number }} / {{ resolved_page.paginator.num_pages }}</span>{% if resolved_page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{{ filter_query }}&tab=resolved&open_page={{ open_page.number }}&resolved_page={{ resolved_page.next_page_number }}">下一页</a>{% endif %}</nav>{% endif %}
+      {% include "includes/list_pagination.html" with page=resolved_page query=resolved_query parameter="resolved_page" label="已处理异常" tab="resolved" %}
     </section>
   </div>
   <dialog class="cdd-modal" id="exception-create" {% if open_create_modal %}data-cdd-auto-open{% endif %} aria-labelledby="exception-create-title"><div class="cdd-modal-panel">

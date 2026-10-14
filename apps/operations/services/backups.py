@@ -34,6 +34,7 @@ from apps.operations.models import (
     BackupType,
     JobName,
     JobRun,
+    JobStatus,
     MaintenanceState,
     PhotoArchiveStatus,
 )
@@ -373,55 +374,76 @@ def _database_for_restore(directory, manifest):
 def restore_backup(*, record, actor, operation_id):
     """Protect current state, restore DB/config, and remain in maintenance for review."""
     _require_admin(actor)
-    state = MaintenanceState.load()
-    if not state.is_enabled:
-        raise ValidationError("恢复前必须先进入维护模式")
+    key = f"restore:{operation_id}"
     existing = JobRun.objects.filter(
         job_name=JobName.RESTORE,
-        idempotency_key=f"restore:{operation_id}",
+        idempotency_key=key,
     ).first()
     if existing:
         return existing
-    source_directory = backup_directory(record)
-    manifest = _read_manifest(source_directory)
-    with _database_for_restore(source_directory, manifest) as source_database:
-        protection = create_backup(
-            backup_type=BackupType.PRE_RESTORE,
-            actor=actor,
-            operation_id=uuid.uuid5(operation_id, "pre-restore"),
-        )
-        protection_path = backup_directory(protection)
-        database_path = Path(settings.DATABASES["default"]["NAME"])
-        actor_id = actor.pk
-        connections.close_all()
-        with closing(sqlite3.connect(source_database)) as source, closing(
-            sqlite3.connect(database_path)
-        ) as destination:
-            source.backup(destination)
-        connections.close_all()
+    details = {
+        "source_storage": record.storage_name,
+        "actor_name": actor.display_name,
+        "actor_id": actor.pk,
+        "requested_at": timezone.now().isoformat(),
+    }
+    JobRun.objects.create(job_name=JobName.RESTORE, idempotency_key=key, result_summary=details)
+    try:
+        if not MaintenanceState.load().is_enabled:
+            raise ValidationError("恢复前必须先进入维护模式")
+        source_directory = backup_directory(record)
+        manifest = _read_manifest(source_directory)
+        with _database_for_restore(source_directory, manifest) as source_database:
+            protection = create_backup(
+                backup_type=BackupType.PRE_RESTORE,
+                actor=actor,
+                operation_id=uuid.uuid5(operation_id, "pre-restore"),
+            )
+            details["pre_restore_storage"] = protection.storage_name
+            protection_path = backup_directory(protection)
+            database_path = Path(settings.DATABASES["default"]["NAME"])
+            connections.close_all()
+            with closing(sqlite3.connect(source_database)) as source, closing(
+                sqlite3.connect(database_path)
+            ) as destination:
+                source.backup(destination)
+            connections.close_all()
 
-        # The restored database may predate both filesystem records; register them from manifests.
-        restored_record = _register_manifest(source_directory)
-        _register_manifest(protection_path)
-        restored_actor = get_user_model().objects.filter(pk=actor_id).first()
-        state = MaintenanceState.load()
-        state.is_enabled = True
-        state.entered_at = timezone.now()
-        state.entered_by = restored_actor
-        state.reason = "恢复完成，等待管理员执行恢复检查后退出维护"
-        state.save()
-        run = run_idempotent_job(
+            # The restored database may predate both filesystem records; register them from manifests.
+            restored_record = _register_manifest(source_directory)
+            _register_manifest(protection_path)
+            restored_actor = get_user_model().objects.filter(pk=actor.pk).first()
+            state = MaintenanceState.load()
+            state.is_enabled = True
+            state.entered_at = timezone.now()
+            state.entered_by = restored_actor
+            state.reason = "恢复完成，等待管理员执行恢复检查后退出维护"
+            state.save()
+            details["restored_backup_id"] = restored_record.pk
+            run, _ = JobRun.objects.update_or_create(
+                job_name=JobName.RESTORE,
+                idempotency_key=key,
+                defaults={"status": JobStatus.SUCCEEDED, "finished_at": timezone.now(),
+                          "error_summary": "", "result_summary": details},
+            )
+    except Exception as exc:
+        JobRun.objects.update_or_create(
             job_name=JobName.RESTORE,
-            idempotency_key=f"restore:{operation_id}",
-            callback=lambda: {
-                "restored_backup_id": restored_record.pk,
-                "pre_restore_storage": protection.storage_name,
-            },
+            idempotency_key=key,
+            defaults={"status": JobStatus.FAILED, "finished_at": timezone.now(),
+                      "error_summary": str(exc)[:500], "result_summary": details},
         )
         record_event(
-            actor=restored_actor,
-            event_type="BACKUP_RESTORED",
-            entity=restored_record,
-            metadata={"pre_restore_storage": protection.storage_name},
+            actor=get_user_model().objects.filter(pk=actor.pk).first(),
+            event_type="BACKUP_RESTORE_FAILED",
+            entity=record,
+            metadata={"source_storage": record.storage_name, "error": str(exc)[:500]},
         )
-        return run
+        raise
+    record_event(
+        actor=restored_actor,
+        event_type="BACKUP_RESTORED",
+        entity=restored_record,
+        metadata={"pre_restore_storage": protection.storage_name},
+    )
+    return run

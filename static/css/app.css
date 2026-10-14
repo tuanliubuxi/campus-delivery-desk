@@ -5,6 +5,7 @@ body {
   color: var(--cdd-text);
   padding-bottom: env(safe-area-inset-bottom);
 }
+html { scrollbar-gutter: stable; }
 
 .cdd-offline-banner {
   position: sticky;
@@ -35,7 +36,10 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-action-row { display: flex; flex-wrap: nowrap; align-items: center; gap: .55rem; }
 .cdd-action-row > * { flex: 0 0 auto; margin: 0; }
 .cdd-feedback-actions { justify-content: center; }
-.cdd-scroll-region { max-height: min(62vh, 720px); overflow: auto; scrollbar-gutter: stable; }
+  .cdd-scroll-region { max-height: min(62vh, 720px); overflow: auto; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.cdd-page-number { width: 4.25rem; text-align: center; font-variant-numeric: tabular-nums; }
+.cdd-operation-row--backup { --bs-table-bg: color-mix(in srgb, var(--cdd-primary) 7%, var(--cdd-surface)); }
+.cdd-operation-row--restore { --bs-table-bg: color-mix(in srgb, var(--cdd-success, #198754) 10%, var(--cdd-surface)); }
 .cdd-scroll-region thead th { position: sticky; top: 0; z-index: 2; background: var(--cdd-elevated); }
 .cdd-exception-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .cdd-exception-pane { min-width: 0; }
@@ -182,10 +186,10 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 
 .cdd-modal { width: min(92vw, 760px); max-height: 88vh; padding: 0; border: 0; border-radius: 1rem; color: var(--cdd-text); background: transparent; }
 .cdd-modal::backdrop { background: rgb(4 12 24 / 68%); backdrop-filter: blur(2px); }
-.cdd-modal-panel { position: relative; max-height: 88vh; overflow: auto; padding: 1.35rem; border: 1px solid var(--cdd-border); border-radius: 1rem; background: var(--cdd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 35%); }
+.cdd-modal-panel { position: relative; max-height: 88vh; overflow: auto; overscroll-behavior: contain; padding: 1.35rem; border: 1px solid var(--cdd-border); border-radius: 1rem; background: var(--cdd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 35%); }
 .cdd-modal-close { position: sticky; z-index: 2; top: 0; float: right; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 1px solid var(--cdd-border); border-radius: 50%; background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.35rem; }
-.cdd-receipt-viewport { max-height: 65vh; overflow: auto; touch-action: pinch-zoom; }
-.cdd-media-preview-viewport { max-height: min(65vh, 760px); overflow: auto; text-align: center; }
+  .cdd-receipt-viewport { max-height: 65vh; overflow: auto; overscroll-behavior: contain; touch-action: pinch-zoom; }
+  .cdd-media-preview-viewport { max-height: min(65vh, 760px); overflow: auto; overscroll-behavior: contain; text-align: center; }
 .cdd-media-preview-viewport img { display: block; max-width: 100%; height: auto; margin: auto; }
 .cdd-compact-scroll { max-height: min(62vh, 640px); overflow-y: auto; scrollbar-gutter: stable; }
 .cdd-rule-group { border-left: 5px solid var(--rule-accent); background: color-mix(in srgb, var(--rule-accent) 12%, var(--cdd-elevated)); }
@@ -209,7 +213,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-wage-slip-tabs button + button { border-left: 1px solid var(--cdd-primary); }
 .cdd-wage-slip-tabs button[aria-pressed="true"] { background: var(--cdd-primary); color: var(--cdd-primary-text); font-weight: 700; }
 .cdd-wage-slip-tabs button:focus-visible { outline: 3px solid var(--cdd-focus); outline-offset: -3px; }
-.cdd-wage-slip-preview { flex: 1; min-height: 0; overflow: auto; text-align: center; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; }
+.cdd-wage-slip-preview { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; text-align: center; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; }
 .cdd-wage-slip-preview img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 .cdd-wage-slip-preview img[hidden] { display: none; }
 .cdd-wage-slip-preview p { padding: 2rem; }

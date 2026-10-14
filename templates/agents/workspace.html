@@ -67,13 +67,7 @@
       <div class="col-12"><div class="cdd-card p-4 cdd-muted">没有匹配的代理批次。</div></div>
       {% endfor %}
     </div>
-    {% if batch_page.has_other_pages %}
-    <nav class="mt-3" aria-label="代理批次分页">
-      {% if batch_page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?q={{ query|urlencode }}&page={{ batch_page.previous_page_number }}">上一页</a>{% endif %}
-      <span class="mx-2">第 {{ batch_page.number }} / {{ batch_page.paginator.num_pages }} 页</span>
-      {% if batch_page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?q={{ query|urlencode }}&page={{ batch_page.next_page_number }}">下一页</a>{% endif %}
-    </nav>
-    {% endif %}
+    {% include "includes/list_pagination.html" with page=batch_page query=request.GET.urlencode label="代理批次" %}
   </section>
 </main>
 {% endblock %}

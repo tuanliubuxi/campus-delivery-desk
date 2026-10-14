@@ -3,6 +3,7 @@
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.audit.services import record_event
 from apps.operations.models import JobRun, JobStatus
 
 
@@ -21,6 +22,12 @@ def run_idempotent_job(*, job_name, idempotency_key, callback):
             status=JobStatus.FAILED,
             finished_at=timezone.now(),
             error_summary=str(exc)[:500],
+        )
+        record_event(
+            actor=None,
+            event_type="OPERATION_JOB_FAILED",
+            entity=run,
+            metadata={"job_name": job_name, "error": str(exc)[:500]},
         )
         raise
     JobRun.objects.filter(pk=run.pk).update(

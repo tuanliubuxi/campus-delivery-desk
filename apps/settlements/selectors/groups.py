@@ -30,15 +30,15 @@ class SettlementCandidateGroup:
         return not self.blockers
 
 
-def settlement_candidate_groups(limit=200):
-    """Show recent delivered orders, but include every member of their round or batch."""
+def settlement_candidate_groups():
+    """Include every delivered, unsettled group without a silent recent-orders cutoff."""
     visible = list(
         Order.objects.filter(
             delivery_status=DeliveryStatus.DELIVERED,
             settlement_status=OrderSettlementStatus.UNSETTLED,
         )
         .select_related("express_detail", "proxy_batch__agent", "customer")
-        .order_by("-created_at", "-pk")[:limit]
+        .order_by("-created_at", "-pk")
     )
     round_ids = {
         order.express_detail.express_round_id

@@ -16,11 +16,13 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.test import RequestFactory
+from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
 from apps.accounts.models import ActiveLoginLease, User
 from apps.accounts.services import cleanup_stale_leases
+from apps.audit.models import AuditEvent
 from apps.common.enums import UserRole
 from apps.config_center.models import SiteConfiguration
 from apps.exceptions.models import ExceptionCase, ExceptionCaseAttachment, ExceptionStatus
@@ -32,6 +34,7 @@ from apps.operations.models import (
     BackupStatus,
     BackupType,
     JobName,
+    JobRun,
     JobStatus,
     MaintenanceState,
     PhotoArchiveStatus,
@@ -329,8 +332,14 @@ def test_restore_requires_maintenance_and_creates_pre_restore_protection(
         "apps.operations.services.backups.create_backup",
         lambda **kwargs: protection,
     )
+    failed_operation = uuid.uuid4()
     with pytest.raises(ValidationError, match="维护模式"):
-        restore_backup(record=target, actor=admin, operation_id=uuid.uuid4())
+        restore_backup(record=target, actor=admin, operation_id=failed_operation)
+    failure = JobRun.objects.get(job_name=JobName.RESTORE, idempotency_key=f"restore:{failed_operation}")
+    assert failure.status == JobStatus.FAILED
+    assert failure.result_summary["source_storage"] == target.storage_name
+    assert failure.result_summary["actor_name"] == admin.display_name
+    assert AuditEvent.objects.filter(event_type="BACKUP_RESTORE_FAILED").exists()
     set_maintenance_mode(enabled=True, actor=admin, reason="恢复测试")
     run = restore_backup(record=target, actor=admin, operation_id=uuid.uuid4())
     with closing(sqlite3.connect(destination)) as database:
@@ -338,3 +347,43 @@ def test_restore_requires_maintenance_and_creates_pre_restore_protection(
     assert run.job_name == JobName.RESTORE
     assert BackupRecord.objects.filter(backup_type=BackupType.PRE_RESTORE).exists()
     assert MaintenanceState.load().is_enabled
+
+
+@pytest.mark.django_db
+def test_backup_restore_history_is_paginated_and_routine_jobs_are_not_listed(client):
+    admin = User.objects.create_user(
+        username="history-admin", password="Strong-pass-123", role=UserRole.ADMIN
+    )
+    client.post(
+        reverse("accounts:admin-login"),
+        {"role": UserRole.ADMIN, "user": admin.pk, "password": "Strong-pass-123"},
+    )
+    for index in range(22):
+        BackupRecord.objects.create(
+            backup_type=BackupType.MANUAL,
+            status=BackupStatus.READY,
+            storage_name=f"history-{index}",
+            completed_at=timezone.now(),
+        )
+    JobRun.objects.create(
+        job_name=JobName.RESTORE,
+        idempotency_key="restore:history-test",
+        status=JobStatus.FAILED,
+        finished_at=timezone.now(),
+        error_summary="校验失败",
+        result_summary={"source_storage": "history-0", "actor_name": admin.display_name},
+    )
+    JobRun.objects.create(
+        job_name=JobName.TMP_CLEANUP,
+        idempotency_key="tmp:history-test",
+        status=JobStatus.SUCCEEDED,
+        finished_at=timezone.now(),
+    )
+    response = client.get(reverse("operations:backups"))
+    assert response.status_code == 200
+    assert "备份／恢复记录" in response.content.decode()
+    assert "首页" in response.content.decode()
+    assert "尾页" in response.content.decode()
+    assert response.context["history_page"].paginator.count == 23
+    assert "临时文件清理" not in response.content.decode()
+    assert client.get(reverse("operations:backups") + "?page=2").context["history_page"].number == 2

@@ -1,5 +1,6 @@
 """Operational lists must expose later records without losing active filters."""
 
+from django.template.loader import render_to_string
 from django.test import RequestFactory, SimpleTestCase
 
 from apps.common.pagination import paginate
@@ -21,3 +22,17 @@ class ListPaginationTests(SimpleTestCase):
         request = RequestFactory().get("/lists/?page=999")
         page, _query = paginate(request, list(range(21)))
         self.assertEqual(list(page), [20])
+
+    def test_pager_has_page_jump_first_last_and_keeps_filters(self):
+        request = RequestFactory().get("/lists/?q=客户&page=2")
+        page, query = paginate(request, list(range(61)))
+        html = render_to_string(
+            "includes/list_pagination.html",
+            {"page": page, "query": query, "label": "客户列表", "request": request},
+        )
+        self.assertIn("首页", html)
+        self.assertIn("尾页", html)
+        self.assertIn('data-max-page="4"', html)
+        self.assertIn('name="q"', html)
+        self.assertIn('value="客户"', html)
+        self.assertIn('inputmode="numeric"', html)

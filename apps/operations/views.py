@@ -20,7 +20,7 @@ from apps.common.permissions import admin_required
 from apps.mediafiles.models import MediaFile, MediaVariant
 from apps.mediafiles.services import delete_media_file
 from apps.operations.forms import DeleteReasonForm, MaintenanceForm, OperationForm, RestoreForm
-from apps.operations.models import BackupRecord, BackupStatus, BackupType
+from apps.operations.models import BackupRecord, BackupStatus, BackupType, JobStatus
 from apps.operations.selectors import media_overview, operations_overview
 from apps.operations.services import (
     backup_directory,
@@ -64,19 +64,15 @@ def health_ready(request):
 @admin_required
 def backups(request):
     overview = operations_overview()
-    backup_page, backup_query = paginate(request, overview["backups"], parameter="backup_page")
-    job_page, job_query = paginate(request, overview["jobs"], parameter="job_page")
+    history_page, history_query = paginate(request, overview["history"])
     return render(
         request,
         "operations/backups.html",
         {
             **overview,
-            "backups": backup_page,
-            "jobs": job_page,
-            "backup_page": backup_page,
-            "backup_query": backup_query,
-            "job_page": job_page,
-            "job_query": job_query,
+            "history": history_page,
+            "history_page": history_page,
+            "history_query": history_query,
             "operation_form": OperationForm(),
             "restore_form": RestoreForm(),
             "maintenance_form": MaintenanceForm(),
@@ -158,7 +154,7 @@ def backup_restore(request, backup_id):
     form = RestoreForm(request.POST)
     if form.is_valid():
         try:
-            restore_backup(
+            run = restore_backup(
                 record=record,
                 actor=request.user,
                 operation_id=form.cleaned_data["operation_id"],
@@ -166,6 +162,10 @@ def backup_restore(request, backup_id):
         except (ValidationError, OSError, sqlite3.Error, ValueError) as exc:
             messages.error(request, str(exc))
         else:
+            if run.status != JobStatus.SUCCEEDED:
+                message = run.error_summary if run.status == JobStatus.FAILED else "恢复任务尚未结束"
+                messages.error(request, f"恢复未完成：{message}")
+                return redirect("operations:backups")
             messages.success(request, "恢复完成；系统保持维护模式，请检查后手动退出")
     else:
         messages.error(request, "恢复确认信息无效")

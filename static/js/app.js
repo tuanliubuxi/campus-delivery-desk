@@ -26,6 +26,65 @@ function cddCookie(name) {
   return item ? decodeURIComponent(item.split("=")[1]) : "";
 }
 
+// A modal must never scroll the page behind it, including after an inner scroller reaches its edge.
+let cddBackgroundScroll = null;
+function cddSyncModalScrollLock() {
+  const hasOpenDialog = Boolean(document.querySelector("dialog[open]"));
+  if (hasOpenDialog && cddBackgroundScroll === null) {
+    const body = document.body;
+    cddBackgroundScroll = {
+      y: window.scrollY,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+      overflow: document.documentElement.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${cddBackgroundScroll.y}px`;
+    body.style.width = "100%";
+    document.documentElement.style.overflow = "hidden";
+  } else if (!hasOpenDialog && cddBackgroundScroll !== null) {
+    const saved = cddBackgroundScroll;
+    cddBackgroundScroll = null;
+    document.body.style.position = saved.position;
+    document.body.style.top = saved.top;
+    document.body.style.width = saved.width;
+    document.documentElement.style.overflow = saved.overflow;
+    window.scrollTo(0, saved.y);
+  }
+}
+new MutationObserver(cddSyncModalScrollLock).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["open"],
+  childList: true,
+  subtree: true,
+});
+cddSyncModalScrollLock();
+
+document.addEventListener("submit", (event) => {
+  const input = event.target.querySelector("[data-cdd-page-number]");
+  if (!input) return;
+  const value = input.value.trim();
+  if (!/^[1-9][0-9]*$/.test(value)) {
+    event.preventDefault();
+    input.setCustomValidity("请输入正整数页码");
+    input.reportValidity();
+    return;
+  }
+  input.setCustomValidity("");
+  input.value = String(Math.min(Number(value), Number(input.dataset.maxPage)));
+  const dialog = event.target.closest("dialog");
+  if (event.target.hasAttribute("data-cdd-remote-page-form") && dialog) {
+    event.preventDefault();
+    const url = new URL(dialog.dataset.cddModalUrl, location.href);
+    url.searchParams.set(input.name, input.value);
+    loadRemoteModal(dialog, url.href);
+  }
+});
+document.addEventListener("input", (event) => {
+  if (event.target.matches("[data-cdd-page-number]")) event.target.setCustomValidity("");
+});
+
 // Native dialogs keep small edit/preview actions on the current page and inherit live themes.
 document.addEventListener("click", (event) => {
   const remoteOpener = event.target.closest("[data-cdd-remote-modal]");

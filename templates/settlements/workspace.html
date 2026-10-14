@@ -16,6 +16,7 @@
       </div>
       <button class="btn btn-primary mt-3" type="submit">建立结算草稿</button>
     </form>
+    {% include "includes/list_pagination.html" with page=group_page query=group_query label="待结算组" %}
   </section>
 </div></main>
 {% endblock %}

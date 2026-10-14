@@ -28,8 +28,8 @@
     <button class="btn btn-outline-warning">重新打开批次</button>
   </form>
   {% endif %}
-  <div class="row g-3">
-    {% for recipient in batch.recipients.all %}
+  <div class="row g-3 cdd-scroll-region">
+    {% for recipient in recipients %}
     <div class="col-12 col-md-6 col-xl-4">
       <article class="cdd-card p-3 h-100">
         <div class="d-flex justify-content-between gap-2">
@@ -70,5 +70,6 @@
     </div>
     {% endfor %}
   </div>
+  {% include "includes/list_pagination.html" with page=recipient_page query=recipient_query label="批次收件人" %}
 </main>
 {% endblock %}

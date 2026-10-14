@@ -1,8 +1,8 @@
 """Search and detail queries for agents, batches, and temporary recipients."""
 
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Q
 
-from apps.agents.models import Agent, ProxyBatch, ProxyRecipient
+from apps.agents.models import Agent, ProxyBatch
 from apps.orders.models import DeliveryStatus, ExpressRoundStatus, Order, SizeClass
 
 
@@ -45,11 +45,6 @@ def search_proxy_batches(query=""):
 
 
 def proxy_batch_detail(batch_id):
-    recipients = (
-        ProxyRecipient.objects.select_related("building")
-        .prefetch_related("receipts__media", "orders__express_detail")
-        .order_by("created_at", "id")
-    )
     return (
         ProxyBatch.objects.select_related("agent", "created_by")
         .annotate(
@@ -66,7 +61,6 @@ def proxy_batch_detail(batch_id):
                 distinct=True,
             ),
         )
-        .prefetch_related(Prefetch("recipients", queryset=recipients))
         .get(pk=batch_id)
     )
 

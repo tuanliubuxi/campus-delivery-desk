@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.accounts.models import ActiveLoginLease, User
 from apps.accounts.services import delete_unused_user, reset_user_password, set_accepting_orders
+from apps.audit.models import AuditEvent
 from apps.common.enums import BusinessType, UserRole
 
 
@@ -204,6 +205,22 @@ def test_login_history_is_loaded_inside_user_list_modal(client, admin_user, reco
     assert partial.status_code == 200
     assert "录单员甲的登录历史" in partial.content.decode()
     assert "<!doctype html>" not in partial.content.decode().lower()
+
+
+@pytest.mark.django_db
+def test_system_log_can_reach_later_pages(client, admin_user):
+    login(client, admin_user, role=UserRole.ADMIN)
+    AuditEvent.objects.bulk_create(
+        AuditEvent(event_type="TEST_EVENT", entity_type="test.Item", entity_id=str(index))
+        for index in range(101)
+    )
+    first = client.get(reverse("accounts:audit-logs"))
+    assert first.status_code == 200
+    assert "首页" in first.content.decode()
+    assert "尾页" in first.content.decode()
+    second = client.get(reverse("accounts:audit-logs") + "?page=2")
+    assert second.status_code == 200
+    assert second.context["page"].number == 2
 
 
 @pytest.mark.django_db
