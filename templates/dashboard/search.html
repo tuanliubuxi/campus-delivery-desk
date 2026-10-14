@@ -17,5 +17,6 @@
     </article>
     {% empty %}{% if query %}<div class="card card-body text-body-secondary">没有匹配订单</div>{% endif %}{% endfor %}
   </div>
+  {% include "includes/list_pagination.html" with page=order_page query=order_query label="订单搜索结果" %}
 </main>
 {% endblock %}

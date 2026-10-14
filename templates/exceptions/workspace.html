@@ -56,6 +56,7 @@
     <h2 class="h5" id="exception-evidence-title">引用已有图片</h2>
     <div class="row g-2 mb-2"><div class="col-12 col-sm-5"><label class="form-label" for="exception-evidence-date">日期</label><input id="exception-evidence-date" class="form-control" type="date" value="{{ today|date:'Y-m-d' }}"></div><div class="col-12 col-sm-7"><label class="form-label" for="exception-evidence-task">任务／配送记录</label><select id="exception-evidence-task" class="form-select"><option value="">当天全部</option></select></div></div>
     <div id="exception-evidence-list" class="cdd-scroll-region" style="max-height:min(60vh,34rem);overflow:auto" role="radiogroup" aria-label="选择一张证据图片"></div>
+    <nav class="d-flex align-items-center gap-2 mt-2" aria-label="证据图片分页"><button class="btn btn-sm btn-outline-primary" id="exception-evidence-prev" type="button" hidden>上一页</button><span class="small cdd-muted" id="exception-evidence-page"></span><button class="btn btn-sm btn-outline-primary" id="exception-evidence-next" type="button" hidden>下一页</button></nav>
     <div class="cdd-action-row justify-content-center mt-3"><button id="exception-evidence-confirm" class="btn btn-primary" type="button">确定选择</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div>
   </div></dialog>
   <dialog class="cdd-modal" id="exception-filter" aria-labelledby="exception-filter-title"><div class="cdd-modal-panel"><h2 class="h5" id="exception-filter-title">筛选异常</h2>

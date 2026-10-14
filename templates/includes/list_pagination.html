@@ -1,0 +1,5 @@
+{% if page.has_other_pages %}<nav class="d-flex flex-wrap align-items-center gap-2 mt-3" aria-label="{{ label|default:'列表' }}分页">
+  <span class="small cdd-muted">第 {{ page.number }} / {{ page.paginator.num_pages }} 页，共 {{ page.paginator.count }} 条</span>
+  {% if page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{{ query }}&{{ parameter|default:'page' }}={{ page.previous_page_number }}">上一页</a>{% endif %}
+  {% if page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{{ query }}&{{ parameter|default:'page' }}={{ page.next_page_number }}">下一页</a>{% endif %}
+</nav>{% endif %}

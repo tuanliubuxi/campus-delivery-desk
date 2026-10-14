@@ -14,6 +14,9 @@
   const list = document.getElementById("exception-evidence-list");
   const confirm = document.getElementById("exception-evidence-confirm");
   const title = document.getElementById("exception-evidence-title");
+  const previous = document.getElementById("exception-evidence-prev");
+  const next = document.getElementById("exception-evidence-next");
+  const pageLabel = document.getElementById("exception-evidence-page");
   const fields = {
     delivery: {name: "delivery_evidence", box: document.getElementById("exception-selected-delivery")},
     consolidation: {name: "media_evidence", box: document.getElementById("exception-selected-consolidation")},
@@ -89,10 +92,11 @@
       list.appendChild(row);
     }
   }
-  async function loadChoices(keepTask = false) {
+  async function loadChoices(keepTask = false, requestedPage = 1) {
     const url = new URL(dialog.dataset.apiUrl, location.href);
     url.searchParams.set("kind", kind);
     url.searchParams.set("date", dateInput.value);
+    url.searchParams.set("page", String(requestedPage));
     if (keepTask && taskSelect.value) url.searchParams.set("task", taskSelect.value);
     list.textContent = "正在读取图片……";
     try {
@@ -100,6 +104,11 @@
       if (!response.ok || response.redirected) throw new Error("读取失败");
       const data = await response.json();
       rows = data.evidence;
+      pageLabel.textContent = `第 ${data.page} / ${data.pages} 页，共 ${data.count} 张`;
+      previous.hidden = !data.has_previous;
+      next.hidden = !data.has_next;
+      previous.dataset.page = String(data.page - 1);
+      next.dataset.page = String(data.page + 1);
       if (!keepTask) {
         taskSelect.replaceChildren(new Option("当天全部", ""));
         for (const task of data.tasks) taskSelect.add(new Option(task.label, task.id));
@@ -120,6 +129,8 @@
   });
   dateInput.addEventListener("change", () => loadChoices());
   taskSelect.addEventListener("change", () => loadChoices(true));
+  previous.addEventListener("click", () => loadChoices(true, Number(previous.dataset.page)));
+  next.addEventListener("click", () => loadChoices(true, Number(next.dataset.page)));
   confirm.addEventListener("click", () => {
     const choice = list.querySelector('input[name="exception-evidence-choice"]:checked');
     if (!choice) return;

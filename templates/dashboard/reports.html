@@ -51,7 +51,7 @@
   </section>
 
   <section class="card">
-    <div class="card-header">订单明细（页面最多显示 200 条，Excel 导出全部）</div>
+    <div class="card-header">订单明细（分页查看；Excel 导出全部）</div>
     <div class="table-responsive cdd-scroll-region">
       <table class="table table-sm table-hover align-middle mb-0">
         <thead><tr><th>订单号</th><th>日期</th><th>业务</th><th>收件归属</th><th>来源 / 代理人</th><th>目的地</th><th>加急</th><th>上楼</th><th>配送</th><th>结算</th></tr></thead>
@@ -68,6 +68,7 @@
         </tbody>
       </table>
     </div>
+    <div class="card-body pt-0">{% include "includes/list_pagination.html" with page=order_page query=order_query label="经营分析订单明细" %}</div>
   </section>
 </main>
 {{ charts|json_script:"dashboard-chart-data" }}

@@ -62,7 +62,7 @@ def evidence_choices(request):
             rows = rows.filter(drop__courier=request.user)
         tasks = {}
         evidence = []
-        for row in rows.order_by("-media__created_at", "-pk")[:500]:
+        for row in rows.order_by("-media__created_at", "-pk").iterator():
             if not row.media.is_available:
                 continue
             drop = row.drop
@@ -96,7 +96,7 @@ def evidence_choices(request):
             ).distinct()
         tasks = {}
         evidence = []
-        for media in rows.order_by("-created_at", "-pk")[:500]:
+        for media in rows.order_by("-created_at", "-pk").iterator():
             if not media.is_available:
                 continue
             rounds = list(media.consolidation_near_rounds.all()) + list(media.consolidation_far_rounds.all()) + list(media.consolidation_annotated_rounds.all())
@@ -114,7 +114,16 @@ def evidence_choices(request):
                     "time": timezone.localtime(media.created_at).strftime("%Y-%m-%d %H:%M"),
                     "task": str(round_.pk),
                 })
-    return JsonResponse({"tasks": [{"id": k, "label": v} for k, v in tasks.items()], "evidence": evidence})
+    page = Paginator(evidence, 20).get_page(request.GET.get("page"))
+    return JsonResponse({
+        "tasks": [{"id": k, "label": v} for k, v in tasks.items()],
+        "evidence": list(page),
+        "page": page.number,
+        "pages": page.paginator.num_pages,
+        "count": page.paginator.count,
+        "has_previous": page.has_previous(),
+        "has_next": page.has_next(),
+    })
 
 
 def _workspace_url(actor):

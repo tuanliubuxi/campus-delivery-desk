@@ -3,7 +3,7 @@
 {% block content %}
 <main class="container py-3">
   {% if not embedded %}<a class="btn btn-outline-secondary mb-3" href="{% if is_admin_view %}{% url 'settlements:wage-history' %}{% else %}{% url 'settlements:courier-wages' %}{% endif %}">返回上一级</a>{% endif %}
-  <h1 class="h3">{{ payout.courier.display_name }} · {{ payout.work_date|date:'Y年m月d日' }}工资{% if payout.sequence > 1 %}（补发 {{ payout.sequence }}）{% endif %}</h1>
+  <h1 class="h3">{{ payout.courier.display_name }} · {{ payout.work_date|date:'Y年m月d日' }}工资{% if payout.sequence > 1 %}（第 {{ payout.sequence }} 笔核算）{% endif %}</h1>
   <p><span class="badge text-bg-primary">{{ payout.get_status_display }}</span> 建立：{{ payout.created_at|date:'Y-m-d H:i' }} · {{ payout.created_by.display_name|default:'系统' }}{% if payout.paid_at %} · 实际发放：{{ payout.paid_at|date:'Y-m-d H:i' }} · {{ payout.paid_by.display_name|default:'系统' }}{% endif %}</p>
   <div class="card card-body mb-3"><div class="row g-2"><div class="col-md-4">订单计薪收入<br><strong>¥{{ payout.base_amount }}</strong></div><div class="col-md-4">人工调整<br><strong>¥{{ payout.adjustment_amount }}</strong></div><div class="col-md-4">预计／实际发放<br><strong class="fs-4">¥{{ payout.total_amount }}</strong></div></div></div>
   <section class="card card-body mb-3"><h2 class="h5">订单收入（不可删除）</h2><div class="cdd-scroll-region" style="max-height:26rem;overflow:auto">

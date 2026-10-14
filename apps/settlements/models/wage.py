@@ -79,6 +79,16 @@ class WagePayout(models.Model):
             ),
         ]
 
+    @property
+    def payment_ordinal(self):
+        """Human-facing payment number; voided drafts never count as a payment."""
+        return WagePayout.objects.filter(
+            courier_id=self.courier_id,
+            work_date=self.work_date,
+            sequence__lt=self.sequence,
+            status=WagePayoutStatus.PAID,
+        ).count() + 1
+
 
 class WagePayoutEarning(models.Model):
     payout = models.ForeignKey(WagePayout, on_delete=models.PROTECT, related_name="earnings")

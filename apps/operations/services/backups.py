@@ -5,10 +5,11 @@ import json
 import os
 import shutil
 import sqlite3
-import tarfile
+import tempfile
 import time
 import uuid
-from contextlib import closing
+import zipfile
+from contextlib import closing, contextmanager
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -105,9 +106,9 @@ def _archive_media(destination):
             files.append((media.storage_key, path))
     if not files:
         return PhotoArchiveStatus.EMPTY, 0
-    with tarfile.open(destination, mode="w") as archive:
+    with zipfile.ZipFile(destination, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
         for storage_key, path in files:
-            archive.add(path, arcname=storage_key, recursive=False)
+            archive.write(path, arcname=storage_key)
     return PhotoArchiveStatus.INCLUDED, destination.stat().st_size
 
 
@@ -167,30 +168,36 @@ def create_backup(*, backup_type, actor=None, operation_id=None):
     try:
         database_path = temp_path / "database.sqlite3"
         config_path = temp_path / "config.json"
-        photos_path = temp_path / "photos.tar"
+        photos_path = temp_path / "photos.zip"
         _copy_sqlite_database(database_path)
         config_path.write_text(
             json.dumps(_configuration_snapshot(), ensure_ascii=False, indent=2, cls=_SnapshotEncoder),
             encoding="utf-8",
         )
+        data_path = temp_path / "data-config.zip"
+        with zipfile.ZipFile(data_path, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.write(database_path, arcname="database.sqlite3")
+            archive.write(config_path, arcname="config.json")
+        database_size = database_path.stat().st_size
+        config_size = config_path.stat().st_size
+        database_path.unlink()
+        config_path.unlink()
         photo_status, photo_size = _archive_media(photos_path)
         manifest = {
-            "format_version": 1,
+            "format_version": 2,
             "operation_id": str(operation_id),
             "backup_type": backup_type,
             "created_at": now.isoformat(),
             "storage_name": storage_name,
             "record_counts": _record_counts(),
             "files": {
-                "database.sqlite3": {
-                    "size": database_path.stat().st_size,
-                    "sha256": _sha256(database_path),
+                "data-config.zip": {
+                    "size": data_path.stat().st_size,
+                    "sha256": _sha256(data_path),
+                    "database_size": database_size,
+                    "config_size": config_size,
                 },
-                "config.json": {
-                    "size": config_path.stat().st_size,
-                    "sha256": _sha256(config_path),
-                },
-                "photos.tar": {
+                "photos.zip": {
                     "status": photo_status,
                     "size": photo_size,
                     "sha256": _sha256(photos_path) if photos_path.exists() else "",
@@ -202,8 +209,6 @@ def create_backup(*, backup_type, actor=None, operation_id=None):
             json.dumps(manifest, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        database_size = database_path.stat().st_size
-        config_size = config_path.stat().st_size
         manifest_sha256 = _sha256(manifest_path)
         total_size = sum(path.stat().st_size for path in temp_path.iterdir() if path.is_file())
         _publish_directory(temp_path, final_path)
@@ -252,17 +257,31 @@ def create_daily_backup(*, target_date=None):
     )
 
 
-def delete_backup_photos(*, record, actor):
-    _require_admin(actor)
-    path = backup_directory(record) / "photos.tar"
-    if path.is_file():
-        path.unlink()
+def remove_backup_photo_archive(record):
+    """Drop only the photo package and keep the manifest honest for either format."""
+    directory = backup_directory(record)
+    for name in ("photos.zip", "photos.tar"):
+        path = directory / name
+        if path.is_file():
+            path.unlink()
+    manifest = _read_manifest(directory)
+    photo_name = "photos.zip" if manifest.get("format_version") == 2 else "photos.tar"
+    manifest["files"][photo_name] = {"status": PhotoArchiveStatus.DELETED, "size": 0, "sha256": ""}
+    manifest_path = directory / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     record.photo_archive_status = PhotoArchiveStatus.DELETED
     record.photo_archive_size = 0
+    record.manifest_sha256 = _sha256(manifest_path)
     record.total_size = sum(
         item.stat().st_size for item in backup_directory(record).iterdir() if item.is_file()
     )
-    record.save(update_fields=["photo_archive_status", "photo_archive_size", "total_size"])
+    record.save(update_fields=["photo_archive_status", "photo_archive_size", "total_size", "manifest_sha256"])
+    return record
+
+
+def delete_backup_photos(*, record, actor):
+    _require_admin(actor)
+    remove_backup_photo_archive(record)
     record_event(actor=actor, event_type="BACKUP_PHOTOS_DELETED", entity=record)
     return record
 
@@ -294,14 +313,17 @@ def _register_manifest(path):
     manifest = _read_manifest(path)
     operation_id = uuid.UUID(manifest["operation_id"])
     files = manifest["files"]
+    modern = manifest.get("format_version") == 2
+    data_file = files["data-config.zip"] if modern else None
+    photo_file = files["photos.zip"] if modern else files["photos.tar"]
     defaults = {
         "backup_type": manifest["backup_type"],
         "status": BackupStatus.READY,
         "storage_name": manifest["storage_name"],
-        "database_size": files["database.sqlite3"]["size"],
-        "config_size": files["config.json"]["size"],
-        "photo_archive_status": files["photos.tar"]["status"],
-        "photo_archive_size": files["photos.tar"]["size"],
+        "database_size": data_file["database_size"] if modern else files["database.sqlite3"]["size"],
+        "config_size": data_file["config_size"] if modern else files["config.json"]["size"],
+        "photo_archive_status": photo_file["status"],
+        "photo_archive_size": photo_file["size"],
         "total_size": sum(item.stat().st_size for item in path.iterdir() if item.is_file()),
         "manifest_sha256": _sha256(path / "manifest.json"),
         "completed_at": timezone.now(),
@@ -309,6 +331,43 @@ def _register_manifest(path):
     }
     record, _ = BackupRecord.objects.update_or_create(operation_id=operation_id, defaults=defaults)
     return record
+
+
+@contextmanager
+def _database_for_restore(directory, manifest):
+    """Verify the archive and expose only its named database member temporarily."""
+    if manifest.get("format_version") == 1:
+        source = directory / "database.sqlite3"
+        if not source.is_file() or _sha256(source) != manifest["files"]["database.sqlite3"]["sha256"]:
+            raise ValidationError("备份数据库校验失败")
+        yield source
+        return
+    if manifest.get("format_version") != 2:
+        raise ValidationError("不支持的备份格式")
+    archive_path = directory / "data-config.zip"
+    expected = manifest["files"]["data-config.zip"]
+    if not archive_path.is_file() or _sha256(archive_path) != expected["sha256"]:
+        raise ValidationError("备份数据包校验失败")
+    Path(settings.TMP_ROOT).mkdir(parents=True, exist_ok=True)
+    descriptor, temp_name = tempfile.mkstemp(prefix="restore-", suffix=".sqlite3", dir=settings.TMP_ROOT)
+    os.close(descriptor)
+    source = Path(temp_name)
+    try:
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                if set(archive.namelist()) != {"database.sqlite3", "config.json"}:
+                    raise ValidationError("备份数据包内容不完整")
+                with archive.open("database.sqlite3") as member, source.open("wb") as output:
+                    shutil.copyfileobj(member, output)
+                with archive.open("config.json") as member:
+                    json.load(member)
+        except (zipfile.BadZipFile, OSError, ValueError) as exc:
+            raise ValidationError("备份数据包损坏") from exc
+        if source.stat().st_size != expected["database_size"]:
+            raise ValidationError("备份数据库大小校验失败")
+        yield source
+    finally:
+        source.unlink(missing_ok=True)
 
 
 def restore_backup(*, record, actor, operation_id):
@@ -324,48 +383,45 @@ def restore_backup(*, record, actor, operation_id):
     if existing:
         return existing
     source_directory = backup_directory(record)
-    source_database = source_directory / "database.sqlite3"
     manifest = _read_manifest(source_directory)
-    if _sha256(source_database) != manifest["files"]["database.sqlite3"]["sha256"]:
-        raise ValidationError("备份数据库校验失败")
+    with _database_for_restore(source_directory, manifest) as source_database:
+        protection = create_backup(
+            backup_type=BackupType.PRE_RESTORE,
+            actor=actor,
+            operation_id=uuid.uuid5(operation_id, "pre-restore"),
+        )
+        protection_path = backup_directory(protection)
+        database_path = Path(settings.DATABASES["default"]["NAME"])
+        actor_id = actor.pk
+        connections.close_all()
+        with closing(sqlite3.connect(source_database)) as source, closing(
+            sqlite3.connect(database_path)
+        ) as destination:
+            source.backup(destination)
+        connections.close_all()
 
-    protection = create_backup(
-        backup_type=BackupType.PRE_RESTORE,
-        actor=actor,
-        operation_id=uuid.uuid5(operation_id, "pre-restore"),
-    )
-    protection_path = backup_directory(protection)
-    database_path = Path(settings.DATABASES["default"]["NAME"])
-    actor_id = actor.pk
-    connections.close_all()
-    with closing(sqlite3.connect(source_database)) as source, closing(
-        sqlite3.connect(database_path)
-    ) as destination:
-        source.backup(destination)
-    connections.close_all()
-
-    # The restored database may predate both filesystem records; register them from manifests.
-    restored_record = _register_manifest(source_directory)
-    _register_manifest(protection_path)
-    restored_actor = get_user_model().objects.filter(pk=actor_id).first()
-    state = MaintenanceState.load()
-    state.is_enabled = True
-    state.entered_at = timezone.now()
-    state.entered_by = restored_actor
-    state.reason = "恢复完成，等待管理员执行恢复检查后退出维护"
-    state.save()
-    run = run_idempotent_job(
-        job_name=JobName.RESTORE,
-        idempotency_key=f"restore:{operation_id}",
-        callback=lambda: {
-            "restored_backup_id": restored_record.pk,
-            "pre_restore_storage": protection.storage_name,
-        },
-    )
-    record_event(
-        actor=restored_actor,
-        event_type="BACKUP_RESTORED",
-        entity=restored_record,
-        metadata={"pre_restore_storage": protection.storage_name},
-    )
-    return run
+        # The restored database may predate both filesystem records; register them from manifests.
+        restored_record = _register_manifest(source_directory)
+        _register_manifest(protection_path)
+        restored_actor = get_user_model().objects.filter(pk=actor_id).first()
+        state = MaintenanceState.load()
+        state.is_enabled = True
+        state.entered_at = timezone.now()
+        state.entered_by = restored_actor
+        state.reason = "恢复完成，等待管理员执行恢复检查后退出维护"
+        state.save()
+        run = run_idempotent_job(
+            job_name=JobName.RESTORE,
+            idempotency_key=f"restore:{operation_id}",
+            callback=lambda: {
+                "restored_backup_id": restored_record.pk,
+                "pre_restore_storage": protection.storage_name,
+            },
+        )
+        record_event(
+            actor=restored_actor,
+            event_type="BACKUP_RESTORED",
+            entity=restored_record,
+            metadata={"pre_restore_storage": protection.storage_name},
+        )
+        return run

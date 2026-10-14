@@ -6,6 +6,7 @@ import os
 import shutil
 import sqlite3
 import uuid
+import zipfile
 from contextlib import closing
 from datetime import date, timedelta
 from io import BytesIO
@@ -44,6 +45,7 @@ from apps.operations.services import (
     run_startup_recovery_check,
     set_maintenance_mode,
 )
+from apps.operations.services.backups import _database_for_restore, _read_manifest
 from apps.settlements.services import (
     build_settlement,
     freeze_settlement_for_payment,
@@ -115,13 +117,21 @@ def test_manual_and_daily_backup_include_db_config_manifest_and_photos(
     directory = backup_directory(record)
     assert record.status == BackupStatus.READY
     assert {path.name for path in directory.iterdir()} == {
-        "database.sqlite3",
-        "config.json",
+        "data-config.zip",
         "manifest.json",
-        "photos.tar",
+        "photos.zip",
     }
     manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["files"]["database.sqlite3"]["sha256"]
+    assert manifest["format_version"] == 2
+    assert manifest["files"]["data-config.zip"]["sha256"]
+    with zipfile.ZipFile(directory / "data-config.zip") as archive:
+        assert set(archive.namelist()) == {"database.sqlite3", "config.json"}
+        assert json.loads(archive.read("config.json"))
+    with zipfile.ZipFile(directory / "photos.zip") as archive:
+        assert "delivery/example.jpg" in archive.namelist()
+    with _database_for_restore(directory, manifest) as snapshot:
+        with closing(sqlite3.connect(snapshot)) as database:
+            assert database.execute("SELECT value FROM snapshot_probe").fetchone()[0] == "ok"
     assert record.photo_archive_status == PhotoArchiveStatus.INCLUDED
 
     first = create_daily_backup(target_date=date(2026, 9, 29))
@@ -132,8 +142,12 @@ def test_manual_and_daily_backup_include_db_config_manifest_and_photos(
     delete_backup_photos(record=record, actor=admin)
     record.refresh_from_db()
     assert record.photo_archive_status == PhotoArchiveStatus.DELETED
-    assert not (directory / "photos.tar").exists()
-    assert (directory / "database.sqlite3").exists()
+    assert not (directory / "photos.zip").exists()
+    assert (directory / "data-config.zip").exists()
+    assert json.loads((directory / "manifest.json").read_text(encoding="utf-8"))["files"]["photos.zip"]["status"] == PhotoArchiveStatus.DELETED
+    assert record.manifest_sha256 == hashlib.sha256((directory / "manifest.json").read_bytes()).hexdigest()
+    with _database_for_restore(directory, _read_manifest(directory)) as snapshot:
+        assert snapshot.is_file()
 
 
 @pytest.mark.django_db

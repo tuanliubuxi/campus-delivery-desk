@@ -5,12 +5,14 @@ import uuid
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.common.enums import BusinessType
+from apps.common.pagination import paginate
 from apps.common.permissions import courier_required
 from apps.consolidation.models import ConsolidationRound, ConsolidationStatus
 from apps.exceptions.views import workspace as exception_workspace
@@ -23,7 +25,7 @@ from .forms import (
     RouteClaimForm,
     TransferRequestForm,
 )
-from .models import DeliveryDrop, DeliveryTask, TransferRequest
+from .models import Assignment, DeliveryDrop, DeliveryTask, TaskStatus, TransferRequest
 from .selectors import (
     courier_task_detail,
     courier_tasks,
@@ -51,12 +53,10 @@ from .services import (
 
 @courier_required
 def task_list(request):
-    tasks = list(courier_tasks(request.user))
+    task_page, task_query = paginate(request, courier_tasks(request.user).order_by("-created_at", "-pk"))
     task_status_counts = {status: 0 for status in DeliveryStatus.values}
-    for task in tasks:
-        for assignment in task.assignments.all():
-            if assignment.is_active:
-                task_status_counts[assignment.order.delivery_status] += 1
+    for row in Assignment.objects.filter(task__courier=request.user, task__status=TaskStatus.ACTIVE, is_active=True).values("order__delivery_status").annotate(total=Count("pk")):
+        task_status_counts[row["order__delivery_status"]] = row["total"]
     pending_consolidations = ConsolidationRound.objects.filter(
         assigned_courier=request.user,
         status__in=[ConsolidationStatus.PENDING, ConsolidationStatus.IN_PROGRESS],
@@ -65,7 +65,9 @@ def task_list(request):
         request,
         "dispatch/task_list.html",
         {
-            "task_groups": group_courier_tasks_by_recipient(tasks),
+            "task_groups": group_courier_tasks_by_recipient(list(task_page)),
+            "task_page": task_page,
+            "task_query": task_query,
             "task_status_counts": task_status_counts,
             "pending_consolidations": pending_consolidations,
         },
@@ -87,8 +89,9 @@ def new_tasks(request):
         else:
             messages.success(request, f"已接取 {order.display_id}")
             return redirect("dispatch:task-detail", task_id=task.pk)
-    pool = [(order, uuid.uuid4()) for order in simple_task_pool(request.user)]
-    return render(request, "dispatch/task_pool.html", {"pool": pool})
+    pool_page, pool_query = paginate(request, simple_task_pool(request.user))
+    pool = [(order, uuid.uuid4()) for order in pool_page]
+    return render(request, "dispatch/task_pool.html", {"pool": pool, "pool_page": pool_page, "pool_query": pool_query})
 
 
 @courier_required
@@ -120,12 +123,10 @@ def task_detail(request, task_id):
 def express_route_pool_view(request):
     pickup_area = request.GET.get("pickup_area", PickupArea.SOUTH)
     destination_zone = request.GET.get("destination_zone", "SOUTH")
-    orders = list(
-        express_route_pool(
-            pickup_area=pickup_area,
-            destination_zone=destination_zone,
-        )
-    )
+    order_page, order_query = paginate(request, express_route_pool(
+        pickup_area=pickup_area, destination_zone=destination_zone,
+    ))
+    orders = list(order_page)
     form = RouteClaimForm(
         orders=orders,
         initial={"pickup_area": pickup_area, "destination_zone": destination_zone},
@@ -135,6 +136,8 @@ def express_route_pool_view(request):
         "dispatch/express_route_pool.html",
         {
             "orders": orders,
+            "order_page": order_page,
+            "order_query": order_query,
             "form": form,
             "pickup_area": pickup_area,
             "destination_zone": destination_zone,
@@ -185,7 +188,8 @@ def express_route_claim(request):
 
 @courier_required
 def express_direct_pool_view(request):
-    orders = list(express_direct_pool())
+    order_page, order_query = paginate(request, express_direct_pool())
+    orders = list(order_page)
     form = DirectClaimForm(request.POST or None, orders=orders)
     if request.method == "POST" and form.is_valid():
         try:
@@ -202,7 +206,7 @@ def express_direct_pool_view(request):
     return render(
         request,
         "dispatch/express_direct_pool.html",
-        {"orders": orders, "form": form},
+        {"orders": orders, "form": form, "order_page": order_page, "order_query": order_query},
     )
 
 
@@ -394,18 +398,24 @@ def transfers(request):
             return redirect("dispatch:transfers")
     incoming = TransferRequest.objects.filter(to_courier=request.user).prefetch_related(
         "items__order"
-    )
+    ).order_by("-pk")
     outgoing = TransferRequest.objects.filter(from_courier=request.user).prefetch_related(
         "items__order"
-    )
+    ).order_by("-pk")
+    incoming_page, incoming_query = paginate(request, incoming, parameter="incoming_page")
+    outgoing_page, outgoing_query = paginate(request, outgoing, parameter="outgoing_page")
     return render(
         request,
         "dispatch/transfers.html",
         {
             "form": form,
             "selected_order": selected_order,
-            "incoming": incoming,
-            "outgoing": outgoing,
+            "incoming": incoming_page,
+            "outgoing": outgoing_page,
+            "incoming_page": incoming_page,
+            "incoming_query": incoming_query,
+            "outgoing_page": outgoing_page,
+            "outgoing_query": outgoing_query,
         },
     )
 

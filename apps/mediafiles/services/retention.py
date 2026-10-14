@@ -108,7 +108,7 @@ def cleanup_expired_media(*, now=None):
 def cleanup_expired_backup_photos(*, now=None):
     """Apply the same retention period to independently managed backup photo archives."""
     from apps.operations.models import BackupRecord, BackupStatus, PhotoArchiveStatus
-    from apps.operations.services.backups import backup_directory
+    from apps.operations.services.backups import remove_backup_photo_archive
 
     now = now or timezone.now()
     retention_days = SiteConfiguration.load().media_retention_days
@@ -120,15 +120,7 @@ def cleanup_expired_backup_photos(*, now=None):
         created_at__lte=threshold,
     )
     for record in records.iterator():
-        archive = backup_directory(record) / "photos.tar"
-        if archive.is_file():
-            archive.unlink()
-        record.photo_archive_status = PhotoArchiveStatus.DELETED
-        record.photo_archive_size = 0
-        record.total_size = sum(
-            path.stat().st_size for path in backup_directory(record).iterdir() if path.is_file()
-        )
-        record.save(update_fields=["photo_archive_status", "photo_archive_size", "total_size"])
+        remove_backup_photo_archive(record)
         deleted += 1
     return deleted
 

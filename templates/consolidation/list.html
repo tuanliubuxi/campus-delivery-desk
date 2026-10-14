@@ -3,7 +3,7 @@
 {% block content %}
 <main class="container cdd-courier-shell">
   <h1 class="h4 mb-3">我的归拢</h1>
-  <div class="d-grid gap-3">
+  <div class="d-grid gap-3 cdd-scroll-region">
   {% for round in rounds %}
     <article class="cdd-card p-3 cdd-finding-card">
       <div class="d-flex justify-content-between gap-2 align-items-start"><strong class="cdd-recipient-badge cdd-flex-ellipsis" title="{% if round.customer %}{{ round.customer.display_name }}{% else %}{{ round.proxy_recipient.display_name }}{% endif %}">{% if round.customer %}{{ round.customer.display_name }}{% else %}{{ round.proxy_recipient.display_name }}{% endif %}</strong><span class="badge text-bg-warning">{{ round.get_status_display }}</span></div>
@@ -13,5 +13,6 @@
     </article>
   {% empty %}<div class="cdd-card p-3">暂无待处理归拢。</div>{% endfor %}
   </div>
+  {% include "includes/list_pagination.html" with page=round_page query=round_query label="归拢任务" %}
 </main>
 {% endblock %}

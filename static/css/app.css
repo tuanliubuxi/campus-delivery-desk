@@ -200,13 +200,16 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-sort-options { position: absolute; top: calc(100% + 4px); left: 0; z-index: 1050; min-width: 9rem; padding: .35rem; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; box-shadow: 0 6px 20px var(--cdd-shadow); }
 .cdd-sort-options button { display: block; width: 100%; padding: .4rem .6rem; color: var(--cdd-text); text-align: left; background: transparent; border: 0; border-radius: .25rem; }
 .cdd-sort-options button:hover,.cdd-sort-options button:focus-visible { background: var(--cdd-focus); color: #081322; }
-.cdd-wage-slip-panel { width: min(96vw, 1200px); max-width: 1200px; }
+.cdd-modal:has(.cdd-wage-slip-panel) { width: min(96vw, 1200px); height: min(90dvh, 900px); max-height: 90dvh; }
+.cdd-wage-slip-panel { width: 100%; height: 100%; max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+.cdd-wage-slip-header,.cdd-wage-slip-footer { flex: none; }
+.cdd-wage-slip-footer { padding-top: .8rem; text-align: center; }
 .cdd-wage-slip-tabs { display: flex; width: fit-content; max-width: 100%; margin: 0 auto 1rem; border: 1px solid var(--cdd-primary); border-radius: .65rem; overflow: hidden; }
 .cdd-wage-slip-tabs button { min-height: 44px; padding: .45rem 1.1rem; border: 0; background: var(--cdd-elevated); color: var(--cdd-text); }
 .cdd-wage-slip-tabs button + button { border-left: 1px solid var(--cdd-primary); }
 .cdd-wage-slip-tabs button[aria-pressed="true"] { background: var(--cdd-primary); color: var(--cdd-primary-text); font-weight: 700; }
 .cdd-wage-slip-tabs button:focus-visible { outline: 3px solid var(--cdd-focus); outline-offset: -3px; }
-.cdd-wage-slip-preview { min-height: 12rem; max-height: min(65vh, 700px); overflow: auto; text-align: center; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; }
+.cdd-wage-slip-preview { flex: 1; min-height: 0; overflow: auto; text-align: center; background: var(--cdd-elevated); border: 1px solid var(--cdd-border); border-radius: .5rem; }
 .cdd-wage-slip-preview img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 .cdd-wage-slip-preview img[hidden] { display: none; }
 .cdd-wage-slip-preview p { padding: 2rem; }
@@ -235,7 +238,10 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-file-item > span { display: inline-block; max-width: calc(100% - 3rem); overflow: hidden; text-overflow: ellipsis; vertical-align: middle; white-space: nowrap; }
 .cdd-file-item .btn { float: right; min-width: 2rem; min-height: 2rem; padding: 0; }
 .cdd-roster-create, .cdd-roster-list { height: min(70vh, 680px); }
-.cdd-roster-create { overflow: visible; }
+.cdd-roster-create { display: flex; flex-direction: column; overflow: hidden; }
+.cdd-roster-create form { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.cdd-roster-create-body { flex: 1; min-height: 0; overflow: auto; padding: 0 .4rem .4rem 0; }
+.cdd-roster-create-footer { flex: none; padding-top: .75rem; }
 .cdd-roster-list { overflow: auto; }
 .cdd-roster-grid { table-layout: fixed; min-width: 43rem; }
 .cdd-roster-grid th:nth-child(1) { width: 9rem; }
@@ -340,7 +346,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
   .cdd-cat-customer { background: color-mix(in srgb, #a27018 18%, var(--cdd-surface)); }
   .cdd-courier-status { margin-left: .25rem; font-size: .75rem; }
   .cdd-roster-pane { height: auto; max-height: 65vh; }
-  .cdd-roster-create { height: auto; overflow: visible; }
+  .cdd-roster-create { height: min(88dvh, 680px); overflow: hidden; }
   .cdd-roster-list { height: auto; max-height: none; overflow-x: auto; overflow-y: visible; }
   .cdd-settlement-heading { align-items: flex-start; }
   .cdd-settlement-layout { grid-template-columns: 1fr; }

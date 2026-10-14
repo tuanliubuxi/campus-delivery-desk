@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from apps.common.pagination import paginate
 from apps.common.permissions import courier_required, recorder_or_admin_required
 
 from .forms import (
@@ -29,10 +30,11 @@ from .services import (
 
 @courier_required
 def courier_list(request):
+    round_page, round_query = paginate(request, courier_consolidation_rounds(request.user))
     return render(
         request,
         "consolidation/list.html",
-        {"rounds": courier_consolidation_rounds(request.user)},
+        {"rounds": round_page, "round_page": round_page, "round_query": round_query},
     )
 
 
@@ -149,7 +151,8 @@ def manual_create(request):
     active_rounds = ConsolidationRound.objects.exclude(status="COMPLETED").select_related(
         "assigned_courier", "customer", "proxy_recipient"
     )
-    active_rounds = list(active_rounds)
+    round_page, round_query = paginate(request, active_rounds)
+    active_rounds = list(round_page)
     for round_ in active_rounds:
         round_.reassign_form = ReassignConsolidationForm(
             current_courier_id=round_.assigned_courier_id
@@ -160,6 +163,8 @@ def manual_create(request):
         {
             "form": form,
             "active_rounds": active_rounds,
+            "round_page": round_page,
+            "round_query": round_query,
             "has_manual_candidates": form.fields["express_round"].queryset.exists(),
         },
     )

@@ -101,9 +101,11 @@ def render_wage_slip(payout, *, style, theme="light"):
         draw.text((margin, y), line, font=title_font,
                   fill=banner_text if is_card else ink)
         y += 54
-    subtitle = f"{payout.work_date:%Y年%m月%d日}工作收入"
-    if payout.sequence > 1:
-        subtitle += f" · 第 {payout.sequence} 次补发"
+    subtitle = f"{payout.work_date:%Y年%m月%d日}本次工作收入"
+    if payout.payment_ordinal > 1:
+        subtitle += f" · 第 {payout.payment_ordinal} 次{'发放' if payout.status == 'PAID' else '待发放'}"
+    elif payout.sequence > 1:
+        subtitle += f" · 重建核算第 {payout.sequence} 笔"
     draw.text((margin, y + 5), subtitle, font=body_font,
               fill=banner_text if is_card else accent)
     y += 66

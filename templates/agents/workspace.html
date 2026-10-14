@@ -43,6 +43,7 @@
       </div>
       {% endfor %}
     </div>
+    {% include "includes/list_pagination.html" with page=agent_page query=agent_query parameter="agent_page" label="代理人" %}
   </section>
   {% endif %}
 

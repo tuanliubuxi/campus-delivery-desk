@@ -8,8 +8,8 @@ from apps.operations.models import BackupRecord, JobRun, MaintenanceState
 
 def operations_overview():
     return {
-        "backups": BackupRecord.objects.select_related("created_by")[:100],
-        "jobs": JobRun.objects.all()[:100],
+        "backups": BackupRecord.objects.select_related("created_by").order_by("-created_at", "-pk"),
+        "jobs": JobRun.objects.order_by("-started_at", "-pk"),
         "maintenance": MaintenanceState.load(),
     }
 

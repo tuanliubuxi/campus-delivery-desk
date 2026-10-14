@@ -10,11 +10,12 @@ V1 不使用 22:00 收工和 BusinessDay。运维任务与业务流程完全解�
 
 ```text
 /data/backups/2026-09-19_030000/
-├─ database.sqlite3
-├─ config.json
+├─ data-config.zip   # database.sqlite3 与 config.json
 ├─ manifest.json
-└─ photos.tar   # 当期/增量照片归档策略可实现为当日新增照片
+└─ photos.zip        # 有可用照片时；可独立按保留策略删除
 ```
+
+管理员下载完整备份时，以上文件组成一个外层 ZIP；内层文件已压缩，外层只打包不重复压缩。manifest 记录两包的大小与 SHA-256，照片包清理后更新其状态和 manifest 校验值；不影响数据／配置包恢复。历史格式（散装 database.sqlite3、config.json、photos.tar）仍可恢复。恢复只从校验通过的数据包中按固定成员名提取 SQLite 快照，不盲目解压归档路径。
 
 数据库和配置快照长期保留，直到管理员手工删除。
 

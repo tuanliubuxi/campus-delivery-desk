@@ -18,7 +18,7 @@ def search_agents(query=""):
             | Q(proxy_batches__recipients__recipient_names__icontains=query)
             | Q(proxy_batches__recipients__phone_suffixes__icontains=query)
         ).distinct()
-    return queryset
+    return queryset.order_by("name", "pk")
 
 
 def search_proxy_batches(query=""):

@@ -15,6 +15,7 @@ from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.common.pagination import paginate
 from apps.common.permissions import admin_required
 from apps.mediafiles.models import MediaFile, MediaVariant
 from apps.mediafiles.services import delete_media_file
@@ -62,11 +63,20 @@ def health_ready(request):
 
 @admin_required
 def backups(request):
+    overview = operations_overview()
+    backup_page, backup_query = paginate(request, overview["backups"], parameter="backup_page")
+    job_page, job_query = paginate(request, overview["jobs"], parameter="job_page")
     return render(
         request,
         "operations/backups.html",
         {
-            **operations_overview(),
+            **overview,
+            "backups": backup_page,
+            "jobs": job_page,
+            "backup_page": backup_page,
+            "backup_query": backup_query,
+            "job_page": job_page,
+            "job_query": job_query,
             "operation_form": OperationForm(),
             "restore_form": RestoreForm(),
             "maintenance_form": MaintenanceForm(),
@@ -105,7 +115,9 @@ def backup_download(request, backup_id):
     )
     os.close(descriptor)
     archive_path = Path(archive_name)
-    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    # Inner packages are already compressed; legacy loose-file backups still benefit from compression.
+    compression = zipfile.ZIP_STORED if (directory / "data-config.zip").is_file() else zipfile.ZIP_DEFLATED
+    with zipfile.ZipFile(archive_path, "w", compression=compression) as archive:
         for path in directory.iterdir():
             if path.is_file():
                 archive.write(path, arcname=path.name)

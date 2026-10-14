@@ -95,6 +95,41 @@ def test_wage_workbench_and_dynamic_slip_access(tmp_path):
 
 
 @pytest.mark.django_db
+def test_wage_history_sort_keys_match_visible_dates():
+    from datetime import date
+
+    _recorder, admin, courier, _order, _settlement = _waiting_settlement(with_extras=False)
+    newer_work = WagePayout.objects.create(courier=courier, work_date=date(2026, 3, 2), total_amount="8.00")
+    older_work = WagePayout.objects.create(courier=courier, work_date=date(2026, 3, 1), total_amount="5.00")
+    factory = RequestFactory()
+
+    def content(query):
+        request = factory.get(f"/admin-console/wage-history/{query}")
+        request.user = admin
+        return wage_views.wage_history(request).content.decode()
+
+    default = content("")
+    assert default.index("2026-03-01") < default.index("2026-03-02")
+    by_work = content("?sort=work_newest")
+    assert by_work.index("2026-03-02") < by_work.index("2026-03-01")
+    assert "创建时间" in by_work
+    assert newer_work.pk != older_work.pk
+
+
+@pytest.mark.django_db
+def test_payment_ordinal_does_not_count_voided_drafts():
+    from datetime import date
+
+    _recorder, _admin, courier, _order, _settlement = _waiting_settlement(with_extras=False)
+    day = date(2026, 3, 4)
+    WagePayout.objects.create(courier=courier, work_date=day, sequence=1, status=WagePayoutStatus.VOIDED)
+    first_paid = WagePayout.objects.create(courier=courier, work_date=day, sequence=2, status=WagePayoutStatus.PAID)
+    second_paid = WagePayout.objects.create(courier=courier, work_date=day, sequence=3, status=WagePayoutStatus.PAID)
+    assert first_paid.payment_ordinal == 1
+    assert second_paid.payment_ordinal == 2
+
+
+@pytest.mark.django_db
 def test_wage_slip_long_adjustments_expand_image_without_clipping(tmp_path):
     recorder, admin, courier, order, settlement = _waiting_settlement(with_extras=False)
     work_date = timezone.localtime(order.delivery_drop_items.first().drop.delivered_at).date()

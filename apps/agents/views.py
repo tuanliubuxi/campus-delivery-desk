@@ -4,8 +4,8 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.html import format_html
 from django.urls import reverse
+from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
 from apps.agents.forms import AgentEditForm, AgentForm, ProxyBatchForm, ProxyRecipientForm
@@ -22,19 +22,23 @@ from apps.agents.services import (
     update_agent,
     update_proxy_recipient,
 )
+from apps.common.pagination import paginate
 from apps.common.permissions import recorder_or_admin_required
-from apps.settlements.services import generate_proxy_recipient_receipt, rebuild_proxy_settlement_receipt
+from apps.settlements.services import (
+    generate_proxy_recipient_receipt,
+    rebuild_proxy_settlement_receipt,
+)
 
 
 @recorder_or_admin_required
 def proxy_workspace(request):
     query = request.GET.get("q", "").strip()
     batch_page = Paginator(search_proxy_batches(query), 50).get_page(request.GET.get("page"))
-    agents = search_agents(query)[:20]
+    agent_page, agent_query = paginate(request, search_agents(query), parameter="agent_page")
     return render(
         request,
         "agents/workspace.html",
-        {"batch_page": batch_page, "agents": agents, "query": query},
+        {"batch_page": batch_page, "agents": agent_page, "agent_page": agent_page, "agent_query": agent_query, "query": query},
     )
 
 

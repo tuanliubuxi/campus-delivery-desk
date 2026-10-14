@@ -387,9 +387,9 @@ def wages(request):
     pending_pairs = {(earning.courier_id, work_date)
                      for earning in unpaid_earnings(None)
                      if (work_date := earning_work_date(earning))}
-    paid_counts = defaultdict(int)
-    for courier_id, paid_day in WagePayout.objects.filter(status=WagePayoutStatus.PAID).values_list("courier_id", "work_date"):
-        paid_counts[(courier_id, paid_day)] += 1
+    latest_sequences = defaultdict(int)
+    for courier_id, work_date, sequence in WagePayout.objects.values_list("courier_id", "work_date", "sequence"):
+        latest_sequences[(courier_id, work_date)] = max(latest_sequences[(courier_id, work_date)], sequence)
     open_payouts = list(WagePayout.objects.filter(status__in=[WagePayoutStatus.DRAFT, WagePayoutStatus.READY]).select_related("courier"))
     open_pairs = {(payout.courier_id, payout.work_date) for payout in open_payouts}
     courier_by_id = {courier.pk: courier for courier in couriers}
@@ -397,7 +397,7 @@ def wages(request):
         courier = courier_by_id.get(courier_id)
         if courier is not None:
             queue.append({"courier": courier, "work_date": work_date, "status": "PENDING",
-                          "supplement": paid_counts[(courier_id, work_date)] + 1})
+                          "supplement": latest_sequences[(courier_id, work_date)] + 1})
     for payout in open_payouts:
         queue.append({"courier": payout.courier, "work_date": payout.work_date,
                       "status": payout.status, "payout": payout, "supplement": payout.sequence})
@@ -567,7 +567,14 @@ def wage_history(request):
     if request.GET.get("operator", "").isdigit():
         payouts = payouts.filter(paid_by_id=int(request.GET["operator"]))
     sort = request.GET.get("sort", "newest")
-    payouts = payouts.order_by({"oldest": "created_at", "amount_high": "-total_amount", "amount_low": "total_amount"}.get(sort, "-created_at"), "-pk")
+    sort_fields = {
+        "created_oldest": ("created_at", "pk"),
+        "work_newest": ("-work_date", "-pk"),
+        "work_oldest": ("work_date", "pk"),
+        "amount_high": ("-total_amount", "-pk"),
+        "amount_low": ("total_amount", "pk"),
+    }
+    payouts = payouts.order_by(*sort_fields.get(sort, ("-created_at", "-pk")))
     page = Paginator(payouts, 10).get_page(request.GET.get("page"))
     return render(request, "settlements/wage_history.html", {
         "payouts": page, "page_obj": page,

@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
+from apps.common.pagination import paginate
 from apps.common.permissions import admin_required, courier_required, recorder_or_admin_required
 from apps.dashboard.forms import DashboardFilterForm
 from apps.dashboard.selectors import (
@@ -12,7 +13,6 @@ from apps.dashboard.selectors import (
     courier_personal_cards,
     dashboard_cards,
     dashboard_charts,
-    dashboard_table,
     filtered_orders,
 )
 from apps.dashboard.services import build_dashboard_workbook
@@ -35,6 +35,11 @@ def _validated_filters(request, *, courier_id=None, include_courier=True):
 @admin_required
 def reports(request):
     form, filters = _validated_filters(request)
+    order_page, order_query = paginate(
+        request, filtered_orders(filters).order_by("-sequence_date", "-daily_sequence", "-pk")
+    )
+    if not request.GET:
+        order_query = form.data.urlencode()
     return render(
         request,
         "dashboard/reports.html",
@@ -43,7 +48,9 @@ def reports(request):
             "filters": filters,
             "cards": dashboard_cards(filters),
             "charts": dashboard_charts(filters),
-            "orders": dashboard_table(filters),
+            "orders": order_page,
+            "order_page": order_page,
+            "order_query": order_query,
         },
     )
 
@@ -64,8 +71,8 @@ def export_excel(request):
 @recorder_or_admin_required
 def global_search(request):
     query = request.GET.get("q", "").strip()
-    orders = search_orders(query)[:100] if query else []
-    return render(request, "dashboard/search.html", {"query": query, "orders": orders})
+    order_page, order_query = paginate(request, search_orders(query) if query else [])
+    return render(request, "dashboard/search.html", {"query": query, "orders": order_page, "order_page": order_page, "order_query": order_query})
 
 
 @courier_required
@@ -77,6 +84,12 @@ def courier_statistics(request):
     )
     # The server-enforced courier id cannot be replaced through query parameters.
     orders = filtered_orders(filters)
+    order_page, order_query = paginate(
+        request,
+        orders.prefetch_related("charge_items").order_by("-sequence_date", "-daily_sequence", "-pk"),
+    )
+    if not request.GET:
+        order_query = form.data.urlencode()
     order_trend = list(
         orders.values("sequence_date")
         .order_by("sequence_date")
@@ -88,9 +101,9 @@ def courier_statistics(request):
         {
             "form": form,
             "cards": courier_personal_cards(filters),
-            "orders": orders.prefetch_related("charge_items").order_by(
-                "-sequence_date", "-daily_sequence"
-            )[:100],
+            "orders": order_page,
+            "order_page": order_page,
+            "order_query": order_query,
             "order_trend": [
                 {"label": str(row["sequence_date"]), "value": row["value"]}
                 for row in order_trend

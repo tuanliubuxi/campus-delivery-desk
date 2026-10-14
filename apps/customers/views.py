@@ -58,7 +58,7 @@ def customer_picker(request):
         return JsonResponse({"results": [], "message": "请输入名称或手机号尾号，或选择楼栋"})
     if building_id and (not building_id.isdecimal() or not Building.objects.filter(pk=building_id).exists()):
         return JsonResponse({"results": [], "message": "楼栋无效"}, status=400)
-    customers = search_customers(query, building_id=building_id)[:100]
+    page = Paginator(search_customers(query, building_id=building_id).order_by("pk"), 20).get_page(request.GET.get("page"))
     return JsonResponse({"results": [
         {
             "id": customer.pk,
@@ -67,8 +67,8 @@ def customer_picker(request):
             "phone": customer.phone_suffixes,
             "building": customer.building.name if customer.building else "地址待补",
         }
-        for customer in customers
-    ]})
+        for customer in page
+    ], "count": page.paginator.count, "page": page.number, "has_next": page.has_next()})
 
 
 @recorder_or_admin_required

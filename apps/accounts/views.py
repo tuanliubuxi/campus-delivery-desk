@@ -34,6 +34,7 @@ from apps.accounts.services import (
 )
 from apps.audit.models import AuditEvent
 from apps.common.enums import UserRole
+from apps.common.pagination import paginate
 from apps.common.permissions import admin_required, courier_required
 from apps.config_center.models import BusinessTypeConfig, SiteConfiguration
 
@@ -274,7 +275,12 @@ def user_list(request):
         form = UserCreateForm()
     config = SiteConfiguration.load()
     now = timezone.now()
-    users = list(User.objects.prefetch_related("login_leases").order_by("role", "display_name"))
+    user_page, user_query = paginate(
+        request,
+        User.objects.prefetch_related("login_leases").order_by("role", "display_name", "pk"),
+        per_page=20,
+    )
+    users = list(user_page)
     for item in users:
         lease = next((lease for lease in item.login_leases.all() if lease.revoked_at is None), None)
         item.current_lease = lease
@@ -290,6 +296,8 @@ def user_list(request):
         "accounts/user_list.html",
         {
             "users": users,
+            "user_page": user_page,
+            "user_query": user_query,
             "form": form,
             "generated_password": generated_password,
             "site_wage_rate": config.default_wage_rate,

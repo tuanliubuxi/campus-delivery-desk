@@ -11,7 +11,7 @@
     <a class="text-decoration-none" href="{% url 'consolidation:courier-list' %}"><i class="cdd-status-dot cdd-dot-consolidation"></i>待归拢 {{ pending_consolidations }}</a>
   </div>
   {% if user.accepting_business == 'EXPRESS' %}<div class="d-flex gap-2 mb-3"><a class="btn btn-outline-primary flex-fill" href="{% url 'dispatch:express-route-pool' %}">快递路线</a><a class="btn btn-outline-danger flex-fill" href="{% url 'dispatch:express-direct-pool' %}">客户直送</a></div>{% endif %}
-  <div class="d-grid gap-3">
+  <div class="d-grid gap-3 cdd-scroll-region">
     {% for group in task_groups %}
     <article class="cdd-card p-3 cdd-task-card">
       <div class="d-flex justify-content-between align-items-center gap-2">
@@ -36,5 +36,6 @@
     </article>
     {% empty %}<div class="cdd-card p-4 text-center cdd-muted">暂无活跃任务。</div>{% endfor %}
   </div>
+  {% include "includes/list_pagination.html" with page=task_page query=task_query label="我的任务" %}
 </main>
 {% endblock %}

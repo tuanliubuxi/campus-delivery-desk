@@ -2,16 +2,16 @@
         data-card-url="{% url 'settlements:wage-slip' payout.pk 'card' %}"
         data-formal-url="{% url 'settlements:wage-slip' payout.pk 'formal' %}">
   <div class="cdd-modal-panel cdd-wage-slip-panel">
-    <button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭工资条">×</button>
-    <h2 class="h5">{{ payout.courier.display_name }} · 工资条</h2>
+    <header class="cdd-wage-slip-header"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭工资条">×</button>
+    <h2 class="h5">{{ payout.courier.display_name }} · {{ payout.work_date|date:'Y年n月j日' }}{% if payout.sequence > 1 %} · 第 {{ payout.sequence }} 笔{% endif %}工资条</h2>
     <div class="cdd-wage-slip-tabs" role="group" aria-label="工资条样式">
       <button type="button" data-cdd-slip-style="card" aria-pressed="true">卡片版</button>
       <button type="button" data-cdd-slip-style="formal" aria-pressed="false">正式版</button>
-    </div>
+    </div></header>
     <div class="cdd-wage-slip-preview" aria-label="工资条预览">
       <img data-cdd-slip-image alt="工资条预览" hidden>
       <p data-cdd-slip-message>正在载入预览……</p>
     </div>
-    <div class="text-center mt-3"><a class="btn btn-primary" data-cdd-slip-download href="#" download>下载当前版本</a></div>
+    <footer class="cdd-wage-slip-footer"><a class="btn btn-primary" data-cdd-slip-download href="#" download>下载当前版本</a></footer>
   </div>
 </dialog>

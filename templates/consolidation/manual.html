@@ -12,12 +12,13 @@
     <button class="btn btn-primary mt-3" {% if not has_manual_candidates %}disabled{% endif %}>建立归拢轮次</button>
   </form>
   <h2 class="h4 mt-4">待处理轮次与独立改派</h2>
-  {% for round in active_rounds %}<section class="card card-body mb-2">
+  <div class="cdd-scroll-region">{% for round in active_rounds %}<section class="card card-body mb-2">
     <strong>#{{ round.id }} · {{ round.get_status_display }}</strong>
     <span>当前负责人：{{ round.assigned_courier }}</span>
     <form method="post" action="{% url 'consolidation:reassign' round.id %}" class="mt-2">{% csrf_token %}
       {{ round.reassign_form.as_p }}<button class="btn btn-outline-warning">改派归拢负责人</button>
     </form>
-  </section>{% empty %}<p class="text-secondary">暂无待处理归拢。</p>{% endfor %}
+  </section>{% empty %}<p class="text-secondary">暂无待处理归拢。</p>{% endfor %}</div>
+  {% include "includes/list_pagination.html" with page=round_page query=round_query label="人工归拢轮次" %}
 </main>
 {% endblock %}
