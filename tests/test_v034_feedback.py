@@ -101,8 +101,7 @@ def test_unknown_size_is_required_and_locked_dialog_is_rendered():
     assert "返回任务" in content
 
 
-def test_courier_can_correct_known_size_without_overwriting_old_charge(settings):
-    settings.MEDIA_ROOT = settings.DATA_ROOT / "media"
+def test_courier_can_correct_known_size_without_overwriting_old_charge():
     recorder, _, _ = login(UserRole.RECORDER, "已知录单")
     courier, client, _ = login(UserRole.COURIER, "已知配送")
     order, task, _ = ready_order(recorder, courier, size=SizeClass.SMALL)
