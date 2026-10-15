@@ -184,7 +184,8 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-presence--online { background: #1f9d62; box-shadow: 0 0 0 3px color-mix(in srgb, #1f9d62 22%, transparent); }
 .cdd-presence--delayed { background: #d18a16; box-shadow: 0 0 0 3px color-mix(in srgb, #d18a16 22%, transparent); }
 
-.cdd-modal { width: min(92vw, 760px); max-height: 88vh; padding: 0; border: 0; border-radius: 1rem; color: var(--cdd-text); background: transparent; }
+  .cdd-modal { width: min(92vw, 760px); max-height: 88vh; padding: 0; border: 0; border-radius: 1rem; color: var(--cdd-text); background: transparent; }
+  .cdd-wage-workflow-modal { width: min(96vw, 1050px); }
 .cdd-modal::backdrop { background: rgb(4 12 24 / 68%); backdrop-filter: blur(2px); }
 .cdd-modal-panel { position: relative; max-height: 88vh; overflow: auto; overscroll-behavior: contain; padding: 1.35rem; border: 1px solid var(--cdd-border); border-radius: 1rem; background: var(--cdd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 35%); }
 .cdd-modal-close { position: sticky; z-index: 2; top: 0; float: right; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 1px solid var(--cdd-border); border-radius: 50%; background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.35rem; }

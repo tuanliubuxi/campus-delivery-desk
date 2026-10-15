@@ -8,6 +8,7 @@ from io import BytesIO
 import pytest
 from django.core.exceptions import ValidationError
 from django.http import Http404
+from django.middleware.clickjacking import XFrameOptionsMiddleware
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
@@ -44,20 +45,44 @@ def test_wage_workbench_and_dynamic_slip_access(tmp_path):
     workspace = get_view(wage_views.wages, reverse("settlements:wages"), admin)
     assert workspace.status_code == 200
     assert "待核算" in workspace.content.decode()
+    assert "hx-post" in workspace.content.decode()
+    assert "<iframe" not in workspace.content.decode()
     assert get_view(wage_views.wages, reverse("settlements:wages") + f"?courier={courier.pk}", admin).status_code == 200
     payout = create_wage_draft(
         courier=courier, work_date=work_date, actor=admin, operation_id=uuid.uuid4()
     )
+    continued_workbench = get_view(wage_views.wages, reverse("settlements:wages"), admin).content.decode()
+    assert f'hx-get="{reverse("settlements:wage-detail", args=[payout.pk])}?embedded=1"' in continued_workbench
+    assert "<iframe" not in continued_workbench
     embedded = get_view(wage_views.wage_detail, reverse("settlements:wage-detail", args=[payout.pk]) + "?embedded=1", admin, payout_id=payout.pk)
     assert embedded.status_code == 200
     assert "确认核算" in embedded.content.decode()
     assert "返回上一级" not in embedded.content.decode()
+    assert "hx-boost" in embedded.content.decode()
+    assert XFrameOptionsMiddleware(lambda request: embedded).process_response(None, embedded)["X-Frame-Options"] == "DENY"
+    history_detail = get_view(wage_views.wage_detail, reverse("settlements:wage-detail", args=[payout.pk]), admin, payout_id=payout.pk)
+    assert "确认核算" not in history_detail.content.decode()
+    assert "前往工作台继续处理" in history_detail.content.decode()
+    failed_create = factory.post(
+        reverse("settlements:wage-draft-create"),
+        {"embedded": "1", "courier_id": courier.pk, "work_date": work_date.isoformat(),
+         "operation_id": str(uuid.uuid4())},
+    )
+    failed_create.user = admin
+    failed_response = wage_views.wage_draft_create(failed_create)
+    assert failed_response.status_code == 200
+    assert "该配送员与日期已有发薪草稿" in failed_response.content.decode()
+    assert "data-cdd-wage-content" in failed_response.content.decode()
     assert wage_views._wage_detail_redirect(
         factory.post("/admin-console/wages/", {"embedded": "1"}), payout.pk
     )["Location"].endswith("?embedded=1")
     assert get_view(wage_views.wage_slip, reverse("settlements:wage-slip", args=[payout.pk, "card"]), admin, payout_id=payout.pk, style="card").status_code == 403
     ready_wage_payout(payout=payout, actor=admin)
     payout.refresh_from_db()
+    ready_workflow = get_view(wage_views.wage_detail, reverse("settlements:wage-detail", args=[payout.pk]) + "?embedded=1", admin, payout_id=payout.pk).content.decode()
+    ready_history = get_view(wage_views.wage_detail, reverse("settlements:wage-detail", args=[payout.pk]), admin, payout_id=payout.pk).content.decode()
+    assert "确认发放工资" in ready_workflow
+    assert "确认发放工资" not in ready_history
     assert payout.brand_name_snapshot == SiteConfiguration.load().receipt_brand_name
     slip_url = reverse("settlements:wage-slip", args=[payout.pk, "card"])
     preview = get_view(wage_views.wage_slip, slip_url, admin, payout_id=payout.pk, style="card")

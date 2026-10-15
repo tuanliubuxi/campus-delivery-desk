@@ -446,6 +446,13 @@ def wage_draft_create(request):
             operation_id=uuid.UUID(request.POST["operation_id"]),
         )
     except (ValidationError, ValueError, KeyError, PermissionError) as exc:
+        if request.POST.get("embedded") == "1":
+            return render(
+                request,
+                "settlements/_wage_create_form.html",
+                {"courier": courier, "work_date_iso": request.POST.get("work_date", ""),
+                 "operation_id": request.POST.get("operation_id", ""), "error_text": str(exc)},
+            )
         messages.error(request, str(exc))
         return redirect(f"/admin-console/wages/?courier={courier.pk}")
     return _wage_detail_redirect(request, payout.pk)
@@ -470,6 +477,7 @@ def wage_detail(request, payout_id):
         {"payout": payout, "adjustment_form": WageAdjustmentForm(),
          "payment_form": WagePaymentForm(), "is_admin_view": True,
          "embedded": request.GET.get("embedded") == "1",
+         "can_manage": request.GET.get("embedded") == "1",
          "parent_template": "layouts/embedded.html" if request.GET.get("embedded") == "1" else "layouts/base.html"},
     )
 

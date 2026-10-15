@@ -1,0 +1,14 @@
+<div data-cdd-wage-content>
+  {% if error_text %}<div class="alert alert-danger" role="alert">{{ error_text }}</div>{% endif %}
+  <p class="small text-secondary">先建立草稿并核对收入，钱实际转出或交付后再确认发放。</p>
+  <form method="post" action="{% url 'settlements:wage-draft-create' %}"
+        hx-post="{% url 'settlements:wage-draft-create' %}"
+        hx-target="closest [data-cdd-wage-content]" hx-select="[data-cdd-wage-content]" hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="embedded" value="1">
+    <input type="hidden" name="courier_id" value="{{ courier.pk }}">
+    <input type="hidden" name="work_date" value="{% if work_date_iso %}{{ work_date_iso }}{% else %}{{ work_date|date:'Y-m-d' }}{% endif %}">
+    <input type="hidden" name="operation_id" value="{{ operation_id }}">
+    <div class="d-flex gap-2"><button class="btn btn-primary">建立草稿</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div>
+  </form>
+</div>

@@ -150,6 +150,47 @@ document.addEventListener("click", (event) => {
   const tab = event.target.closest("[data-cdd-slip-style]");
   if (tab) cddShowWageSlip(tab.closest("[data-cdd-wage-slip]"), tab.dataset.cddSlipStyle);
 });
+function cddUpdateWageAdjustment(form) {
+  const type = form.querySelector("#wage-adjustment-type");
+  const amount = form.querySelector("#wage-adjustment-amount");
+  const preview = form.querySelector("#wage-adjustment-preview");
+  const button = form.querySelector("#wage-adjustment-submit");
+  if (!type || !amount || !preview || !button) return;
+  const negative = new Set(["OVERPAY_CORRECTION", "REFUND_CORRECTION", "REVIEWED_LOSS"]);
+  const value = Number(amount.value);
+  const total = Number(preview.dataset.current) + (negative.has(type.value) ? -value : value);
+  const valid = amount.value !== "" && Number.isFinite(value) && value > 0 && total > 0;
+  preview.textContent = `调整后预计应发 ¥${total.toFixed(2)}${valid ? "" : "；必须大于 0 元"}`;
+  preview.classList.toggle("text-danger", !valid);
+  button.disabled = !valid;
+}
+function cddInitWageAdjustments(root = document) {
+  root.querySelectorAll("#wage-adjustment-submit").forEach((button) => {
+    cddUpdateWageAdjustment(button.form);
+  });
+}
+document.addEventListener("input", (event) => {
+  if (event.target.matches("#wage-adjustment-amount")) cddUpdateWageAdjustment(event.target.form);
+});
+document.addEventListener("change", (event) => {
+  if (event.target.matches("#wage-adjustment-type")) cddUpdateWageAdjustment(event.target.form);
+});
+document.addEventListener("htmx:afterSwap", (event) => cddInitWageAdjustments(event.detail.target));
+document.addEventListener("htmx:beforeSwap", (event) => {
+  const innerDialog = event.detail.elt?.closest("dialog.cdd-modal");
+  if (innerDialog?.open && innerDialog.closest("[data-cdd-wage-content]")) innerDialog.close();
+});
+cddInitWageAdjustments();
+function cddWageRequestError(event) {
+  const panel = event.detail.target?.closest(".cdd-wage-workflow-modal") ||
+    event.detail.elt.closest(".cdd-wage-workflow-modal") ||
+    document.getElementById(event.detail.elt.dataset.cddModalOpen || "");
+  if (!panel) return;
+  const content = panel.querySelector("[data-cdd-wage-content]") || panel.querySelector("[id^='wage-flow-content-']");
+  if (content) content.insertAdjacentHTML("afterbegin", '<div class="alert alert-danger" role="alert">操作未完成，请检查登录状态和网络后重试。</div>');
+}
+document.addEventListener("htmx:responseError", cddWageRequestError);
+document.addEventListener("htmx:sendError", cddWageRequestError);
 function cddCloseSortMenus(except = null) {
   document.querySelectorAll("details.cdd-sort-menu[open]").forEach((menu) => {
     if (menu !== except) menu.open = false;
@@ -195,14 +236,14 @@ async function loadRemoteModal(dialog, url) {
     content.textContent = "登录历史暂时无法加载，请稍后重试。";
   }
 }
-document.querySelectorAll("dialog.cdd-modal").forEach((dialog) => {
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog && !dialog.hasAttribute("data-cdd-locked")) dialog.close();
-  });
-  if (dialog.hasAttribute("data-cdd-locked")) {
-    dialog.addEventListener("cancel", (event) => event.preventDefault());
+document.addEventListener("click", (event) => {
+  if (event.target.matches?.("dialog.cdd-modal") && !event.target.hasAttribute("data-cdd-locked")) {
+    event.target.close();
   }
 });
+document.addEventListener("cancel", (event) => {
+  if (event.target.matches?.("dialog.cdd-modal[data-cdd-locked]")) event.preventDefault();
+}, true);
 // Flash messages survive redirects; open them after the page is ready without losing focus context.
 document.querySelectorAll("dialog.cdd-modal[data-cdd-auto-open]").forEach((dialog) => {
   if (dialog.showModal) dialog.showModal();
