@@ -1,0 +1,15 @@
+{% for section in order_sections %}
+<section class="cdd-order-section cdd-order-section--{{ section.tone }}">
+  <h2 class="h6 mb-3">{{ section.title }}</h2>
+  <div class="row g-2 align-items-end">
+    {% for field in section.fields %}
+    <div data-cdd-order-field="{{ field.name }}" class="col-12 {% if field.name == 'customer' %}col-md-8{% elif field.name == 'service_date' or field.name == 'destination_type' %}col-md-4{% elif field.name == 'building' %}col-md-6{% elif field.name == 'floor' or field.name == 'room' %}col-md-3{% elif field.name == 'requires_upstairs' or field.name == 'is_urgent' %}col-md-3{% elif field.name == 'confirm_off_campus_upstairs' or field.name == 'off_campus_address' or field.name == 'order_note' or field.field.widget.input_type == 'textarea' %}col-md-12{% else %}col-md-6{% endif %}">
+      {% if field.name == 'confirm_off_campus_upstairs' %}<div class="cdd-offcampus-notice" role="note"><p class="mb-2">送校外且需要上楼：系统不会自动收取上楼费；特殊费用由录单员在结算时处理。</p><div class="form-check">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">我已了解</label></div></div>
+      {% elif field.field.widget.input_type == 'checkbox' %}<div class="form-check mt-2">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+      {% else %}<label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}
+      {% if field.help_text and field.name != 'confirm_off_campus_upstairs' %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}

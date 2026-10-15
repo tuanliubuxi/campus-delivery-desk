@@ -3,7 +3,7 @@
 {% block title %}{{ order.fixed_id }} · 校驿{% endblock %}
 {% block content %}
 <main class="container py-3" style="max-width: 960px">
-  <a class="btn btn-outline-secondary mb-3" href="{% url 'orders:history' %}">返回订单列表</a>
+  <div class="d-flex flex-wrap gap-2 mb-3"><a class="btn btn-outline-secondary" href="{% url 'orders:history' %}">返回订单列表</a>{% if from_quick %}<a class="btn btn-primary" href="{% url 'orders:quick-complete' %}?business_type={{ order.business_type }}">继续补录此业务</a><a class="btn btn-outline-primary" href="{% url 'orders:quick-complete' %}">选择其他业务</a>{% endif %}</div>
   <section class="card card-body">{% include "orders/_detail_content.html" with order=order %}</section>
 </main>
 {% endblock %}

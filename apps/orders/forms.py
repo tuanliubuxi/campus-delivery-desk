@@ -80,6 +80,7 @@ class CommonOrderForm(BootstrapFormMixin, forms.Form):
             "is_urgent", "upstairs_small_medium_count", "upstairs_large_oversize_count",
             "confirm_off_campus_upstairs", "order_note", "confirm_duplicate",
         ])
+        self.fields["confirm_duplicate"].widget.attrs["data-cdd-draft-ignore"] = ""
         self._apply_bootstrap_classes()
 
     def clean(self):

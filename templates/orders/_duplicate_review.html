@@ -1,0 +1,9 @@
+{% if duplicate_token %}
+<div class="alert alert-warning mt-3" data-cdd-duplicate-review role="alert">
+  <strong>发现疑似重复订单，请先核对</strong>
+  {% if duplicate_candidates %}<ul class="mb-2 mt-2">{% for candidate in duplicate_candidates %}<li>{{ candidate.display_id }} · {{ candidate.recipient_name_snapshot }} <a href="{% url 'orders:detail' candidate.pk %}" target="_blank" rel="noopener">查看订单</a></li>{% endfor %}</ul>{% endif %}
+  <input type="hidden" name="duplicate_review_token" value="{{ duplicate_token }}">
+  <div class="form-check"><input class="form-check-input" type="checkbox" name="confirm_duplicate" id="id_confirm_duplicate" data-cdd-draft-ignore> <label class="form-check-label" for="id_confirm_duplicate">核对后仍要创建此订单</label></div>
+  {% for error in duplicate_field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+</div>
+{% endif %}

@@ -1,9 +1,11 @@
 """Thin recorder views delegating writes to order services."""
 
 from django.contrib import messages
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from apps.agents.models import ProxyRecipient
 from apps.common.enums import BusinessType
@@ -20,7 +22,7 @@ from apps.orders.forms import (
     LuggageOrderForm,
     TakeoutOrderForm,
 )
-from apps.orders.models import DeliveryStatus, Order
+from apps.orders.models import DeliveryStatus, EntryMode, Order, SizeClass
 from apps.orders.selectors import order_detail, search_orders
 from apps.orders.services import (
     PossibleDuplicateOrder,
@@ -51,6 +53,57 @@ CREATOR_MAP = {
     BusinessType.ERRAND: create_errand_order,
     BusinessType.LUGGAGE_UPSTAIRS: create_luggage_upstairs_order,
 }
+
+ORDER_SECTION_FIELDS = (
+    ("收件与日期", "identity", {"customer", "service_date"}),
+    ("目的地", "destination", {"destination_type", "building", "floor", "room", "off_campus_address"}),
+    ("取件与物品信息", "business", {
+        "pickup_area", "outside_pickup_location", "pickup_gate", "other_pickup_location",
+        "pickup_location", "pickup_identifier_type", "size_class", "pickup_identifier",
+        "identifier", "pickup_code", "item_list", "item_description",
+        "delivery_location_text", "small_medium_count", "large_oversize_count",
+        "special_pickup_note",
+    }),
+    ("服务要求与备注", "service", {
+        "requires_upstairs", "is_urgent", "upstairs_small_medium_count",
+        "upstairs_large_oversize_count", "confirm_off_campus_upstairs", "order_note",
+    }),
+)
+
+
+def _order_sections(form):
+    visible = {field.name: field for field in form.visible_fields()}
+    sections = []
+    for title, tone, names in ORDER_SECTION_FIELDS:
+        fields = [field for name, field in visible.items() if name in names]
+        if fields:
+            sections.append({"title": title, "tone": tone, "fields": fields})
+    return sections
+
+
+def _duplicate_payload(request, business_type):
+    excluded = {"csrfmiddlewaretoken", "confirm_duplicate", "duplicate_review_token"}
+    return {
+        "actor_id": request.user.pk,
+        "business_type": business_type,
+        "fields": sorted([name, values] for name, values in request.POST.lists() if name not in excluded),
+    }
+
+
+def _duplicate_review_token(request, business_type):
+    return signing.dumps(_duplicate_payload(request, business_type), salt="order-duplicate-review")
+
+
+def _duplicate_review_valid(request, business_type):
+    token = request.POST.get("duplicate_review_token", "")
+    if not token:
+        return False
+    try:
+        return signing.loads(token, salt="order-duplicate-review", max_age=1800) == _duplicate_payload(request, business_type)
+    except signing.BadSignature:
+        return False
+
+
 DETAIL_FIELDS = {
     BusinessType.EXPRESS: [
         "pickup_area",
@@ -101,10 +154,16 @@ def order_create(request, business_type):
     if customer_id:
         customer = get_object_or_404(Customer, pk=customer_id)
     form = FORM_MAP[business_type](request.POST or None, customer=customer)
+    duplicate_review = _duplicate_review_valid(request, business_type) if request.method == "POST" else False
+    duplicate_token = request.POST.get("duplicate_review_token", "") if duplicate_review else ""
+    duplicate_candidates = []
     if request.method == "POST" and form.is_valid():
+        form.cleaned_data["confirm_duplicate"] = bool(form.cleaned_data["confirm_duplicate"] and duplicate_review)
         try:
             order = CREATOR_MAP[business_type](actor=request.user, **form.service_kwargs())
         except PossibleDuplicateOrder as exc:
+            duplicate_candidates = exc.orders
+            duplicate_token = _duplicate_review_token(request, business_type)
             form.add_error(
                 "confirm_duplicate",
                 f"发现 {len(exc.orders)} 条疑似重复订单；核对后可勾选确认继续。",
@@ -126,6 +185,9 @@ def order_create(request, business_type):
         "orders/form.html",
         {
             "form": form,
+            "order_sections": _order_sections(form),
+            "duplicate_token": duplicate_token,
+            "duplicate_candidates": duplicate_candidates,
             "business_type": business_type,
             "business_label": BusinessType(business_type).label,
             "is_create": True,
@@ -154,8 +216,14 @@ def quick_complete(request):
     customer = get_object_or_404(Customer, pk=customer_id) if customer_id else None
     order_form = FORM_MAP[business_type](request.POST or None, customer=customer)
     completion_form = CompletionMetadataForm(request.POST or None, request.FILES or None)
+    duplicate_review = _duplicate_review_valid(request, business_type) if request.method == "POST" else False
+    duplicate_token = request.POST.get("duplicate_review_token", "") if duplicate_review else ""
+    duplicate_candidates = []
     if request.method == "POST" and order_form.is_valid() and completion_form.is_valid():
-        if business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order_form.cleaned_data.get("requires_upstairs") and not (
+        order_form.cleaned_data["confirm_duplicate"] = bool(order_form.cleaned_data["confirm_duplicate"] and duplicate_review)
+        if business_type in {BusinessType.EXPRESS, BusinessType.ERRAND} and order_form.cleaned_data.get("size_class") == SizeClass.UNKNOWN:
+            order_form.add_error("size_class", "补录已完成任务必须选择实际物品大小")
+        elif business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order_form.cleaned_data.get("requires_upstairs") and not (
             (order_form.cleaned_data.get("upstairs_small_medium_count") or 0)
             + (order_form.cleaned_data.get("upstairs_large_oversize_count") or 0)
         ):
@@ -170,6 +238,8 @@ def quick_complete(request):
                     **metadata,
                 )
             except PossibleDuplicateOrder as exc:
+                duplicate_candidates = exc.orders
+                duplicate_token = _duplicate_review_token(request, business_type)
                 order_form.add_error(
                     "confirm_duplicate",
                     f"发现 {len(exc.orders)} 条疑似重复订单；核对后可勾选确认继续。",
@@ -178,7 +248,7 @@ def quick_complete(request):
                 completion_form.add_error(None, exc)
             else:
                 messages.success(request, f"订单 {order.fixed_id} 已按实际完成事实录入")
-                return redirect("orders:detail", order_id=order.pk)
+                return redirect(f"{reverse('orders:detail', args=[order.pk])}?from_quick=1")
     return render(
         request,
         "orders/quick_complete.html",
@@ -189,6 +259,9 @@ def quick_complete(request):
             "selected_customer_id": customer.pk if customer else None,
             "picker_buildings": Building.objects.filter(is_active=True),
             "order_form": order_form,
+            "order_sections": _order_sections(order_form),
+            "duplicate_token": duplicate_token,
+            "duplicate_candidates": duplicate_candidates,
             "completion_form": completion_form,
         },
     )
@@ -212,10 +285,16 @@ def proxy_express_create(request, recipient_id):
         pk=recipient_id,
     )
     form = ExpressOrderForm(request.POST or None, proxy_recipient=recipient)
+    duplicate_review = _duplicate_review_valid(request, BusinessType.EXPRESS) if request.method == "POST" else False
+    duplicate_token = request.POST.get("duplicate_review_token", "") if duplicate_review else ""
+    duplicate_candidates = []
     if request.method == "POST" and form.is_valid():
+        form.cleaned_data["confirm_duplicate"] = bool(form.cleaned_data["confirm_duplicate"] and duplicate_review)
         try:
             order = create_express_order(actor=request.user, **form.service_kwargs())
         except PossibleDuplicateOrder as exc:
+            duplicate_candidates = exc.orders
+            duplicate_token = _duplicate_review_token(request, BusinessType.EXPRESS)
             form.add_error(
                 "confirm_duplicate",
                 f"发现 {len(exc.orders)} 条疑似重复订单；核对后可确认继续。",
@@ -232,6 +311,9 @@ def proxy_express_create(request, recipient_id):
         "orders/form.html",
         {
             "form": form,
+            "order_sections": _order_sections(form),
+            "duplicate_token": duplicate_token,
+            "duplicate_candidates": duplicate_candidates,
             "business_type": BusinessType.EXPRESS,
             "business_label": BusinessType.EXPRESS.label,
             "proxy_recipient": recipient,
@@ -288,7 +370,12 @@ def order_show(request, order_id):
         order = order_detail(order_id)
     except Order.DoesNotExist:
         order = get_object_or_404(search_orders(), pk=order_id)
-    return render(request, "orders/detail.html", {"order": order})
+    return render(request, "orders/detail.html", {
+        "order": order,
+        "from_quick": request.GET.get("from_quick") == "1" and order.entry_mode in {
+            EntryMode.DIRECT_COMPLETE, EntryMode.HISTORICAL_BACKFILL,
+        },
+    })
 
 
 @recorder_or_admin_required
@@ -373,6 +460,7 @@ def order_edit(request, order_id):
         "orders/form.html",
         {
             "form": form,
+            "order_sections": _order_sections(form),
             "business_type": order.business_type,
             "business_label": order.get_business_type_display(),
             "order": order,

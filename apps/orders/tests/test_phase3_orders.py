@@ -1,5 +1,7 @@
 """Phase 3 acceptance tests for order creation, pricing, rounds, edits, and UI."""
 
+import re
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -14,10 +16,12 @@ from apps.audit.models import AuditEvent
 from apps.common.enums import BusinessType, UserRole
 from apps.config_center.models import Building
 from apps.customers.models import Customer
+from apps.dispatch.models import LocationType
 from apps.orders.models import (
     DeliveryStatus,
     DestinationType,
     DispatchMode,
+    EntryMode,
     ExpressRoundStatus,
     Order,
     PickupArea,
@@ -418,3 +422,98 @@ def test_recorder_order_ui_requires_login_and_creates_order(client, recorder, cu
     )
     assert response.status_code == 302
     assert response.url.startswith("/recorder/orders/")
+
+
+@pytest.mark.django_db
+def test_duplicate_confirmation_appears_only_after_matching_warning(client, recorder, customer, building):
+    login(client, recorder)
+    url = reverse("orders:create", args=[BusinessType.TAKEOUT])
+    assert 'name="confirm_duplicate"' not in client.get(url).content.decode()
+    create_takeout_order(
+        actor=recorder, pickup_gate=TakeoutGate.SOUTH_GATE, identifier="EXISTING",
+        **common(customer, building),
+    )
+    data = {
+        "customer": customer.pk, "destination_type": DestinationType.CAMPUS_BUILDING,
+        "building": building.pk, "floor": "3", "room": "301",
+        "pickup_gate": TakeoutGate.SOUTH_GATE, "identifier": "NEW", "confirm_duplicate": "on",
+    }
+    first = client.post(url, data)
+    assert first.status_code == 200
+    assert 'name="confirm_duplicate"' in first.content.decode()
+    assert 'name="confirm_duplicate" checked' not in first.content.decode()
+    assert Order.objects.filter(business_type=BusinessType.TAKEOUT).count() == 1
+    token = first.context["duplicate_token"]
+    changed = client.post(url, {**data, "identifier": "CHANGED", "duplicate_review_token": token})
+    assert changed.status_code == 200
+    assert Order.objects.filter(business_type=BusinessType.TAKEOUT).count() == 1
+    accepted = client.post(url, {**data, "duplicate_review_token": token})
+    assert accepted.status_code == 302
+    assert Order.objects.filter(business_type=BusinessType.TAKEOUT).count() == 2
+    assert 'name="confirm_duplicate"' not in client.get(url).content.decode()
+
+
+@pytest.mark.django_db
+def test_quick_backfill_renders_only_business_fields_and_rejects_unknown_errand_size(
+    client, recorder, customer, building,
+):
+    courier = User.objects.create_user(
+        username="phase3-backfill-courier", password="Strong-pass-123",
+        display_name="补录配送员", role=UserRole.COURIER,
+    )
+    login(client, recorder)
+    url = reverse("orders:quick-complete")
+    page = client.get(url, {"business_type": BusinessType.ERRAND})
+    html = page.content.decode()
+    assert page.status_code == 200
+    assert "Operation id:" not in html
+    assert 'type="hidden" name="operation_id"' in html
+    assert 'data-cdd-order-field="off_campus_address"' in html
+    assert 'data-cdd-order-field="pickup_area"' not in html
+    payload = {
+        "business_type": BusinessType.ERRAND, "customer": customer.pk,
+        "destination_type": DestinationType.CAMPUS_BUILDING, "building": building.pk,
+        "floor": "3", "room": "301", "pickup_location": "图书馆",
+        "delivery_location_text": "宿舍", "item_description": "书",
+        "size_class": SizeClass.UNKNOWN, "operation_id": str(uuid.uuid4()),
+        "entry_mode": EntryMode.HISTORICAL_BACKFILL, "actual_courier": courier.pk,
+        "completed_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+        "location_type": LocationType.HANDOFF, "final_location_text": "宿舍门口",
+        "entry_note": "补录已完成配送",
+    }
+    response = client.post(url, payload)
+    assert response.status_code == 200
+    assert "必须选择实际物品大小" in response.content.decode()
+    assert not Order.objects.filter(business_type=BusinessType.ERRAND).exists()
+    completed = client.post(url, {**payload, "size_class": SizeClass.SMALL})
+    assert completed.status_code == 302
+    assert completed.url.endswith("?from_quick=1")
+    detail = client.get(completed.url)
+    assert "继续补录此业务" in detail.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("business_type,unique_field", [
+    (BusinessType.EXPRESS, "pickup_area"),
+    (BusinessType.TAKEOUT, "pickup_gate"),
+    (BusinessType.KFC, "pickup_code"),
+    (BusinessType.GROCERY, "item_list"),
+    (BusinessType.ERRAND, "item_description"),
+    (BusinessType.LUGGAGE_UPSTAIRS, "small_medium_count"),
+])
+def test_quick_and_normal_entry_share_only_their_business_fields(
+    client, recorder, business_type, unique_field,
+):
+    login(client, recorder)
+    normal = client.get(reverse("orders:create", args=[business_type])).content.decode()
+    quick = client.get(reverse("orders:quick-complete"), {"business_type": business_type}).content.decode()
+    pattern = r'data-cdd-order-field="([^"]+)"'
+    normal_fields = set(re.findall(pattern, normal))
+    quick_fields = set(re.findall(pattern, quick))
+    assert normal_fields == quick_fields
+    assert unique_field in quick_fields
+    assert "off_campus_address" in quick_fields
+    assert ("outside_pickup_location" in quick_fields) == (business_type == BusinessType.EXPRESS)
+    assert "Operation id:" not in quick
+    if business_type == BusinessType.LUGGAGE_UPSTAIRS:
+        assert 'data-cdd-integer-stepper=""' in quick

@@ -7,6 +7,10 @@ class BootstrapFormMixin:
     def _apply_bootstrap_classes(self):
         for field in self.fields.values():
             widget = field.widget
+            if isinstance(field, forms.IntegerField) and not isinstance(widget, forms.HiddenInput):
+                widget.attrs["data-cdd-integer-stepper"] = ""
+                widget.attrs["inputmode"] = "numeric"
+                widget.attrs["step"] = "1"
             if isinstance(widget, (forms.CheckboxSelectMultiple, forms.RadioSelect)):
                 css = "cdd-choice-group"
             elif isinstance(widget, forms.CheckboxInput):

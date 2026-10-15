@@ -48,6 +48,7 @@
 | off_campus_address | 条件 | 送校外时必填 |
 
 UNKNOWN 在 Settlement 前必须被配送员确认。ExpressOrderDetail 必须在订单创建时保存 SMALL/MEDIUM/LARGE/OVERSIZE 四档价格快照，确认大小时使用该快照。
+快速完成／历史补录没有后续配送员确认环节，快递大小不得为 UNKNOWN；跑腿物品大小同样必须选择实际档位。实际配送员、完成时间和最终位置也必须明确填写。
 
 ## 5. 外卖
 
@@ -77,6 +78,7 @@ UNKNOWN 在 Settlement 前必须被配送员确认。ExpressOrderDetail 必须�
 - delivery_location_text/目的地必填；
 - item_description 必填；
 - size_class 可 UNKNOWN；
+- 快速完成／历史补录是例外：size_class 不得为 UNKNOWN。
 - 额外距离费用不直接改总价，添加 MANUAL_SURCHARGE。
 
 ## 9. 行李搬上楼

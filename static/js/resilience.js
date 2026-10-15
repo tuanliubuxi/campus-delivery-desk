@@ -171,14 +171,26 @@
         if (!response.ok && await reconcile()) return;
         const responseText = await response.text();
         const parsed = new DOMParser().parseFromString(responseText, "text/html");
-        const errors = [...parsed.querySelectorAll(".errorlist, .alert-danger")]
+        const review = parsed.querySelector("[data-cdd-duplicate-review]");
+        const currentReview = form.querySelector("[data-cdd-duplicate-review]");
+        if (review) {
+          const replacement = document.importNode(review, true);
+          if (currentReview) currentReview.replaceWith(replacement);
+          else form.querySelector("[data-cdd-duplicate-review-host]")?.append(replacement);
+          status.className = "alert alert-warning mt-3";
+          status.textContent = "发现疑似重复订单；请先核对下方订单，再决定是否创建。";
+          replacement.querySelector('[name="confirm_duplicate"]')?.focus();
+        } else currentReview?.remove();
+        const errors = [...parsed.querySelectorAll(".errorlist, .alert-danger, .text-danger")]
           .map((node) => node.textContent.trim())
           .filter(Boolean);
-        status.className = "alert alert-danger mt-3";
-        if (errors.length) status.textContent = errors.join("；");
-        else if (response.status === 403) status.textContent = "安全校验已失效；表单和图片仍保留，请刷新页面后重试。";
-        else if (response.status >= 500) status.textContent = "服务器处理失败；表单和图片仍保留，请稍后重试或联系管理员查看日志。";
-        else status.textContent = "提交未成功；表单和图片仍保留，请检查必填项后重试。";
+        if (!review) {
+          status.className = "alert alert-danger mt-3";
+          if (errors.length) status.textContent = errors.join("；");
+          else if (response.status === 403) status.textContent = "安全校验已失效；表单和图片仍保留，请刷新页面后重试。";
+          else if (response.status >= 500) status.textContent = "服务器处理失败；表单和图片仍保留，请稍后重试或联系管理员查看日志。";
+          else status.textContent = "提交未成功；表单和图片仍保留，请检查必填项后重试。";
+        }
       } catch (error) {
         status.className = "alert alert-warning mt-3";
         // A proxy timeout can happen after the server committed the idempotent delivery.

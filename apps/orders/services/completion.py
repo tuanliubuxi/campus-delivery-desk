@@ -68,8 +68,8 @@ def create_completed_order(
     if entry_mode == EntryMode.DIRECT_COMPLETE:
         if business_type != BusinessType.LUGGAGE_UPSTAIRS and not (near_photo or far_photo):
             raise ValidationError("快速完成普通配送仍必须上传至少一张照片")
-    if business_type == BusinessType.EXPRESS and order_data.get("size_class") == SizeClass.UNKNOWN:
-        raise ValidationError("快速完成或补录快递必须填写实际大小")
+    if business_type in {BusinessType.EXPRESS, BusinessType.ERRAND} and order_data.get("size_class") in {None, "", SizeClass.UNKNOWN}:
+        raise ValidationError("快速完成或补录必须填写实际物品大小")
 
     stored_media = []
     try:
