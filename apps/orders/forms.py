@@ -1,5 +1,6 @@
 """Explicit recorder forms for each V1 business instead of a dynamic form engine."""
 
+import json
 import uuid
 
 from django import forms
@@ -24,6 +25,7 @@ from apps.orders.models import (
 class CommonOrderForm(BootstrapFormMixin, forms.Form):
     # Legacy/manual POSTs may omit the key; services still generate one, while rendered forms persist it.
     operation_id = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4, required=False)
+    entry_items = forms.CharField(required=False, widget=forms.HiddenInput)
     customer = forms.ModelChoiceField(queryset=Customer.objects.none(), label="客户")
     service_date = forms.DateField(
         initial=timezone.localdate,
@@ -107,6 +109,7 @@ class CommonOrderForm(BootstrapFormMixin, forms.Form):
 
     def service_kwargs(self):
         data = self.cleaned_data.copy()
+        data.pop("entry_items", None)
         data.pop("confirm_off_campus_upstairs", None)
         data["allow_duplicate"] = data.pop("confirm_duplicate", False)
         if self.proxy_recipient:
@@ -118,7 +121,8 @@ class ExpressOrderForm(CommonOrderForm):
     pickup_area = forms.ChoiceField(choices=PickupArea.choices, label="取件区域")
     outside_pickup_location = forms.CharField(required=False, max_length=160, label="校外取件地点")
     pickup_identifier_type = forms.ChoiceField(
-        choices=PickupIdentifierType.choices, label="取件标识类型"
+        choices=PickupIdentifierType.choices, initial=PickupIdentifierType.OTHER,
+        widget=forms.HiddenInput, label="取件标识类型"
     )
     pickup_identifier = forms.CharField(max_length=255, label="取件码/运单号")
     size_class = forms.ChoiceField(
@@ -126,6 +130,29 @@ class ExpressOrderForm(CommonOrderForm):
     )
     def clean(self):
         cleaned = super().clean()
+        raw = cleaned.get("entry_items")
+        if raw:
+            try:
+                items = json.loads(raw)
+            except (TypeError, ValueError):
+                items = None
+            if not isinstance(items, list) or not items or len(items) > 50:
+                self.add_error("entry_items", "请添加 1 至 50 条快递信息")
+            else:
+                for index, item in enumerate(items, start=1):
+                    if (not isinstance(item, dict) or item.get("pickup_area") not in PickupArea.values
+                            or item.get("size_class") not in SizeClass.values
+                            or not isinstance(item.get("pickup_identifier"), str)
+                            or not item["pickup_identifier"].strip()
+                            or len(item["pickup_identifier"]) > 255
+                            or (item["pickup_area"] == PickupArea.OUTSIDE and
+                                (not isinstance(item.get("outside_pickup_location"), str)
+                                 or not item["outside_pickup_location"].strip()
+                                 or len(item["outside_pickup_location"]) > 160))):
+                        self.add_error("entry_items", f"第 {index} 条快递信息不完整")
+                        break
+                else:
+                    cleaned["entry_items"] = items
         if cleaned.get("pickup_area") == PickupArea.OUTSIDE:
             if not cleaned.get("outside_pickup_location"):
                 self.add_error("outside_pickup_location", "校外取件必须填写具体地点")
@@ -160,6 +187,7 @@ class TakeoutOrderForm(SimpleUpstairsOrderForm):
 
     def clean(self):
         cleaned = super().clean()
+        _clean_pickup_items(self, cleaned, "identifier", 255)
         if cleaned.get("pickup_gate") == TakeoutGate.OTHER:
             if not cleaned.get("other_pickup_location"):
                 self.add_error("other_pickup_location", "选择其他时必须填写地点")
@@ -171,6 +199,26 @@ class TakeoutOrderForm(SimpleUpstairsOrderForm):
 class KfcOrderForm(SimpleUpstairsOrderForm):
     pickup_location = forms.CharField(max_length=160, label="取餐地点")
     pickup_code = forms.CharField(max_length=128, label="取餐码")
+
+    def clean(self):
+        cleaned = super().clean()
+        _clean_pickup_items(self, cleaned, "pickup_code", 128)
+        return cleaned
+
+
+def _clean_pickup_items(form, cleaned, key, limit):
+    raw = cleaned.get("entry_items")
+    if not raw:
+        return
+    try:
+        items = json.loads(raw)
+    except (TypeError, ValueError):
+        items = None
+    if (not isinstance(items, list) or not items or len(items) > 50
+            or any(not isinstance(item, str) or not item.strip() or len(item) > limit for item in items)):
+        form.add_error("entry_items", "请添加 1 至 50 条有效取餐信息")
+    else:
+        cleaned["entry_items"] = [item.strip() for item in items]
 
 
 class GroceryOrderForm(SimpleUpstairsOrderForm):

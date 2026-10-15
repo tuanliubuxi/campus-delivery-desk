@@ -40,7 +40,7 @@
 |---|---:|---|
 | pickup_area | 是 | SOUTH/NORTH/OUTSIDE |
 | outside_pickup_location | 条件 | OUTSIDE 时必填 |
-| pickup_identifier_type | 是 | 取件码/运单号/其他 |
+| pickup_identifier_type | 历史兼容 | 新录入统一写 OTHER，页面不要求分类 |
 | pickup_identifier | 是 | max 128/255 |
 | size_class | 是 | UNKNOWN 允许 |
 | dispatch_mode | 系统 | 创建时 UNDECIDED；配送员接单时冻结为 ROUTE/DIRECT_CUSTOMER；未取件退池重置 |
@@ -48,6 +48,7 @@
 | off_campus_address | 条件 | 送校外时必填 |
 
 UNKNOWN 在 Settlement 前必须被配送员确认。ExpressOrderDetail 必须在订单创建时保存 SMALL/MEDIUM/LARGE/OVERSIZE 四档价格快照，确认大小时使用该快照。
+普通录单/快速补录可一次添加多条快递，逐条检查区域、标识、大小和校外具体取件地点；整体提交要么全部创建、要么全不创建。
 快速完成／历史补录没有后续配送员确认环节，快递大小不得为 UNKNOWN；跑腿物品大小同样必须选择实际档位。实际配送员、完成时间和最终位置也必须明确填写。
 
 ## 5. 外卖
@@ -57,12 +58,14 @@ UNKNOWN 在 Settlement 前必须被配送员确认。ExpressOrderDetail 必须�
 - pickup_gate 必填；
 - OTHER 时具体地点必填；
 - identifier 必填；
+- 同一订单可有多个 identifier，至少 1 条；pickup_gate/OTHER 具体地点全单共用；
 - 目的地必填。
 
 ## 6. KFC
 
 - pickup_location 必填；
 - pickup_code 必填；
+- 同一订单可有多个 pickup_code，至少 1 条；pickup_location 全单共用；
 - 目的地必填；
 - 非周四仅提示，不阻止。
 

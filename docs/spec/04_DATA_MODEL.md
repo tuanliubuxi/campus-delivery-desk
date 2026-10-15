@@ -194,6 +194,8 @@ large_price_snapshot      Decimal
 oversize_price_snapshot   Decimal
 ```
 
+`pickup_identifier_type` 仅保留历史兼容；新录入统一写 `OTHER`，UI 不显示分类。批量快递录入的每条仍创建一张 Order 及对应 ExpressOrderDetail，不建立“快递大订单”。
+
 快递创建时保存完整大小价目快照。已知大小可立即按对应快照创建 BASE_SERVICE；UNKNOWN 暂不创建基础价，配送员确认大小时使用这里保存的订单创建时价格。
 
 ### TakeoutOrderDetail
@@ -205,6 +207,8 @@ other_pickup_location     OTHER 时必填
 identifier                必填自由文本
 ```
 
+取餐地点全单共用。新增 `TakeoutPickupItem(detail_id, position, identifier)` 保存本单多个取餐标识；旧 `identifier` 暂作首条兼容镜像，历史单迁移补一条子项。基础配送费按 Order 收一次。
+
 ### KfcOrderDetail
 
 ```text
@@ -212,6 +216,8 @@ order_id
 pickup_location
 pickup_code
 ```
+
+取餐地点全单共用。新增 `KfcPickupItem(detail_id, position, pickup_code)` 保存多个取餐码；旧 `pickup_code` 暂作首条兼容镜像，历史单迁移补一条子项。基础配送费按 Order 收一次。
 
 ### GroceryOrderDetail
 

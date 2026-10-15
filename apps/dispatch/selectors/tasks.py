@@ -21,7 +21,8 @@ def simple_task_pool(courier):
         )
         .annotate(has_active_assignment=Exists(active_assignment))
         .filter(has_active_assignment=False)
-        .select_related("customer")
+        .select_related("customer", "takeout_detail", "kfc_detail")
+        .prefetch_related("takeout_detail__items", "kfc_detail__items")
         .order_by("-is_urgent", "created_at", "id")
     )
 

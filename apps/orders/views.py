@@ -1,5 +1,7 @@
 """Thin recorder views delegating writes to order services."""
 
+import json
+
 from django.contrib import messages
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -36,6 +38,7 @@ from apps.orders.services import (
     create_takeout_order,
     update_order,
 )
+from apps.orders.services.bulk import create_express_orders
 
 FORM_MAP = {
     BusinessType.EXPRESS: ExpressOrderForm,
@@ -137,6 +140,34 @@ def _business_type(value):
     return normalized
 
 
+def _entry_post_data(post, business_type):
+    """Populate legacy single-item fields from the first typed editor row."""
+    if post is None:
+        return None
+    data = post.copy()
+    if business_type == BusinessType.EXPRESS:
+        data.setdefault("pickup_identifier_type", "OTHER")
+    raw = data.get("entry_items", "")
+    if not raw:
+        return data
+    try:
+        items = json.loads(raw)
+    except (TypeError, ValueError):
+        return data
+    if not isinstance(items, list) or not items:
+        return data
+    first = items[0]
+    if business_type == BusinessType.EXPRESS and isinstance(first, dict):
+        for key in ("pickup_area", "outside_pickup_location", "pickup_identifier", "size_class"):
+            if isinstance(first.get(key), str):
+                data[key] = first[key]
+    elif business_type == BusinessType.TAKEOUT and isinstance(first, str):
+        data["identifier"] = first
+    elif business_type == BusinessType.KFC and isinstance(first, str):
+        data["pickup_code"] = first
+    return data
+
+
 @recorder_or_admin_required
 def order_new(request):
     businesses = BusinessTypeConfig.objects.filter(enabled=True)
@@ -153,14 +184,24 @@ def order_create(request, business_type):
     customer_id = request.GET.get("customer") or request.POST.get("continuous_customer")
     if customer_id:
         customer = get_object_or_404(Customer, pk=customer_id)
-    form = FORM_MAP[business_type](request.POST or None, customer=customer)
+    form = FORM_MAP[business_type](_entry_post_data(request.POST, business_type) if request.method == "POST" else None, customer=customer)
     duplicate_review = _duplicate_review_valid(request, business_type) if request.method == "POST" else False
     duplicate_token = request.POST.get("duplicate_review_token", "") if duplicate_review else ""
     duplicate_candidates = []
     if request.method == "POST" and form.is_valid():
         form.cleaned_data["confirm_duplicate"] = bool(form.cleaned_data["confirm_duplicate"] and duplicate_review)
         try:
-            order = CREATOR_MAP[business_type](actor=request.user, **form.service_kwargs())
+            data = form.service_kwargs()
+            items = form.cleaned_data.get("entry_items")
+            if business_type == BusinessType.EXPRESS and items:
+                orders = create_express_orders(actor=request.user, common_data=data, items=items)
+                order = orders[0]
+            else:
+                if business_type == BusinessType.TAKEOUT and items:
+                    data["identifiers"] = items
+                elif business_type == BusinessType.KFC and items:
+                    data["pickup_codes"] = items
+                order = CREATOR_MAP[business_type](actor=request.user, **data)
         except PossibleDuplicateOrder as exc:
             duplicate_candidates = exc.orders
             duplicate_token = _duplicate_review_token(request, business_type)
@@ -185,10 +226,12 @@ def order_create(request, business_type):
         "orders/form.html",
         {
             "form": form,
+            "item_form": form,
             "order_sections": _order_sections(form),
             "duplicate_token": duplicate_token,
             "duplicate_candidates": duplicate_candidates,
             "business_type": business_type,
+            "express_areas": [("NORTH", "北区"), ("SOUTH", "南区"), ("OUTSIDE", "校外")],
             "business_label": BusinessType(business_type).label,
             "is_create": True,
             "selected_customer_id": customer.pk if customer else None,
@@ -214,14 +257,17 @@ def quick_complete(request):
         return redirect("orders:quick-complete")
     customer_id = request.GET.get("customer")
     customer = get_object_or_404(Customer, pk=customer_id) if customer_id else None
-    order_form = FORM_MAP[business_type](request.POST or None, customer=customer)
+    order_form = FORM_MAP[business_type](_entry_post_data(request.POST, business_type) if request.method == "POST" else None, customer=customer)
     completion_form = CompletionMetadataForm(request.POST or None, request.FILES or None)
     duplicate_review = _duplicate_review_valid(request, business_type) if request.method == "POST" else False
     duplicate_token = request.POST.get("duplicate_review_token", "") if duplicate_review else ""
     duplicate_candidates = []
     if request.method == "POST" and order_form.is_valid() and completion_form.is_valid():
         order_form.cleaned_data["confirm_duplicate"] = bool(order_form.cleaned_data["confirm_duplicate"] and duplicate_review)
-        if business_type in {BusinessType.EXPRESS, BusinessType.ERRAND} and order_form.cleaned_data.get("size_class") == SizeClass.UNKNOWN:
+        items = order_form.cleaned_data.get("entry_items")
+        if business_type == BusinessType.EXPRESS and items and any(item["size_class"] == SizeClass.UNKNOWN for item in items):
+            order_form.add_error("entry_items", "补录已完成快递必须逐件选择实际大小")
+        elif business_type in {BusinessType.EXPRESS, BusinessType.ERRAND} and order_form.cleaned_data.get("size_class") == SizeClass.UNKNOWN:
             order_form.add_error("size_class", "补录已完成任务必须选择实际物品大小")
         elif business_type in {BusinessType.TAKEOUT, BusinessType.KFC, BusinessType.GROCERY} and order_form.cleaned_data.get("requires_upstairs") and not (
             (order_form.cleaned_data.get("upstairs_small_medium_count") or 0)
@@ -231,10 +277,21 @@ def quick_complete(request):
         else:
             metadata = completion_form.cleaned_data.copy()
             try:
+                data = order_form.service_kwargs()
+                items = order_form.cleaned_data.get("entry_items")
+                if business_type == BusinessType.TAKEOUT and items:
+                    data["identifiers"] = items
+                elif business_type == BusinessType.KFC and items:
+                    data["pickup_codes"] = items
+                elif business_type == BusinessType.EXPRESS and items:
+                    shared = data.copy()
+                    for key in ("pickup_area", "outside_pickup_location", "pickup_identifier", "size_class", "pickup_identifier_type"):
+                        shared.pop(key, None)
+                    data = [{**shared, **item, "pickup_identifier_type": "OTHER"} for item in items]
                 order = create_completed_order(
                     actor=request.user,
                     business_type=business_type,
-                    order_data=order_form.service_kwargs(),
+                    order_data=data,
                     **metadata,
                 )
             except PossibleDuplicateOrder as exc:
@@ -247,18 +304,22 @@ def quick_complete(request):
             except (ValidationError, PermissionError, ValueError) as exc:
                 completion_form.add_error(None, exc)
             else:
-                messages.success(request, f"订单 {order.fixed_id} 已按实际完成事实录入")
-                return redirect(f"{reverse('orders:detail', args=[order.pk])}?from_quick=1")
+                first_order = order[0] if isinstance(order, list) else order
+                messages.success(request, f"订单 {first_order.fixed_id} 已按实际完成事实录入" + (f"，共 {len(order)} 张" if isinstance(order, list) else ""))
+                return redirect(f"{reverse('orders:detail', args=[first_order.pk])}?from_quick=1")
     return render(
         request,
         "orders/quick_complete.html",
         {
             "business_type": business_type,
+            "express_areas": [("NORTH", "北区"), ("SOUTH", "南区"), ("OUTSIDE", "校外")],
+            "is_create": True,
             "business_label": BusinessType(business_type).label,
             "selected_customer": customer,
             "selected_customer_id": customer.pk if customer else None,
             "picker_buildings": Building.objects.filter(is_active=True),
             "order_form": order_form,
+            "item_form": order_form,
             "order_sections": _order_sections(order_form),
             "duplicate_token": duplicate_token,
             "duplicate_candidates": duplicate_candidates,
@@ -413,6 +474,10 @@ def _edit_initial(order):
     }
     for field in DETAIL_FIELDS[order.business_type]:
         initial[field] = getattr(detail, field)
+    if order.business_type == BusinessType.TAKEOUT:
+        initial["entry_items"] = json.dumps(list(detail.items.values_list("identifier", flat=True)) or [detail.identifier], ensure_ascii=False)
+    elif order.business_type == BusinessType.KFC:
+        initial["entry_items"] = json.dumps(list(detail.items.values_list("pickup_code", flat=True)) or [detail.pickup_code], ensure_ascii=False)
     return initial, detail
 
 
@@ -424,7 +489,7 @@ def order_edit(request, order_id):
         return redirect("orders:detail", order_id=order.pk)
     initial, detail = _edit_initial(order)
     form = FORM_MAP[order.business_type](
-        request.POST or None,
+        _entry_post_data(request.POST, order.business_type) if request.method == "POST" else None,
         initial=initial,
         customer=order.customer,
         proxy_recipient=order.proxy_recipient,
@@ -441,6 +506,7 @@ def order_edit(request, order_id):
                     actor=request.user,
                     building=data["building"],
                     detail_changes=detail_changes,
+                    pickup_items=data.get("entry_items") if order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC} else None,
                     service_date=data.get("service_date"),
                     is_urgent=data["is_urgent"],
                     requires_upstairs=data["requires_upstairs"],
@@ -460,6 +526,7 @@ def order_edit(request, order_id):
         "orders/form.html",
         {
             "form": form,
+            "item_form": form,
             "order_sections": _order_sections(form),
             "business_type": order.business_type,
             "business_label": order.get_business_type_display(),

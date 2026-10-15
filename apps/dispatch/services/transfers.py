@@ -57,6 +57,15 @@ def create_transfer_request(
     transferable_businesses = SIMPLE_BUSINESSES | {BusinessType.EXPRESS}
     if len(business_types) != 1 or not business_types.issubset(transferable_businesses):
         raise ValidationError("一次转单只能包含同一种可配送业务")
+    if orders[0].business_type in SIMPLE_BUSINESSES:
+        task_ids = set(Assignment.objects.filter(
+            order_id__in=requested_ids, courier=from_courier, is_active=True,
+        ).values_list("task_id", flat=True))
+        task_member_ids = set(Assignment.objects.filter(
+            task_id__in=task_ids, courier=from_courier, is_active=True,
+        ).values_list("order_id", flat=True))
+        if not task_member_ids.issubset(requested_ids):
+            raise ValidationError("同组业务必须一起转单，不可拆开")
     handoff_required = False
     for order in orders:
         if order.delivery_status == DeliveryStatus.DELIVERED:

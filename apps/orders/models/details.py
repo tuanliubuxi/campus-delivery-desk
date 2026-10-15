@@ -74,10 +74,34 @@ class TakeoutOrderDetail(models.Model):
         ]
 
 
+class TakeoutPickupItem(models.Model):
+    """One pickup identifier within a single takeout delivery order."""
+
+    detail = models.ForeignKey(TakeoutOrderDetail, on_delete=models.CASCADE, related_name="items")
+    position = models.PositiveIntegerField()
+    identifier = models.CharField(max_length=255)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["detail", "position"], name="takeout_item_position_unique")]
+
+
 class KfcOrderDetail(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="kfc_detail")
     pickup_location = models.CharField(max_length=160)
     pickup_code = models.CharField(max_length=128)
+
+
+class KfcPickupItem(models.Model):
+    """One pickup code within a single KFC delivery order."""
+
+    detail = models.ForeignKey(KfcOrderDetail, on_delete=models.CASCADE, related_name="items")
+    position = models.PositiveIntegerField()
+    pickup_code = models.CharField(max_length=128)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["detail", "position"], name="kfc_item_position_unique")]
 
 
 class GroceryOrderDetail(models.Model):

@@ -2,7 +2,7 @@
 {% extends "layouts/base.html" %}{% load static %}
 {% block title %}{% if is_create %}新建订单{% else %}修改订单{% endif %} · 校驿{% endblock %}
 {% block content %}
-<main class="container py-3" style="max-width: 900px">
+<main class="container py-3" style="max-width: 900px" data-cdd-order-entry>
   <h1 class="h3">{% if is_create %}新建{{ business_label }}订单{% else %}修改 {{ order.fixed_id }}{% endif %}</h1>
   {% if proxy_recipient %}<div class="alert alert-info">代理临时收件人：{{ proxy_recipient }}</div>{% endif %}
   {% if is_create and not proxy_recipient %}<div class="cdd-action-row mb-3"><button class="btn btn-outline-primary" type="button" data-cdd-modal-open="customer-picker" data-cdd-customer-mode="search">搜索客户</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-open="customer-picker" data-cdd-customer-mode="building">按楼栋找</button></div>{% endif %}
@@ -15,4 +15,5 @@
 </main>
 {% if is_create and not proxy_recipient %}{% include "orders/_customer_picker.html" %}<script defer src="{% static 'js/order_customer_prefill.js' %}"></script><script defer src="{% static 'js/order_customer_picker.js' %}"></script>{% endif %}
 <script defer src="{% static 'js/order_upstairs.js' %}"></script>
+<script defer src="{% static 'js/order_entry_items.js' %}"></script>
 {% endblock %}

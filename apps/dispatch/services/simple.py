@@ -62,7 +62,7 @@ def claim_simple_task(*, order, courier, operation_id):
     if existing:
         if existing.courier_id != courier.pk:
             raise ValidationError("operation_id 已被其他操作使用")
-        if set(existing.assignments.values_list("order_id", flat=True)) != {order.pk}:
+        if order.pk not in set(existing.assignments.values_list("order_id", flat=True)):
             raise ValidationError("operation_id 对应另一笔接单操作")
         return existing
     if order.business_type not in SIMPLE_BUSINESSES:
@@ -72,12 +72,21 @@ def claim_simple_task(*, order, courier, operation_id):
     active_businesses = _active_businesses(courier)
     if BusinessType.EXPRESS in active_businesses:
         raise ValidationError("存在快递业务的活跃任务，不能接取其他业务")
-    updated = Order.objects.filter(pk=order.pk, delivery_status=DeliveryStatus.NEW).update(
+    candidate_ids = list(Order.objects.filter(
+        customer_id=order.customer_id,
+        business_type=order.business_type,
+        service_date=order.service_date,
+        source_type=order.source_type,
+        delivery_status=DeliveryStatus.NEW,
+    ).order_by("pk").values_list("pk", flat=True))
+    if order.pk not in candidate_ids:
+        raise ValidationError("订单状态已变化，请刷新接单池")
+    updated = Order.objects.filter(pk__in=candidate_ids, delivery_status=DeliveryStatus.NEW).update(
         delivery_status=DeliveryStatus.ASSIGNED,
         updated_at=timezone.now(),
     )
-    if not updated:
-        raise ValidationError("订单状态已变化，可能已被其他配送员接取")
+    if updated != len(candidate_ids):
+        raise ValidationError("该组订单已有状态变化，请刷新后重试")
     now = timezone.now()
     task = DeliveryTask.objects.create(
         task_type=TaskType.SIMPLE,
@@ -88,7 +97,10 @@ def claim_simple_task(*, order, courier, operation_id):
     )
     try:
         with transaction.atomic():
-            Assignment.objects.create(order=order, task=task, courier=courier)
+            Assignment.objects.bulk_create([
+                Assignment(order_id=order_id, task=task, courier=courier)
+                for order_id in candidate_ids
+            ])
     except IntegrityError as exc:
         raise ValidationError("订单已存在有效配送责任") from exc
     order.refresh_from_db()
@@ -96,7 +108,7 @@ def claim_simple_task(*, order, courier, operation_id):
         actor=courier,
         event_type="SIMPLE_TASK_CLAIMED",
         entity=task,
-        metadata={"order_id": order.pk, "business_type": order.business_type},
+        metadata={"order_ids": candidate_ids, "business_type": order.business_type},
     )
     return task
 
@@ -377,8 +389,6 @@ def complete_delivery_drop(
 @transaction.atomic
 def return_simple_order_to_pool(*, order, courier):
     _require_courier(courier)
-    if order.delivery_status != DeliveryStatus.ASSIGNED:
-        raise ValidationError("只有未取件订单可以退回任务池")
     assignment = Assignment.objects.filter(
         order=order,
         courier=courier,
@@ -386,11 +396,17 @@ def return_simple_order_to_pool(*, order, courier):
     ).first()
     if not assignment:
         raise ValidationError("当前配送员不拥有该订单")
-    assignment.is_active = False
-    assignment.ended_at = timezone.now()
-    assignment.end_reason = AssignmentEndReason.RETURNED
-    assignment.save(update_fields=["is_active", "ended_at", "end_reason"])
-    Order.objects.filter(pk=order.pk, delivery_status=DeliveryStatus.ASSIGNED).update(
+    members = ([assignment] if order.business_type == BusinessType.EXPRESS else list(
+        Assignment.objects.filter(task=assignment.task, courier=courier, is_active=True).select_related("order")
+    ))
+    if any(member.order.delivery_status != DeliveryStatus.ASSIGNED for member in members):
+        raise ValidationError("整组必须都未取到，才能退回任务池")
+    for member in members:
+        member.is_active = False
+        member.ended_at = timezone.now()
+        member.end_reason = AssignmentEndReason.RETURNED
+    Assignment.objects.bulk_update(members, ["is_active", "ended_at", "end_reason"])
+    Order.objects.filter(pk__in=[member.order_id for member in members], delivery_status=DeliveryStatus.ASSIGNED).update(
         delivery_status=DeliveryStatus.NEW,
         updated_at=timezone.now(),
     )
@@ -400,7 +416,8 @@ def return_simple_order_to_pool(*, order, courier):
         order.express_detail.save(update_fields=["dispatch_mode"])
     _finish_task_if_empty(assignment.task)
     order.refresh_from_db()
-    record_event(actor=courier, event_type="ORDER_RETURNED_TO_POOL", entity=order)
+    record_event(actor=courier, event_type="ORDER_RETURNED_TO_POOL", entity=order,
+                 metadata={"order_ids": [member.order_id for member in members]})
     return order
 
 

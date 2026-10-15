@@ -1,5 +1,6 @@
 """Recorder workflows that create an order and its real completion facts atomically."""
 
+import uuid
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
@@ -55,7 +56,7 @@ def create_completed_order(
         item = existing.items.select_related("order").first()
         if item is None or item.order.entry_mode != entry_mode:
             raise ValidationError("operation_id 已被其他完成操作使用")
-        return item.order
+        return [link.order for link in existing.items.select_related("order").order_by("pk")] if isinstance(order_data, list) else item.order
     if entry_mode not in {EntryMode.DIRECT_COMPLETE, EntryMode.HISTORICAL_BACKFILL}:
         raise ValidationError("快速完成必须使用明确的录入模式")
     if actual_courier.role != UserRole.COURIER:
@@ -68,14 +69,25 @@ def create_completed_order(
     if entry_mode == EntryMode.DIRECT_COMPLETE:
         if business_type != BusinessType.LUGGAGE_UPSTAIRS and not (near_photo or far_photo):
             raise ValidationError("快速完成普通配送仍必须上传至少一张照片")
-    if business_type in {BusinessType.EXPRESS, BusinessType.ERRAND} and order_data.get("size_class") in {None, "", SizeClass.UNKNOWN}:
+    order_rows = order_data if isinstance(order_data, list) else [order_data]
+    if not order_rows:
+        raise ValidationError("至少添加一条实际完成的订单")
+    if business_type in {BusinessType.EXPRESS, BusinessType.ERRAND} and any(
+        row.get("size_class") in {None, "", SizeClass.UNKNOWN} for row in order_rows
+    ):
         raise ValidationError("快速完成或补录必须填写实际物品大小")
 
     stored_media = []
     try:
         with transaction.atomic():
             creator = CREATORS[business_type]
-            order = creator(actor=actor, entry_mode=entry_mode, **order_data)
+            orders = []
+            for index, row in enumerate(order_rows):
+                data = row.copy()
+                if len(order_rows) > 1:
+                    data["operation_id"] = uuid.uuid5(uuid.NAMESPACE_URL, f"completed-entry:{operation_id}:{index}")
+                orders.append(creator(actor=actor, entry_mode=entry_mode, **data))
+            order = orders[0]
             near_media = store_delivery_image(upload=near_photo) if near_photo else None
             if near_media:
                 stored_media.append(near_media)
@@ -93,37 +105,31 @@ def create_completed_order(
                 operation_id=operation_id,
                 delivered_at=completed_at,
             )
-            DeliveryDropItem.objects.create(drop=drop, order=order)
-            order.delivery_status = DeliveryStatus.DELIVERED
-            order.entry_note = entry_note
-            order.save(update_fields=["delivery_status", "entry_note", "updated_at"])
-            if near_media:
-                DeliveryEvidence.objects.create(
-                    drop=drop, order=order, media=near_media, role=EvidenceRole.NEAR
+            for order in orders:
+                DeliveryDropItem.objects.create(drop=drop, order=order)
+                order.delivery_status = DeliveryStatus.DELIVERED
+                order.entry_note = entry_note
+                order.save(update_fields=["delivery_status", "entry_note", "updated_at"])
+                if near_media:
+                    DeliveryEvidence.objects.create(drop=drop, order=order, media=near_media, role=EvidenceRole.NEAR)
+                if far_media:
+                    DeliveryEvidence.objects.create(drop=drop, order=order, media=far_media, role=EvidenceRole.FAR)
+                record_pending_earning(courier=actual_courier, order=order)
+                record_event(
+                    actor=actor, event_type="ORDER_COMPLETED_DURING_ENTRY", entity=order,
+                    metadata={
+                        "entry_mode": entry_mode,
+                        "actual_courier_id": actual_courier.pk,
+                        "completed_at": completed_at.isoformat(),
+                        "entry_note": entry_note,
+                    },
                 )
-            if far_media:
-                DeliveryEvidence.objects.create(
-                    drop=drop, order=order, media=far_media, role=EvidenceRole.FAR
-                )
-            record_pending_earning(courier=actual_courier, order=order)
-            if order.business_type == BusinessType.EXPRESS:
+            if business_type == BusinessType.EXPRESS:
                 from .rounds import evaluate_express_round
 
-                evaluate_express_round(
-                    express_round=order.express_detail.express_round, actor=actor
-                )
-            record_event(
-                actor=actor,
-                event_type="ORDER_COMPLETED_DURING_ENTRY",
-                entity=order,
-                metadata={
-                    "entry_mode": entry_mode,
-                    "actual_courier_id": actual_courier.pk,
-                    "completed_at": completed_at.isoformat(),
-                    "entry_note": entry_note,
-                },
-            )
-            return order
+                for express_round in {item.express_detail.express_round for item in orders}:
+                    evaluate_express_round(express_round=express_round, actor=actor)
+            return orders if isinstance(order_data, list) else order
     except Exception:
         # Remove only files published by this failed transaction.
         for media in stored_media:

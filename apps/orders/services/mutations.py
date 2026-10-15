@@ -7,7 +7,13 @@ from django.utils import timezone
 from apps.audit.services import record_event
 from apps.common.enums import BusinessType, UserRole
 from apps.config_center.models import SiteConfiguration
-from apps.orders.models import DeliveryStatus, DestinationType, PickupArea
+from apps.orders.models import (
+    DeliveryStatus,
+    DestinationType,
+    KfcPickupItem,
+    PickupArea,
+    TakeoutPickupItem,
+)
 from apps.settlements.models import ChargeScope, ChargeStatus
 from apps.settlements.services import create_initial_order_charges, void_charge_item
 
@@ -37,7 +43,7 @@ def _snapshot(order):
 
 
 @transaction.atomic
-def update_order(*, order, actor, building=None, detail_changes=None, **changes):
+def update_order(*, order, actor, building=None, detail_changes=None, pickup_items=None, **changes):
     """Edit a NEW order and replace active system charges with fresh snapshots."""
     _require_recorder(actor)
     order = order.__class__.objects.select_for_update().get(pk=order.pk)
@@ -124,6 +130,30 @@ def update_order(*, order, actor, building=None, detail_changes=None, **changes)
         # The four express prices are creation-time facts and survive later edits/config changes.
     detail.full_clean()
     detail.save()
+    if pickup_items is None and order.business_type in {BusinessType.TAKEOUT, BusinessType.KFC}:
+        key = "identifier" if order.business_type == BusinessType.TAKEOUT else "pickup_code"
+        if key in (detail_changes or {}):
+            first_item = detail.items.first()
+            if first_item:
+                setattr(first_item, key, getattr(detail, key))
+                first_item.save(update_fields=[key])
+    if pickup_items is not None:
+        if order.business_type not in {BusinessType.TAKEOUT, BusinessType.KFC}:
+            raise ValidationError("该业务不支持多条取餐信息")
+        limit = 255 if order.business_type == BusinessType.TAKEOUT else 128
+        if (not isinstance(pickup_items, list) or not pickup_items or len(pickup_items) > 50
+                or any(not isinstance(value, str) or not value.strip() or len(value) > limit for value in pickup_items)):
+            raise ValidationError("请填写 1 至 50 条有效取餐信息")
+        key = "identifier" if order.business_type == BusinessType.TAKEOUT else "pickup_code"
+        before["pickup_items"] = list(detail.items.values_list(key, flat=True))
+        setattr(detail, key, pickup_items[0].strip())
+        detail.save(update_fields=[key])
+        detail.items.all().delete()
+        model = TakeoutPickupItem if order.business_type == BusinessType.TAKEOUT else KfcPickupItem
+        model.objects.bulk_create([
+            model(detail=detail, position=index, **{key: value.strip()})
+            for index, value in enumerate(pickup_items, start=1)
+        ])
 
     active_charges = order.charge_items.filter(
         scope_type=ChargeScope.ORDER,
@@ -136,7 +166,10 @@ def update_order(*, order, actor, building=None, detail_changes=None, **changes)
         actor=actor,
         event_type="ORDER_UPDATED",
         entity=order,
-        metadata={"before": before, "after": _snapshot(order)},
+        metadata={"before": before, "after": {
+            **_snapshot(order),
+            **({"pickup_items": list(detail.items.values_list(key, flat=True))} if pickup_items is not None else {}),
+        }},
     )
     return order
 

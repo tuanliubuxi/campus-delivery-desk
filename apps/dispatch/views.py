@@ -89,8 +89,12 @@ def new_tasks(request):
         else:
             messages.success(request, f"已接取 {order.display_id}")
             return redirect("dispatch:task-detail", task_id=task.pk)
-    pool_page, pool_query = paginate(request, simple_task_pool(request.user))
-    pool = [(order, uuid.uuid4()) for order in pool_page]
+    grouped = {}
+    for candidate in simple_task_pool(request.user):
+        key = (candidate.customer_id, candidate.business_type, candidate.service_date)
+        grouped.setdefault(key, []).append(candidate)
+    pool_page, pool_query = paginate(request, list(grouped.values()))
+    pool = [(orders[0], orders, uuid.uuid4()) for orders in pool_page]
     return render(request, "dispatch/task_pool.html", {"pool": pool, "pool_page": pool_page, "pool_query": pool_query})
 
 
@@ -380,11 +384,18 @@ def transfers(request):
             assignments__courier=request.user,
             assignments__is_active=True,
         )
+    selected_group = []
+    if selected_order:
+        selected_assignment = Assignment.objects.filter(order=selected_order, courier=request.user, is_active=True).first()
+        selected_group = ([selected_assignment] if selected_order.business_type == BusinessType.EXPRESS else list(
+            Assignment.objects.filter(task=selected_assignment.task, courier=request.user, is_active=True)
+            .select_related("order")
+        ))
     form = TransferRequestForm(request.POST or None, courier=request.user)
     if request.method == "POST" and selected_order and form.is_valid():
         try:
             transfer = create_transfer_request(
-                orders=[selected_order],
+                orders=[member.order for member in selected_group],
                 from_courier=request.user,
                 to_courier=form.cleaned_data["to_courier"],
                 reason_text=form.cleaned_data["reason_text"],
@@ -410,6 +421,7 @@ def transfers(request):
         {
             "form": form,
             "selected_order": selected_order,
+            "selected_group": selected_group,
             "incoming": incoming_page,
             "outgoing": outgoing_page,
             "incoming_page": incoming_page,

@@ -22,11 +22,13 @@ from apps.orders.models import (
     ExpressOrderDetail,
     GroceryOrderDetail,
     KfcOrderDetail,
+    KfcPickupItem,
     LuggageUpstairsDetail,
     Order,
     SizeClass,
     SourceType,
     TakeoutOrderDetail,
+    TakeoutPickupItem,
 )
 from apps.settlements.services import create_initial_order_charges
 
@@ -365,6 +367,7 @@ def _create_simple(
     detail_class,
     detail_fields,
     customer,
+    fingerprint_extra=None,
     allow_duplicate=False,
     **common,
 ):
@@ -374,6 +377,7 @@ def _create_simple(
             "business_type": business_type,
             "customer": customer,
             "detail_fields": detail_fields,
+            **({"items": fingerprint_extra} if fingerprint_extra is not None else {}),
             "common": common,
         }
     )
@@ -417,24 +421,36 @@ def create_takeout_order(
     customer,
     pickup_gate,
     identifier,
+    identifiers=None,
     other_pickup_location="",
     allow_duplicate=False,
     **common,
 ):
-    return _create_simple(
+    values = [value.strip() for value in (identifiers if identifiers is not None else [identifier])]
+    if not values or any(not value or len(value) > 255 for value in values):
+        raise ValidationError("每条取餐标识都必须填写，且不超过 255 字")
+    order = _create_simple(
         actor=actor,
         operation_id=operation_id,
         business_type=BusinessType.TAKEOUT,
         detail_class=TakeoutOrderDetail,
         detail_fields={
             "pickup_gate": pickup_gate,
-            "identifier": identifier.strip(),
+            "identifier": values[0],
             "other_pickup_location": other_pickup_location.strip(),
         },
+        fingerprint_extra=values if identifiers is not None else None,
         customer=customer,
         allow_duplicate=allow_duplicate,
         **common,
     )
+    detail = order.takeout_detail
+    if not detail.items.exists():
+        TakeoutPickupItem.objects.bulk_create([
+            TakeoutPickupItem(detail=detail, position=index, identifier=value)
+            for index, value in enumerate(values, start=1)
+        ])
+    return order
 
 
 @transaction.atomic
@@ -445,22 +461,34 @@ def create_kfc_order(
     customer,
     pickup_location,
     pickup_code,
+    pickup_codes=None,
     allow_duplicate=False,
     **common,
 ):
-    return _create_simple(
+    values = [value.strip() for value in (pickup_codes if pickup_codes is not None else [pickup_code])]
+    if not values or any(not value or len(value) > 128 for value in values):
+        raise ValidationError("每条取餐码都必须填写，且不超过 128 字")
+    order = _create_simple(
         actor=actor,
         operation_id=operation_id,
         business_type=BusinessType.KFC,
         detail_class=KfcOrderDetail,
         detail_fields={
             "pickup_location": pickup_location.strip(),
-            "pickup_code": pickup_code.strip(),
+            "pickup_code": values[0],
         },
+        fingerprint_extra=values if pickup_codes is not None else None,
         customer=customer,
         allow_duplicate=allow_duplicate,
         **common,
     )
+    detail = order.kfc_detail
+    if not detail.items.exists():
+        KfcPickupItem.objects.bulk_create([
+            KfcPickupItem(detail=detail, position=index, pickup_code=value)
+            for index, value in enumerate(values, start=1)
+        ])
+    return order
 
 
 @transaction.atomic

@@ -1,0 +1,23 @@
+<div data-cdd-item-editor data-kind="{{ business_type }}" class="mb-3">
+  {% if business_type == 'EXPRESS' %}
+  <p class="small cdd-muted mb-2">每条快递生成独立订单；可分别由路线配送或客户直送接取。</p>
+  <div class="d-flex flex-wrap gap-1 mb-2" role="tablist" aria-label="快递取件区域">{% for area, label in express_areas %}<button class="btn btn-sm {% if forloop.first %}btn-primary{% else %}btn-outline-primary{% endif %}" type="button" role="tab" data-cdd-area-tab="{{ area }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">{{ label }}</button>{% endfor %}</div>
+  {% for area, label in express_areas %}
+  <div class="cdd-card p-2 mb-2" data-cdd-item-area="{{ area }}" role="tabpanel" {% if not forloop.first %}hidden{% endif %}>
+    <div class="d-flex align-items-center justify-content-between gap-2"><strong>{{ label }}</strong><button class="btn btn-sm btn-outline-primary" type="button" data-cdd-add-item="{{ area }}" aria-label="添加{{ label }}快递">＋ 添加</button></div>
+    <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>大小</th><th>取件标识</th><th>操作</th></tr></thead><tbody data-cdd-item-rows="{{ area }}"></tbody></table></div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="d-flex align-items-center justify-content-between gap-2 mb-2"><strong>{% if business_type == 'TAKEOUT' %}取餐标识{% else %}取餐码{% endif %}</strong><button class="btn btn-sm btn-outline-primary" type="button" data-cdd-add-item="all">＋ 添加</button></div>
+  <div class="table-responsive"><table class="table table-sm"><thead><tr><th>序号</th><th>{% if business_type == 'TAKEOUT' %}取餐标识{% else %}取餐码{% endif %}</th><th>操作</th></tr></thead><tbody data-cdd-item-rows="all"></tbody></table></div>
+  <p class="small cdd-muted">本单共用上方取餐地点；基础配送费按订单收取一次。</p>
+  {% endif %}
+  <div class="text-danger small" data-cdd-item-error role="alert">{% for error in item_form.entry_items.errors %}{{ error }}{% endfor %}</div>
+  <dialog class="cdd-modal" data-cdd-item-dialog><div class="cdd-modal-panel">
+    <h3 class="h5">添加{% if business_type == 'EXPRESS' %}快递{% elif business_type == 'TAKEOUT' %}取餐标识{% else %}取餐码{% endif %}</h3>
+    {% if business_type == 'EXPRESS' %}<label class="form-label" for="cdd-item-size">快递大小</label><select class="form-select mb-2" id="cdd-item-size" data-cdd-item-size><option value="UNKNOWN">未知</option><option value="SMALL">小件</option><option value="MEDIUM">中件</option><option value="LARGE">大件</option><option value="OVERSIZE">超大件</option></select><div data-cdd-item-outside hidden><label class="form-label" for="cdd-item-outside">校外取件地点</label><input class="form-control mb-2" id="cdd-item-outside" data-cdd-item-outside-input maxlength="160"></div>{% endif %}
+    <label class="form-label" for="cdd-item-value">{% if business_type == 'EXPRESS' %}取件标识{% elif business_type == 'TAKEOUT' %}取餐标识{% else %}取餐码{% endif %}</label><input class="form-control" id="cdd-item-value" data-cdd-item-value maxlength="{% if business_type == 'KFC' %}128{% else %}255{% endif %}">
+    <div class="text-danger small mt-1" data-cdd-item-dialog-error role="alert"></div><div class="d-flex justify-content-center gap-2 mt-3"><button class="btn btn-primary" type="button" data-cdd-item-confirm>确认添加</button><button class="btn btn-outline-secondary" type="button" data-cdd-item-cancel>取消</button></div>
+  </div></dialog>
+</div>

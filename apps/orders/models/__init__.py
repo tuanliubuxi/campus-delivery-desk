@@ -5,8 +5,10 @@ from .details import (
     ExpressOrderDetail,
     GroceryOrderDetail,
     KfcOrderDetail,
+    KfcPickupItem,
     LuggageUpstairsDetail,
     TakeoutOrderDetail,
+    TakeoutPickupItem,
 )
 from .enums import (
     DeliveryStatus,
@@ -36,6 +38,7 @@ __all__ = [
     "ExpressRoundStatus",
     "GroceryOrderDetail",
     "KfcOrderDetail",
+    "KfcPickupItem",
     "LuggageUpstairsDetail",
     "Order",
     "OrderSettlementStatus",
@@ -46,4 +49,5 @@ __all__ = [
     "SourceType",
     "TakeoutGate",
     "TakeoutOrderDetail",
+    "TakeoutPickupItem",
 ]

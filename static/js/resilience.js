@@ -186,7 +186,10 @@
           .filter(Boolean);
         if (!review) {
           status.className = "alert alert-danger mt-3";
-          if (errors.length) status.textContent = errors.join("；");
+          if (errors.length) {
+            status.textContent = errors.join("；");
+            window.cddShowOrderValidation?.(form, errors);
+          }
           else if (response.status === 403) status.textContent = "安全校验已失效；表单和图片仍保留，请刷新页面后重试。";
           else if (response.status >= 500) status.textContent = "服务器处理失败；表单和图片仍保留，请稍后重试或联系管理员查看日志。";
           else status.textContent = "提交未成功；表单和图片仍保留，请检查必填项后重试。";

@@ -6,11 +6,12 @@
   <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">接新任务</h1><a class="btn btn-sm btn-outline-secondary" href="{% url 'dispatch:task-list' %}">我的任务</a></div>
   <div class="alert alert-info">当前业务：{{ user.get_accepting_business_display|default:"尚未选择" }} · {% if user.accepting_orders %}接单中{% else %}请先开启接单{% endif %}</div>
   <div class="d-grid gap-3 cdd-scroll-region">
-  {% for order, operation_id in pool %}
+  {% for order, group_orders, operation_id in pool %}
     <article class="cdd-card p-3">
-      <div class="d-flex justify-content-between"><strong>{{ order.display_id }}</strong>{% if order.is_urgent %}<span class="badge text-bg-danger">加急</span>{% endif %}</div>
+      <div class="d-flex justify-content-between"><strong>{{ order.recipient_name_snapshot }} · {{ order.get_business_type_display }}</strong><span class="badge text-bg-info">{{ group_orders|length }} 单</span></div>
+      <div class="small cdd-muted">工作日期：{{ order.service_date|date:'Y-m-d' }} · 同组待接订单一次接取</div>
       {% if order.requires_upstairs %}<div class="mt-1"><span class="badge text-bg-warning">需上楼</span>{% if order.off_campus_address %}<span class="badge text-bg-secondary">不自动计上楼费</span>{% endif %}</div>{% endif %}
-      <div class="mt-2 cdd-clamp" title="{{ order.recipient_name_snapshot }}">{{ order.recipient_name_snapshot }} · {% if order.off_campus_address %}{{ order.off_campus_address }}{% else %}{{ order.building_snapshot }} {{ order.floor_snapshot }} {{ order.room_snapshot }}{% endif %}</div>
+      <ul class="small mt-2 mb-2">{% for member in group_orders %}<li>{{ member.display_id }} · {% if member.off_campus_address %}{{ member.off_campus_address }}{% else %}{{ member.building_snapshot }} {{ member.floor_snapshot }} {{ member.room_snapshot }}{% endif %}{% if member.is_urgent %} · 加急{% endif %}{% if member.business_type == 'TAKEOUT' %}<div>取餐：{{ member.takeout_detail.get_pickup_gate_display }}{% if member.takeout_detail.other_pickup_location %} · {{ member.takeout_detail.other_pickup_location }}{% endif %}；{% for item in member.takeout_detail.items.all %}{{ item.identifier }}{% if not forloop.last %}、{% endif %}{% endfor %}</div>{% elif member.business_type == 'KFC' %}<div>{{ member.kfc_detail.pickup_location }}；{% for item in member.kfc_detail.items.all %}{{ item.pickup_code }}{% if not forloop.last %}、{% endif %}{% endfor %}</div>{% endif %}</li>{% endfor %}</ul>
       <form method="post" class="mt-3">{% csrf_token %}<input type="hidden" name="order_id" value="{{ order.pk }}"><input type="hidden" name="operation_id" value="{{ operation_id }}"><button class="btn btn-primary w-100 cdd-touch">确认接取</button></form>
     </article>
   {% empty %}<div class="cdd-card p-4 text-center cdd-muted">当前业务暂时没有可接订单。可以稍后刷新，或返回顶部切换业务类型与接单状态。</div>{% endfor %}

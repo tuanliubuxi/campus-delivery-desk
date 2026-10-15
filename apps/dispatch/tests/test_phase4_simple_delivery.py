@@ -479,12 +479,14 @@ def test_image_compression_preserves_saved_far_annotation(settings):
 
 
 @pytest.mark.django_db
-def test_task_list_groups_same_customer_but_keeps_each_task_link(client, recorder, customer, building, couriers):
+def test_same_customer_business_day_claims_one_whole_task(client, recorder, customer, building, couriers):
     courier, _ = couriers
     first = make_takeout(recorder, customer, building, identifier="GROUP-A")
     second = make_takeout(recorder, customer, building, identifier="GROUP-B")
     first_task = claim_simple_task(order=first, courier=courier, operation_id=uuid.uuid4())
-    second_task = claim_simple_task(order=second, courier=courier, operation_id=uuid.uuid4())
+    assert set(first_task.assignments.values_list("order_id", flat=True)) == {first.pk, second.pk}
+    with pytest.raises(ValidationError):
+        claim_simple_task(order=second, courier=courier, operation_id=uuid.uuid4())
     login(client, courier)
     response = client.get(reverse("dispatch:task-list"))
     html = response.content.decode()
@@ -492,7 +494,7 @@ def test_task_list_groups_same_customer_but_keeps_each_task_link(client, recorde
     assert "2 单" in html
     assert html.count('class="cdd-recipient-badge') == 1
     assert reverse("dispatch:task-detail", args=[first_task.pk]) in html
-    assert reverse("dispatch:task-detail", args=[second_task.pk]) in html
+    assert html.count(reverse("dispatch:task-detail", args=[first_task.pk])) >= 1
 
 
 @pytest.mark.django_db
