@@ -357,6 +357,8 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
   .cdd-settlement-layout { grid-template-columns: 1fr; }
   .cdd-scroll-region { max-height: min(58vh, 600px); overflow: auto; }
   .cdd-action-row { width: 100%; overflow-x: auto; padding-bottom: .2rem; }
+  .cdd-order-history-actions { width: max-content; flex-direction: column; align-items: stretch; overflow: visible; padding-bottom: 0; }
+  .cdd-order-history-actions > .btn { white-space: nowrap; }
   .cdd-feedback-actions { overflow-x: visible; }
   .cdd-compact-row { align-items: flex-start; flex-direction: column; }
 }
