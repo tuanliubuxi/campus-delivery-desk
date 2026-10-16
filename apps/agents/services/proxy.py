@@ -1,7 +1,9 @@
 """Transactional mutation boundary for the Phase 2 proxy workflow."""
 
+import time
+
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import Max
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
@@ -402,8 +404,19 @@ def reopen_proxy_batch(*, proxy_batch, operator):
     return batch
 
 
-@transaction.atomic
 def cancel_proxy_batch(*, proxy_batch, operator, reason):
+    """Retry the entire atomic cancellation on a transient SQLite writer conflict."""
+    for attempt in range(3):
+        try:
+            return _cancel_proxy_batch_once(proxy_batch=proxy_batch, operator=operator, reason=reason)
+        except OperationalError as exc:
+            if "database is locked" not in str(exc).lower() or attempt == 2:
+                raise
+            time.sleep(0.05 * (attempt + 1))
+
+
+@transaction.atomic
+def _cancel_proxy_batch_once(*, proxy_batch, operator, reason):
     """Atomically cancel an OPEN batch without any physically picked valid parcel."""
     from apps.orders.models import DeliveryStatus, Order
     from apps.orders.services.mutations import cancel_order

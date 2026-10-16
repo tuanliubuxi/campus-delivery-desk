@@ -366,7 +366,7 @@ def wage_rate_override_view(request, user_id):
         else:
             messages.success(request, f"{target.display_name} 的个人计薪比例已更新")
     else:
-        messages.error(request, "个人计薪比例格式无效，应为 0 至 1")
+        messages.error(request, "个人计薪比例无效，应为 0.00 至 1.00，最多两位小数")
     return redirect("accounts:user-list")
 
 

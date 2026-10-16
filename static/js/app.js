@@ -61,6 +61,23 @@ new MutationObserver(cddSyncModalScrollLock).observe(document.documentElement, {
 });
 cddSyncModalScrollLock();
 
+// Return to the same workbench position after its modal refresh.
+window.cddReloadPreservingScroll = () => {
+  sessionStorage.setItem("cdd-scroll-return", JSON.stringify({url: location.pathname + location.search, y: cddBackgroundScroll?.y ?? window.scrollY}));
+  location.reload();
+};
+try {
+  const saved = JSON.parse(sessionStorage.getItem("cdd-scroll-return") || "null");
+  if (saved) {
+    sessionStorage.removeItem("cdd-scroll-return");
+    if (saved.url === location.pathname + location.search && Number.isFinite(saved.y)) {
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, saved.y)));
+    }
+  }
+} catch (_ignored) {
+  sessionStorage.removeItem("cdd-scroll-return");
+}
+
 document.addEventListener("submit", (event) => {
   const input = event.target.querySelector("[data-cdd-page-number]");
   if (!input) return;

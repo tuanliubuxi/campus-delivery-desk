@@ -2,6 +2,7 @@
   <a class="btn btn-sm btn-outline-primary {% if not page.has_previous %}disabled{% endif %}" href="?{{ query }}&{{ parameter|default:'page' }}=1" {% if remote %}data-cdd-remote-page{% endif %} {% if not page.has_previous %}aria-disabled="true" tabindex="-1"{% endif %}>首页</a>
   <a class="btn btn-sm btn-outline-primary {% if not page.has_previous %}disabled{% endif %}" href="?{{ query }}&{{ parameter|default:'page' }}={% if page.has_previous %}{{ page.previous_page_number }}{% else %}1{% endif %}" {% if remote %}data-cdd-remote-page{% endif %} {% if not page.has_previous %}aria-disabled="true" tabindex="-1"{% endif %}>上一页</a>
   <form method="get" class="d-inline-flex align-items-center gap-1" {% if remote %}data-cdd-remote-page-form{% endif %}>
+    {% if modal_return %}<input type="hidden" name="{{ modal_return }}" value="1">{% endif %}
     {% for key, value in request.GET.items %}{% if key != parameter|default:'page' and key != 'tab' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
     {% if tab %}<input type="hidden" name="tab" value="{{ tab }}">{% elif request.GET.tab %}<input type="hidden" name="tab" value="{{ request.GET.tab }}">{% endif %}
     <label class="small mb-0" for="page-jump-{{ parameter|default:'page' }}">第</label>

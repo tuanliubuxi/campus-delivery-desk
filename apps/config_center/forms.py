@@ -77,7 +77,7 @@ class SiteConfigurationForm(BootstrapFormMixin, forms.ModelForm):
             "media_retention_days": "普通图片保留天数",
             "receipt_brand_name": "凭证显示名称",
             "image_quality": "上传图片质量",
-            "default_wage_rate": "配送员默认计薪比例（0 至 1）",
+            "default_wage_rate": "配送员默认计薪比例（0.00 至 1.00）",
         }
         help_texts = {
             "kfc_open_weekday": "1 代表周一，4 代表周四，7 代表周日。",
@@ -85,9 +85,21 @@ class SiteConfigurationForm(BootstrapFormMixin, forms.ModelForm):
             "media_retention_days": "异常保护和结算历史等特殊保留规则仍优先适用。",
             "receipt_brand_name": "所有新生成的凭证共用此名称；已生成的历史凭证不会被改写。",
             "image_quality": "清晰档保留更多像素，便于看取件码；更高档位会增加上传时间和存储占用。",
-            "default_wage_rate": "默认 1.0；个人比例可在“人员与会话”中覆盖。",
+            "default_wage_rate": "最多两位小数；0.75 表示 75%，可由个人比例覆盖。",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._apply_bootstrap_classes()
+        self.fields["default_wage_rate"].widget.attrs.update({"step": "0.01", "min": "0", "max": "1", "inputmode": "decimal", "data-cdd-rate-stepper": ""})
+        from decimal import Decimal
+        rate = self.instance.default_wage_rate
+        if rate is not None and rate == rate.quantize(Decimal("0.01")):
+            self.initial["default_wage_rate"] = format(rate, ".2f")
+
+    def clean_default_wage_rate(self):
+        from decimal import Decimal
+        value = self.cleaned_data["default_wage_rate"]
+        if value is not None and (not Decimal("0") <= value <= Decimal("1") or value != value.quantize(Decimal("0.01"))):
+            raise forms.ValidationError("默认计薪比例须为 0.00 至 1.00，最多两位小数")
+        return value

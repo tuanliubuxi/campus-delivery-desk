@@ -111,6 +111,8 @@ document.querySelectorAll("[data-cdd-item-editor]").forEach((editor) => {
       return;
     }
     if (rows.length >= 50) { dialogError.textContent = "每次最多添加 50 条"; return; }
+    const anchor = editor.querySelector(`[data-cdd-add-item="${currentArea}"]`);
+    const oldTop = anchor?.getBoundingClientRect().top;
     rows.push(kind === "EXPRESS" ? {
       pickup_area: currentArea,
       outside_pickup_location: currentArea === "OUTSIDE" ? outsideInput.value.trim() : "",
@@ -119,6 +121,12 @@ document.querySelectorAll("[data-cdd-item-editor]").forEach((editor) => {
     } : value);
     sync();
     dialog.close();
+    if (anchor && Number.isFinite(oldTop)) {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.scrollBy(0, anchor.getBoundingClientRect().top - oldTop);
+        anchor.focus({preventScroll: true});
+      }));
+    }
   });
   form.addEventListener("submit", (event) => {
     if (rows.length) return;

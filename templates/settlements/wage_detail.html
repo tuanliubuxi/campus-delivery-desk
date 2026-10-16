@@ -4,6 +4,7 @@
 <div data-cdd-wage-content {% if can_manage %}hx-boost="true" hx-target="closest [data-cdd-wage-content]" hx-select="[data-cdd-wage-content]" hx-swap="outerHTML"{% endif %}>
 {% if embedded and messages %}<div class="container pt-2" role="status">{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}</div>{% endif %}
 <main class="container py-3">
+  {% if embedded and can_manage %}<button class="btn btn-outline-secondary mb-3" type="button" data-cdd-modal-close>返回待核算与待发放列表</button>{% endif %}
   {% if not embedded %}<a class="btn btn-outline-secondary mb-3" href="{% if is_admin_view %}{% url 'settlements:wage-history' %}{% else %}{% url 'settlements:courier-wages' %}{% endif %}">返回上一级</a>{% if is_admin_view and payout.status == 'DRAFT' or is_admin_view and payout.status == 'READY' %} <a class="btn btn-outline-primary mb-3" href="{% url 'settlements:wages' %}?courier={{ payout.courier_id }}&work_date={{ payout.work_date|date:'Y-m-d' }}">前往工作台继续处理</a>{% endif %}{% endif %}
   <h1 class="h3">{{ payout.courier.display_name }} · {{ payout.work_date|date:'Y年m月d日' }}工资{% if payout.sequence > 1 %}（第 {{ payout.sequence }} 笔核算）{% endif %}</h1>
   <p><span class="badge text-bg-primary">{{ payout.get_status_display }}</span> 建立：{{ payout.created_at|date:'Y-m-d H:i' }} · {{ payout.created_by.display_name|default:'系统' }}{% if payout.paid_at %} · 实际发放：{{ payout.paid_at|date:'Y-m-d H:i' }} · {{ payout.paid_by.display_name|default:'系统' }}{% endif %}</p>

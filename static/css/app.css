@@ -37,6 +37,20 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-action-row > * { flex: 0 0 auto; margin: 0; }
 .cdd-feedback-actions { justify-content: center; }
   .cdd-scroll-region { max-height: min(62vh, 720px); overflow: auto; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.cdd-scroll-region, .cdd-compact-scroll, .cdd-login-history-scroll, .cdd-recipient-orders, .cdd-exception-list, .cdd-evidence-options { background: color-mix(in srgb, var(--cdd-primary) 7%, var(--cdd-surface)); border: 1px solid var(--cdd-border); border-radius: .65rem; padding: .5rem; }
+.row.cdd-scroll-region { margin-inline: 0; }
+.cdd-status-dot { display: inline-block; width: .55rem; height: .55rem; margin-right: .2rem; border-radius: 50%; background: var(--cdd-muted); }
+.cdd-status-dot--open { background: var(--cdd-primary); }
+.cdd-status-dot--ready { background: #d18a16; }
+.cdd-status-dot--settled { background: #1f9d62; }
+.cdd-status-dot--canceled { background: #8290a3; }
+.cdd-row-number { width: 3.5rem; min-width: 3.5rem; text-align: center; color: var(--cdd-muted); font-variant-numeric: tabular-nums; }
+.cdd-segmented-tabs { display: flex; flex-wrap: wrap; gap: .35rem; }
+.cdd-proxy-agent-modal { width: min(95vw, 1100px); }
+.cdd-proxy-agent-modal .cdd-modal-panel { display: flex; flex-direction: column; height: min(88dvh, 800px); overflow: hidden; }
+.cdd-proxy-agent-modal .cdd-modal-close { position: absolute; right: 1rem; top: 1rem; }
+.cdd-proxy-agent-modal section { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.cdd-proxy-agent-modal .cdd-scroll-region { flex: 1; min-height: 0; max-height: none; }
 .cdd-page-number { width: 4.25rem; text-align: center; font-variant-numeric: tabular-nums; }
 .cdd-operation-row--backup { --bs-table-bg: color-mix(in srgb, var(--cdd-primary) 7%, var(--cdd-surface)); }
 .cdd-operation-row--restore { --bs-table-bg: color-mix(in srgb, var(--cdd-success, #198754) 10%, var(--cdd-surface)); }
@@ -189,7 +203,8 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-modal::backdrop { background: rgb(4 12 24 / 68%); backdrop-filter: blur(2px); }
 .cdd-modal-panel { position: relative; max-height: 88vh; overflow: auto; overscroll-behavior: contain; padding: 1.35rem; border: 1px solid var(--cdd-border); border-radius: 1rem; background: var(--cdd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 35%); }
 .cdd-modal-close { position: sticky; z-index: 2; top: 0; float: right; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 1px solid var(--cdd-border); border-radius: 50%; background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.35rem; }
-  .cdd-receipt-viewport { max-height: 65vh; overflow: auto; overscroll-behavior: contain; touch-action: pinch-zoom; }
+  .cdd-modal--image .cdd-modal-panel { max-height: 88dvh; overflow-y: auto; touch-action: auto; }
+  .cdd-receipt-viewport { overflow: visible; touch-action: auto; }
   .cdd-media-preview-viewport { max-height: min(65vh, 760px); overflow: auto; overscroll-behavior: contain; text-align: center; }
 .cdd-media-preview-viewport img { display: block; max-width: 100%; height: auto; margin: auto; }
 .cdd-compact-scroll { max-height: min(62vh, 640px); overflow-y: auto; scrollbar-gutter: stable; }
@@ -207,6 +222,9 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-order-section--completion { --section-accent: #667b9b; }
 .cdd-offcampus-notice { padding: .85rem 1rem; border: 1px solid color-mix(in srgb, #bc7930 55%, var(--cdd-border)); border-radius: .65rem; background: color-mix(in srgb, #bc7930 20%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-integer-stepper { display: flex; width: 100%; max-width: 15rem; }
+.cdd-rate-stepper { display: flex; width: 100%; max-width: 15rem; }
+.cdd-rate-stepper .form-control { min-width: 0; text-align: center; border-radius: 0; appearance: textfield; }
+.cdd-rate-stepper .form-control::-webkit-inner-spin-button,.cdd-rate-stepper .form-control::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .cdd-integer-stepper .form-control { min-width: 0; text-align: center; border-radius: 0; appearance: textfield; }
 .cdd-integer-stepper .form-control::-webkit-inner-spin-button,.cdd-integer-stepper .form-control::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .cdd-stepper-button { flex: 0 0 2.75rem; min-height: 2.75rem; border: 1px solid var(--cdd-border); background: var(--cdd-elevated); color: var(--cdd-text); font-size: 1.3rem; font-weight: 700; }
@@ -250,7 +268,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-consolidation-options label { display: flex; align-items: center; gap: .55rem; padding: .45rem .65rem; border-bottom: 1px solid var(--cdd-border); cursor: pointer; }
 .cdd-evidence-options { max-height: 12rem; overflow-y: auto; margin-top: .75rem; padding: .5rem; border: 1px solid var(--cdd-border); border-radius: .5rem; }
 .cdd-evidence-options label { display: flex; gap: .5rem; align-items: center; }
-.cdd-receipt-preview { display: block; width: auto; max-width: 100%; max-height: 65vh; margin-inline: auto; border-radius: .65rem; touch-action: pinch-zoom; }
+.cdd-receipt-preview { display: block; width: auto; max-width: 100%; height: auto; margin-inline: auto; border-radius: .65rem; touch-action: auto; }
 .cdd-file-list { margin: .65rem 0 0; padding-left: 2rem; }
 .cdd-file-item { display: list-item; padding: .25rem 0; }
 .cdd-file-item::marker { color: var(--cdd-muted); font-variant-numeric: tabular-nums; }
@@ -370,6 +388,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
   .cdd-settlement-heading { align-items: flex-start; }
   .cdd-settlement-layout { grid-template-columns: 1fr; }
   .cdd-scroll-region { max-height: min(58vh, 600px); overflow: auto; }
+  .cdd-scroll-region, .cdd-compact-scroll, .cdd-login-history-scroll, .cdd-recipient-orders, .cdd-exception-list, .cdd-evidence-options { margin-inline: .65rem; }
   .cdd-action-row { width: 100%; overflow-x: auto; padding-bottom: .2rem; }
   .cdd-order-history-actions { width: max-content; flex-direction: column; align-items: stretch; overflow: visible; padding-bottom: 0; }
   .cdd-order-history-actions > .btn { white-space: nowrap; }

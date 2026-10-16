@@ -345,14 +345,22 @@ def proxy_express_create(request, recipient_id):
         ProxyRecipient.objects.select_related("proxy_batch", "building"),
         pk=recipient_id,
     )
-    form = ExpressOrderForm(request.POST or None, proxy_recipient=recipient)
+    form = ExpressOrderForm(
+        _entry_post_data(request.POST, BusinessType.EXPRESS) if request.method == "POST" else None,
+        proxy_recipient=recipient,
+    )
     duplicate_review = _duplicate_review_valid(request, BusinessType.EXPRESS) if request.method == "POST" else False
     duplicate_token = request.POST.get("duplicate_review_token", "") if duplicate_review else ""
     duplicate_candidates = []
     if request.method == "POST" and form.is_valid():
         form.cleaned_data["confirm_duplicate"] = bool(form.cleaned_data["confirm_duplicate"] and duplicate_review)
         try:
-            order = create_express_order(actor=request.user, **form.service_kwargs())
+            data = form.service_kwargs()
+            items = form.cleaned_data.get("entry_items")
+            order = (
+                create_express_orders(actor=request.user, common_data=data, items=items)[0]
+                if items else create_express_order(actor=request.user, **data)
+            )
         except PossibleDuplicateOrder as exc:
             duplicate_candidates = exc.orders
             duplicate_token = _duplicate_review_token(request, BusinessType.EXPRESS)
@@ -372,10 +380,12 @@ def proxy_express_create(request, recipient_id):
         "orders/form.html",
         {
             "form": form,
+            "item_form": form,
             "order_sections": _order_sections(form),
             "duplicate_token": duplicate_token,
             "duplicate_candidates": duplicate_candidates,
             "business_type": BusinessType.EXPRESS,
+            "express_areas": [("NORTH", "北区"), ("SOUTH", "南区"), ("OUTSIDE", "校外")],
             "business_label": BusinessType.EXPRESS.label,
             "proxy_recipient": recipient,
             "is_create": True,

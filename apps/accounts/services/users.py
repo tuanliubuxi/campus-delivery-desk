@@ -3,6 +3,7 @@
 import secrets
 import string
 import time
+from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, OperationalError, transaction
@@ -140,6 +141,8 @@ def set_wage_rate_override(*, target_user, actor, rate):
     _require_admin(actor)
     if not target_user.is_courier:
         raise ValidationError("只有配送员可以设置个人计薪比例")
+    if rate is not None and (rate < 0 or rate > 1 or rate != rate.quantize(Decimal("0.01"))):
+        raise ValidationError("个人计薪比例须为 0.00 至 1.00，最多两位小数")
     before = target_user.wage_rate_override
     target_user.wage_rate_override = rate
     target_user.full_clean()

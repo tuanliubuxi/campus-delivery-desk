@@ -9,12 +9,14 @@
       <p class="cdd-muted mb-0">代理体系仅用于快递；临时收件人不会进入正式客户库。仅当全部批次已结算或已取消时可停用代理人。</p>
     </div>
     <div class="d-flex gap-2">
+      <button class="btn btn-outline-primary" type="button" data-cdd-modal-open="proxy-agent-list">查看代理人</button>
       <a class="btn btn-outline-primary" href="{% url 'agents:agent-create' %}">新建代理人</a>
       <a class="btn btn-primary" href="{% url 'agents:batch-create' %}">新建批次</a>
     </div>
   </div>
 
   <form method="get" class="cdd-card p-3 mb-4" role="search">
+    <input type="hidden" name="batch_tab" value="{{ batch_tab }}">
     <label class="form-label" for="proxy-search">搜索代理人、联系方式、批次备注或临时收件人</label>
     <div class="input-group">
       <input id="proxy-search" class="form-control" name="q" value="{{ query }}" placeholder="名称 / 手机尾号 / 批次 ID">
@@ -22,10 +24,11 @@
     </div>
   </form>
 
-  {% if agents %}
-  <section class="mb-4" aria-labelledby="agents-heading">
+  <dialog class="cdd-modal cdd-proxy-agent-modal" id="proxy-agent-list" {% if request.GET.agents %}data-cdd-auto-open{% endif %}>
+  <div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button>
+  <section aria-labelledby="agents-heading">
     <h2 id="agents-heading" class="h5">代理人</h2>
-    <div class="row g-3 cdd-scroll-region">
+    <div class="row g-3 cdd-scroll-region cdd-scroll-region--marked">
       {% for agent in agents %}
       <div class="col-12 col-md-6 col-xl-4">
         <article class="cdd-card p-3 h-100">
@@ -34,7 +37,8 @@
             <form method="post" action="{% url 'agents:agent-toggle' agent.pk %}" class="form-check form-switch m-0">{% csrf_token %}<input class="form-check-input" type="checkbox" role="switch" name="is_active" aria-label="允许 {{ agent.name }} 新建批次" {% if agent.is_active %}checked{% endif %} onchange="this.form.requestSubmit()"><span class="small">{% if agent.is_active %}启用{% else %}停用{% endif %}</span></form>
           </div>
           <div class="cdd-muted small mt-2 cdd-ellipsis" title="{{ agent.contact_text }}">{{ agent.contact_text|default:"未填写联系方式" }}</div>
-          <div class="small mt-2">批次：{{ agent.batch_count }}</div>
+          <div class="small mt-2">批次总计 {{ agent.batch_count }}</div>
+          <div class="cdd-agent-statuses small mt-1"><span class="cdd-status-dot cdd-status-dot--open"></span>录入中 {{ agent.open_count }} · <span class="cdd-status-dot cdd-status-dot--ready"></span>待结算 {{ agent.ready_count }} · <span class="cdd-status-dot cdd-status-dot--settled"></span>已结算 {{ agent.settled_count }} · <span class="cdd-status-dot cdd-status-dot--canceled"></span>已取消 {{ agent.canceled_count }}</div>
           <div class="d-flex gap-2 mt-3">
             <a class="btn btn-sm btn-outline-secondary" href="{% url 'agents:agent-edit' agent.pk %}">编辑</a>
             {% if agent.is_active %}<a class="btn btn-sm btn-outline-primary" href="{% url 'agents:batch-create' %}?agent={{ agent.pk }}">新建批次</a>{% endif %}
@@ -43,13 +47,18 @@
       </div>
       {% endfor %}
     </div>
-    {% include "includes/list_pagination.html" with page=agent_page query=agent_query parameter="agent_page" label="代理人" %}
+    {% include "includes/list_pagination.html" with page=agent_page query=agent_query|add:'&agents=1' parameter="agent_page" label="代理人" modal_return="agents" %}
   </section>
-  {% endif %}
+  </div></dialog>
 
   <section aria-labelledby="batches-heading">
     <h2 id="batches-heading" class="h5">代理批次</h2>
-    <div class="row g-3 cdd-scroll-region">
+    <nav class="cdd-segmented-tabs mb-3" aria-label="批次状态">
+      <a class="btn {% if batch_tab == 'active' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?q={{ query|urlencode }}&batch_tab=active">进行中／待结算</a>
+      <a class="btn {% if batch_tab == 'settled' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?q={{ query|urlencode }}&batch_tab=settled">已结算</a>
+      <a class="btn {% if batch_tab == 'canceled' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?q={{ query|urlencode }}&batch_tab=canceled">已取消</a>
+    </nav>
+    <div class="row g-3 cdd-scroll-region cdd-scroll-region--marked cdd-proxy-batch-list">
       {% for batch in batch_page %}
       <div class="col-12 col-md-6 col-xl-4">
         <article class="cdd-card p-3 h-100">
@@ -67,7 +76,7 @@
       <div class="col-12"><div class="cdd-card p-4 cdd-muted">没有匹配的代理批次。</div></div>
       {% endfor %}
     </div>
-    {% include "includes/list_pagination.html" with page=batch_page query=request.GET.urlencode label="代理批次" %}
+    {% include "includes/list_pagination.html" with page=batch_page query=batch_query label="代理批次" %}
   </section>
 </main>
 {% endblock %}

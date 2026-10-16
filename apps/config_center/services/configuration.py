@@ -1,5 +1,8 @@
 """Transactional configuration mutations with audit snapshots."""
 
+from decimal import Decimal
+
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.forms.models import model_to_dict
 
@@ -65,6 +68,9 @@ def save_business_config(*, actor, config, **data):
 @transaction.atomic
 def save_site_configuration(*, actor, config, **data):
     _require_admin(actor)
+    rate = data.get("default_wage_rate")
+    if rate is not None and (rate < 0 or rate > 1 or rate != rate.quantize(Decimal("0.01"))):
+        raise ValidationError("默认计薪比例须为 0.00 至 1.00，最多两位小数")
     config = SiteConfiguration.objects.get(pk=config.pk)
     before = _json_values(config)
     for field, value in data.items():

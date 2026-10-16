@@ -7,7 +7,9 @@ class BootstrapFormMixin:
     def _apply_bootstrap_classes(self):
         for field in self.fields.values():
             widget = field.widget
-            if isinstance(field, forms.IntegerField) and not isinstance(widget, forms.HiddenInput):
+            if (isinstance(field, forms.IntegerField)
+                    and not isinstance(field, forms.DecimalField)
+                    and not isinstance(widget, forms.HiddenInput)):
                 widget.attrs["data-cdd-integer-stepper"] = ""
                 widget.attrs["inputmode"] = "numeric"
                 widget.attrs["step"] = "1"

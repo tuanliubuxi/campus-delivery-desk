@@ -3,13 +3,14 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.db import OperationalError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
 from apps.agents.forms import AgentEditForm, AgentForm, ProxyBatchForm, ProxyRecipientForm
-from apps.agents.models import Agent, ProxyBatch, ProxyRecipient
+from apps.agents.models import Agent, ProxyBatch, ProxyBatchStatus, ProxyRecipient
 from apps.agents.selectors import proxy_batch_detail, search_agents, search_proxy_batches
 from apps.agents.services import (
     cancel_proxy_batch,
@@ -33,12 +34,27 @@ from apps.settlements.services import (
 @recorder_or_admin_required
 def proxy_workspace(request):
     query = request.GET.get("q", "").strip()
-    batch_page = Paginator(search_proxy_batches(query), 50).get_page(request.GET.get("page"))
+    batch_tab = request.GET.get("batch_tab", "active")
+    if batch_tab not in {"active", "settled", "canceled"}:
+        batch_tab = "active"
+    statuses = {
+        "active": [ProxyBatchStatus.OPEN, ProxyBatchStatus.READY_TO_SETTLE],
+        "settled": [ProxyBatchStatus.SETTLED],
+        "canceled": [ProxyBatchStatus.CANCELED],
+    }
+    batch_page = Paginator(
+        search_proxy_batches(query).filter(status__in=statuses[batch_tab]), 50
+    ).get_page(request.GET.get("page"))
     agent_page, agent_query = paginate(request, search_agents(query), parameter="agent_page")
+    batch_query = request.GET.copy()
+    batch_query.pop("page", None)
+    batch_query.pop("agent_page", None)
     return render(
         request,
         "agents/workspace.html",
-        {"batch_page": batch_page, "agents": agent_page, "agent_page": agent_page, "agent_query": agent_query, "query": query},
+        {"batch_page": batch_page, "agents": agent_page, "agent_page": agent_page,
+         "agent_query": agent_query, "batch_query": batch_query.urlencode(),
+         "batch_tab": batch_tab, "query": query},
     )
 
 
@@ -207,6 +223,8 @@ def batch_cancel(request, batch_id):
         )
     except (ValidationError, ValueError) as exc:
         messages.error(request, str(exc))
+    except OperationalError:
+        messages.error(request, "数据库正忙，整批取消未完成，请核对批次状态后稍后重试")
     else:
         messages.success(request, "代理批次及其中所有可取消快递已原子取消")
     return redirect("agents:batch-detail", batch_id=batch.pk)

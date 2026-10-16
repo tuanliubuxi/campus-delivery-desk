@@ -2,12 +2,18 @@
 
 from django.db.models import Count, Q
 
-from apps.agents.models import Agent, ProxyBatch
+from apps.agents.models import Agent, ProxyBatch, ProxyBatchStatus
 from apps.orders.models import DeliveryStatus, ExpressRoundStatus, Order, SizeClass
 
 
 def search_agents(query=""):
-    queryset = Agent.objects.annotate(batch_count=Count("proxy_batches", distinct=True))
+    queryset = Agent.objects.annotate(
+        batch_count=Count("proxy_batches", distinct=True),
+        open_count=Count("proxy_batches", filter=Q(proxy_batches__status=ProxyBatchStatus.OPEN), distinct=True),
+        ready_count=Count("proxy_batches", filter=Q(proxy_batches__status=ProxyBatchStatus.READY_TO_SETTLE), distinct=True),
+        settled_count=Count("proxy_batches", filter=Q(proxy_batches__status=ProxyBatchStatus.SETTLED), distinct=True),
+        canceled_count=Count("proxy_batches", filter=Q(proxy_batches__status=ProxyBatchStatus.CANCELED), distinct=True),
+    )
     query = query.strip()
     if query:
         queryset = queryset.filter(

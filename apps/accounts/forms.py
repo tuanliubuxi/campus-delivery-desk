@@ -90,15 +90,28 @@ class WageRateOverrideForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = User
         fields = ["wage_rate_override"]
-        labels = {"wage_rate_override": "个人计薪比例（0 至 1）"}
-        help_texts = {"wage_rate_override": "留空时继承系统默认比例。"}
+        labels = {"wage_rate_override": "个人计薪比例（0.00 至 1.00）"}
+        help_texts = {"wage_rate_override": "最多两位小数；例如 0.75 表示 75%。选择继承时不使用此输入值。"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from decimal import Decimal
+
         from apps.config_center.models import SiteConfiguration
         self.fields["rate_mode"].initial = "override" if self.instance.wage_rate_override is not None else "default"
-        self.fields["wage_rate_override"].initial = self.instance.wage_rate_override if self.instance.wage_rate_override is not None else SiteConfiguration.load().default_wage_rate
+        effective = self.instance.wage_rate_override if self.instance.wage_rate_override is not None else SiteConfiguration.load().default_wage_rate
+        self.fields["wage_rate_override"].initial = effective
+        if effective is not None and effective == effective.quantize(Decimal("0.01")):
+            self.initial["wage_rate_override"] = format(effective, ".2f")
+        self.fields["wage_rate_override"].widget.attrs.update({"step": "0.01", "min": "0", "max": "1", "inputmode": "decimal", "data-cdd-rate-stepper": ""})
         self._apply_bootstrap_classes()
+
+    def clean_wage_rate_override(self):
+        from decimal import Decimal
+        value = self.cleaned_data["wage_rate_override"]
+        if value is not None and (not Decimal("0") <= value <= Decimal("1") or value != value.quantize(Decimal("0.01"))):
+            raise forms.ValidationError("计薪比例须为 0.00 至 1.00，最多两位小数")
+        return value
 
     def clean(self):
         data = super().clean()

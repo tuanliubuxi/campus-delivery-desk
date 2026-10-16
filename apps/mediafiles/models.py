@@ -44,6 +44,7 @@ class MediaFile(models.Model):
         if self.deleted_at is not None:
             return False
         from django.core.exceptions import ValidationError
+
         from .services.images import media_absolute_path
 
         try:
