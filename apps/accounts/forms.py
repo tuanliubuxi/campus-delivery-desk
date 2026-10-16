@@ -91,7 +91,7 @@ class WageRateOverrideForm(BootstrapFormMixin, forms.ModelForm):
         model = User
         fields = ["wage_rate_override"]
         labels = {"wage_rate_override": "个人计薪比例（0.00 至 1.00）"}
-        help_texts = {"wage_rate_override": "最多两位小数；例如 0.75 表示 75%。选择继承时不使用此输入值。"}
+        help_texts = {"wage_rate_override": "最多两位小数；例如 0.75 表示 75%。选择继承时无需填写个人比例。"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

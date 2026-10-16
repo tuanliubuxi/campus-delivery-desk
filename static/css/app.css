@@ -223,6 +223,7 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
 .cdd-offcampus-notice { padding: .85rem 1rem; border: 1px solid color-mix(in srgb, #bc7930 55%, var(--cdd-border)); border-radius: .65rem; background: color-mix(in srgb, #bc7930 20%, var(--cdd-surface)); color: var(--cdd-text); }
 .cdd-integer-stepper { display: flex; width: 100%; max-width: 15rem; }
 .cdd-rate-stepper { display: flex; width: 100%; max-width: 15rem; }
+.cdd-rate-stepper[hidden] { display: none; }
 .cdd-rate-stepper .form-control { min-width: 0; text-align: center; border-radius: 0; appearance: textfield; }
 .cdd-rate-stepper .form-control::-webkit-inner-spin-button,.cdd-rate-stepper .form-control::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .cdd-integer-stepper .form-control { min-width: 0; text-align: center; border-radius: 0; appearance: textfield; }

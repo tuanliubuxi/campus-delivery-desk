@@ -31,7 +31,8 @@
       function sync() {
         const inherited = mode?.value === "default";
         input.disabled = Boolean(inherited);
-        buttons.forEach((button) => { button.disabled = input.disabled; });
+        wrapper.hidden = Boolean(inherited);
+        buttons.forEach((button) => { button.disabled = Boolean(inherited); });
       }
       mode?.addEventListener("change", sync);
       sync();
