@@ -1,13 +1,13 @@
 {% extends "layouts/base.html" %}
 {% block title %}结算 · 校驿{% endblock %}
 {% block content %}
-<main class="container py-3"><div class="d-flex justify-content-end mb-3"><a class="btn btn-outline-primary" href="{% url 'settlements:history' %}">查看结算记录</a></div><div class="row g-4">
+<main class="container py-3 cdd-viewport-workspace"><div class="row g-4 cdd-settlement-workspace-row">
   <section class="col-lg-12">
-    <h1 class="h3">建立结算草稿</h1>
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h1 class="h3 mb-0 cdd-workspace-heading">建立结算草稿</h1><a class="btn btn-outline-primary btn-sm cdd-touch flex-shrink-0" href="{% url 'settlements:history' %}">查看结算记录</a></div>
     <p class="cdd-muted">每张卡片是一个必须一起结算的收件轮次或代理批次。一次只建立一组草稿，不会立即冻结金额或改变订单状态。</p>
-    <form method="post" action="{% url 'settlements:build' %}" class="cdd-card p-3">
+    <form method="post" action="{% url 'settlements:build' %}" class="cdd-card p-3 cdd-settlement-workspace-form">
       {% csrf_token %}{{ build_form.operation_id }}
-      <div class="cdd-scroll-region cdd-settlement-groups">
+      <div class="cdd-scroll-region cdd-settlement-groups cdd-workspace-list">
         {% for group in candidate_groups %}<label class="cdd-settlement-group {% if not group.ready %}is-blocked{% endif %}">
           <span class="d-flex gap-2 align-items-start"><input class="form-check-input mt-1" type="checkbox" name="group_key" value="{{ group.key }}" data-cdd-settlement-group {% if not group.ready %}disabled{% endif %}><span class="cdd-min-width-zero flex-grow-1"><strong class="cdd-ellipsis" title="{{ group.title }}">{{ group.title }}</strong><small class="d-block cdd-muted">{{ group.subtitle }}</small></span>{% if group.ready %}<span class="badge text-bg-success">可建草稿</span>{% else %}<span class="badge text-bg-secondary">暂不可选</span>{% endif %}</span>
           <span class="cdd-settlement-members">{% for order in group.orders %}<span class="cdd-ellipsis" title="{{ order.display_id }} · {{ order.recipient_name_snapshot }} · {{ order.get_delivery_status_display }}">{{ order.recipient_name_snapshot }} <span class="badge {{ order.delivery_status_badge_class }}">{{ order.get_delivery_status_display }}</span> <small class="cdd-muted">{{ order.display_id }}</small></span>{% endfor %}</span>

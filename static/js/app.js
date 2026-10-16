@@ -132,7 +132,11 @@ document.addEventListener("click", (event) => {
     return;
   }
   const closer = event.target.closest("[data-cdd-modal-close]");
-  if (closer) closer.closest("dialog")?.close();
+  if (closer) {
+    const dialog = closer.closest("dialog");
+    if (dialog) dialog.close();
+    else if (closer.dataset.cddFallbackUrl) location.assign(closer.dataset.cddFallbackUrl);
+  }
 });
 function cddShowWageSlip(dialog, style) {
   const theme = document.documentElement.dataset.theme || "light";
@@ -296,6 +300,14 @@ if (appHeader && window.ResizeObserver) {
   );
   new ResizeObserver(syncHeaderHeight).observe(appHeader);
   syncHeaderHeight();
+}
+const mobileCategories = document.querySelector(".cdd-mobile-categories");
+if (mobileCategories && window.ResizeObserver) {
+  const syncBottomNavHeight = () => document.documentElement.style.setProperty(
+    "--cdd-bottom-nav-height", `${mobileCategories.getBoundingClientRect().height}px`,
+  );
+  new ResizeObserver(syncBottomNavHeight).observe(mobileCategories);
+  syncBottomNavHeight();
 }
 document.querySelectorAll("form[data-cdd-confirm-value], form[data-cdd-require-input]").forEach((form) => {
   const field = form.querySelector("input[name='confirmation'], textarea[name='reason']");

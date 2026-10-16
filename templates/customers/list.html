@@ -1,7 +1,7 @@
 {# Searchable customer roster with administrator maintenance actions. #}
 {% extends "layouts/base.html" %}{% load static %}
 {% block content %}
-<main class="container py-4">
+<main class="container py-4 cdd-viewport-workspace">
   <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h1 class="h3 mb-0">客户</h1><a class="btn btn-primary" href="{% url 'customers:create' %}">新建客户</a></div>
   <form class="d-flex gap-2 mb-3" method="get"><input class="form-control" name="q" value="{{ query }}" placeholder="搜索昵称、收件人或手机尾号；支持 / 分隔"><input type="hidden" name="building" value="{{ building_id }}"><input type="hidden" name="activity" value="{{ activity }}"><button class="btn btn-outline-primary">搜索</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-open="customer-filter">筛选客户</button></form>
   {% if building_id or activity %}<p class="small cdd-muted">已启用筛选 · <a class="btn btn-sm btn-outline-secondary" href="{% url 'customers:list' %}?q={{ query|urlencode }}">清除筛选</a></p>{% endif %}

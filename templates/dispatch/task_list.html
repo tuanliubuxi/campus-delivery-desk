@@ -2,7 +2,7 @@
 {% extends "layouts/base.html" %}
 {% block title %}我的任务 · 校驿{% endblock %}
 {% block content %}
-<main class="container py-3 cdd-mobile-shell">
+<main class="container py-3 cdd-mobile-shell cdd-viewport-workspace">
   <div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h4 mb-0">我的任务</h1>{% if user.accepting_business != 'EXPRESS' %}<a class="btn btn-primary" href="{% url 'dispatch:new-tasks' %}">接新任务</a>{% endif %}</div>
   <div class="cdd-task-counts mb-3" aria-label="当前已接订单状态">
     <span><i class="cdd-status-dot cdd-dot-new"></i>待取 {{ task_status_counts.ASSIGNED|default:0 }}</span>
@@ -11,7 +11,7 @@
     <a class="text-decoration-none" href="{% url 'consolidation:courier-list' %}"><i class="cdd-status-dot cdd-dot-consolidation"></i>待归拢 {{ pending_consolidations }}</a>
   </div>
   {% if user.accepting_business == 'EXPRESS' %}<div class="d-flex gap-2 mb-3"><a class="btn btn-outline-primary flex-fill" href="{% url 'dispatch:express-route-pool' %}">快递路线</a><a class="btn btn-outline-danger flex-fill" href="{% url 'dispatch:express-direct-pool' %}">客户直送</a></div>{% endif %}
-  <div class="d-grid gap-3 cdd-scroll-region">
+  <div class="d-grid gap-3 cdd-scroll-region cdd-workspace-list">
     {% for group in task_groups %}
     <article class="cdd-card p-3 cdd-task-card">
       <div class="d-flex justify-content-between align-items-center gap-2">

@@ -164,6 +164,35 @@ def make_context(size=SizeClass.SMALL):
 
 
 @pytest.mark.django_db
+def test_settlement_record_filter_is_modal_and_unsettled_ignores_date_parameters():
+    recorder, _, order = make_context()
+    recorder.set_password("Strong-pass-123")
+    recorder.save(update_fields=["password"])
+    client = Client()
+    login = client.post(reverse("accounts:login"), {
+        "role": UserRole.RECORDER, "user": recorder.pk, "password": "Strong-pass-123",
+    })
+    assert login.status_code == 302
+    records = client.get(reverse("settlements:history"))
+    assert records.status_code == 200
+    records_html = records.content.decode()
+    assert 'id="settlement-history-filter"' in records_html
+    assert "确认筛选" in records_html
+    assert 'name="date_from"' in records_html
+    assert 'name="status"' in records_html
+    assert 'name="party_type"' in records_html
+    unsettled = client.get(reverse("settlements:history"), {
+        "scope": "unsettled", "date_from": "2099-01-01", "date_to": "2099-01-31",
+    })
+    assert unsettled.status_code == 200
+    unsettled_html = unsettled.content.decode()
+    assert 'name="date_from"' not in unsettled_html
+    assert 'name="date_to"' not in unsettled_html
+    assert 'name="status"' not in unsettled_html
+    assert order.fixed_id in unsettled_html
+
+
+@pytest.mark.django_db
 def test_settlement_candidate_is_one_round_and_server_resolves_members():
     recorder, _, first = make_context()
     express_round = first.express_detail.express_round
@@ -206,6 +235,7 @@ def test_settlement_candidate_is_one_round_and_server_resolves_members():
     assert html.count(f'value="round:{express_round.pk}"') == 1
     assert 'type="checkbox" name="group_key"' in html
     assert 'name="orders" multiple' not in html
+    assert 'cdd-viewport-workspace' in html
     settlement = build_settlement_group(
         group_key=group.key, actor=recorder, operation_id=uuid.uuid4()
     )

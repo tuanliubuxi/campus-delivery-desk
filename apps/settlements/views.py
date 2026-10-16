@@ -105,10 +105,6 @@ def settlement_history(request):
         ).exclude(delivery_status="CANCELED").select_related("customer", "proxy_recipient")
         if business:
             records = records.filter(**filters)
-        if date_from:
-            records = records.filter(created_at__date__gte=date_from)
-        if date_to:
-            records = records.filter(created_at__date__lte=date_to)
     else:
         records = Settlement.objects.select_related(
             "customer", "agent", "created_by", "settled_by"

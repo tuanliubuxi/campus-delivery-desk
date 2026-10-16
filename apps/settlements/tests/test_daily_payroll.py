@@ -59,6 +59,8 @@ def test_wage_workbench_and_dynamic_slip_access(tmp_path):
     assert "确认核算" in embedded.content.decode()
     assert "返回上一级" not in embedded.content.decode()
     assert "hx-boost" in embedded.content.decode()
+    assert 'hx-push-url="false"' in embedded.content.decode()
+    assert f'data-cdd-fallback-url="{reverse("settlements:wages")}"' in embedded.content.decode()
     assert XFrameOptionsMiddleware(lambda request: embedded).process_response(None, embedded)["X-Frame-Options"] == "DENY"
     history_detail = get_view(wage_views.wage_detail, reverse("settlements:wage-detail", args=[payout.pk]), admin, payout_id=payout.pk)
     assert "确认核算" not in history_detail.content.decode()
