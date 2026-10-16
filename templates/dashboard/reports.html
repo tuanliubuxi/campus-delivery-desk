@@ -5,10 +5,10 @@
 <main class="container-fluid px-3 px-lg-4 pb-5">
   <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
     <div><h1 class="h3 mb-1">经营分析</h1><p class="text-body-secondary mb-0">卡片、图表、明细与 Excel 使用同一组筛选条件。</p></div>
-    <a class="btn btn-success" href="{% url 'dashboard:export-excel' %}?{{ form.data.urlencode }}">导出 Excel</a>
+    <div class="d-flex gap-2 ms-auto"><button class="btn btn-outline-primary cdd-mobile-filter-button" type="button" data-cdd-modal-open="report-filter">筛选</button><a class="btn btn-success" href="{% url 'dashboard:export-excel' %}?{{ form.data.urlencode }}">导出 Excel</a></div>
   </div>
 
-  <details class="card mb-3" open>
+  <details class="card mb-3 cdd-desktop-filter" open>
     <summary class="card-header fw-semibold">筛选条件</summary>
     <div class="card-body">
       <form method="get" class="row g-3">
@@ -27,6 +27,8 @@
       {% for error in form.non_field_errors %}<div class="alert alert-danger mt-3 mb-0">{{ error }}</div>{% endfor %}
     </div>
   </details>
+  {% if request.GET.date_from or request.GET.date_to or request.GET.business_type or request.GET.courier or request.GET.source_type or request.GET.agent or request.GET.pickup_area or request.GET.destination or request.GET.size or request.GET.route or request.GET.urgent or request.GET.upstairs or request.GET.weather or request.GET.exception or request.GET.refund or request.GET.charge_type or request.GET.settlement_status %}<p class="small cdd-muted">已启用筛选 <a class="btn btn-sm btn-outline-secondary" href="{% url 'dashboard:reports' %}">清除筛选</a></p>{% endif %}
+  <dialog class="cdd-modal" id="report-filter"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭筛选">×</button><h2 class="h5">筛选经营分析</h2><form method="get"><div class="row g-2">{% for field in mobile_form %}<div class="col-6"><label class="form-label d-block" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}</div><div class="cdd-action-row mt-3"><button class="btn btn-primary">确认筛选</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
 
   <section class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4" aria-label="经营指标">
     <div class="col"><div class="card h-100"><div class="card-body"><div class="text-body-secondary">订单数 / 物件数</div><div class="h4 mb-0">{{ cards.order_count }} / {{ cards.item_count }}</div></div></div></div>
@@ -50,7 +52,7 @@
     <div class="col-12 col-md-6 col-xl-4"><div class="card"><div class="card-header">普通 / 代理</div><div class="card-body cdd-chart"><canvas id="sourceDistribution"></canvas></div></div></div>
   </section>
 
-  <section class="card">
+  <section class="card cdd-report-list">
     <div class="card-header">订单明细（分页查看；Excel 导出全部）</div>
     <div class="table-responsive cdd-scroll-region">
       <table class="table table-sm table-hover align-middle mb-0">

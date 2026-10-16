@@ -1,13 +1,14 @@
 """Thin recorder/admin views for DRAFT editing and receipt freezing."""
 
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.db.models import Count
 from django.http import Http404, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse as url_reverse
@@ -19,7 +20,7 @@ from apps.common.enums import BusinessType, UserRole
 from apps.common.pagination import paginate
 from apps.common.permissions import admin_required, courier_required, recorder_or_admin_required
 from apps.dispatch.models import DeliveryDrop
-from apps.orders.models import Order, OrderSettlementStatus
+from apps.orders.models import Order
 
 from .forms import (
     AddChargeForm,
@@ -40,10 +41,10 @@ from .models import (
     WagePayoutStatus,
 )
 from .selectors import (
-    settlement_candidate_groups,
     settlement_charge_items,
     settlement_preview_total,
 )
+from .selectors.groups import settlement_work_items
 from .selectors.payroll import earning_work_date, unpaid_earnings
 from .selectors.settlements import consolidated_delivery_notes
 from .services import (
@@ -72,22 +73,33 @@ from .services.upstairs import review_upstairs_price
 
 @recorder_or_admin_required
 def workspace(request):
-    group_page, group_query = paginate(request, settlement_candidate_groups())
+    business_type = request.GET.get("business_type", "")
+    status = request.GET.get("status", "")
+    query = request.GET.get("q", "").strip()
+    if business_type not in BusinessType.values:
+        business_type = ""
+    if status not in {"UNSTARTED", "BLOCKED", SettlementStatus.DRAFT, SettlementStatus.WAITING_PAYMENT}:
+        status = ""
+    work_items, counts = settlement_work_items(business_type=business_type, status=status, query=query)
+    page, page_query = paginate(request, work_items, per_page=10)
+    for item in page:
+        if item["kind"] == "candidate":
+            item["operation_id"] = uuid.uuid4()
     return render(
         request,
         "settlements/workspace.html",
         {
-            "build_form": BuildSettlementForm(),
-            "candidate_groups": group_page,
-            "group_page": group_page,
-            "group_query": group_query,
+            "work_items": page, "page_obj": page, "page_query": page_query,
+            "counts": counts, "business_choices": BusinessType.choices,
+            "selected_business": business_type, "selected_status": status, "query": query,
         },
     )
 
 
 @recorder_or_admin_required
 def settlement_history(request):
-    scope = request.GET.get("scope", "records")
+    if request.GET.get("scope") == "unsettled":
+        return redirect("settlements:workspace")
     filters = {}
     business = request.GET.get("business_type", "")
     if business in BusinessType.values:
@@ -99,35 +111,30 @@ def settlement_history(request):
         date_to = date.fromisoformat(date_to) if date_to else None
     except ValueError:
         date_from = date_to = None
-    if scope == "unsettled":
-        records = Order.objects.filter(
-            settlement_status=OrderSettlementStatus.UNSETTLED,
-        ).exclude(delivery_status="CANCELED").select_related("customer", "proxy_recipient")
-        if business:
-            records = records.filter(**filters)
-    else:
-        records = Settlement.objects.select_related(
-            "customer", "agent", "created_by", "settled_by"
-        ).prefetch_related("settlement_orders").filter(**filters)
-        status = request.GET.get("status", "")
-        if status in SettlementStatus.values:
-            records = records.filter(status=status)
-        party = request.GET.get("party_type", "")
-        if party in {"CUSTOMER", "AGENT"}:
-            records = records.filter(party_type=party)
-        operator = request.GET.get("operator", "")
-        if operator.isdigit():
-            records = records.filter(settled_by_id=int(operator))
-        date_field = request.GET.get("date_field", "created_at")
-        if date_field not in {"created_at", "frozen_at", "settled_at"}:
-            date_field = "created_at"
-        if date_from:
-            records = records.filter(**{f"{date_field}__date__gte": date_from})
-        if date_to:
-            records = records.filter(**{f"{date_field}__date__lte": date_to})
+    records = Settlement.objects.select_related(
+        "customer", "agent", "created_by", "settled_by"
+    ).prefetch_related("settlement_orders").filter(**filters)
+    status = request.GET.get("status", "")
+    if status in SettlementStatus.values:
+        records = records.filter(status=status)
+    party = request.GET.get("party_type", "")
+    if party in {"CUSTOMER", "AGENT"}:
+        records = records.filter(party_type=party)
+    operator = request.GET.get("operator", "")
+    if operator.isdigit():
+        records = records.filter(settled_by_id=int(operator))
+    date_field = request.GET.get("date_field", "created_at")
+    if date_field not in {"created_at", "frozen_at", "settled_at"}:
+        date_field = "created_at"
+    if date_from:
+        records = records.filter(**{f"{date_field}__date__gte": date_from})
+    if date_to:
+        records = records.filter(**{f"{date_field}__date__lte": date_to})
+    counts = dict(records.order_by().values("status").annotate(total=Count("pk")).values_list("status", "total"))
     page = Paginator(records, 50).get_page(request.GET.get("page"))
     return render(request, "settlements/history.html", {
-        "page": page, "scope": scope,
+        "page": page, "counts": counts,
+        "closed_count": counts.get(SettlementStatus.VOIDED, 0) + counts.get(SettlementStatus.REVERSED, 0),
         "business_choices": BusinessType.choices,
         "status_choices": SettlementStatus.choices,
         "operators": User.objects.filter(role__in=[UserRole.RECORDER, UserRole.ADMIN]).order_by("display_name"),
@@ -412,6 +419,7 @@ def wages(request):
         queue = [row for row in queue if row["work_date"].isoformat() == selected_date]
     if selected_status:
         queue = [row for row in queue if row["status"] == selected_status]
+    counts = Counter(row["status"] for row in queue)
     queue.sort(key=lambda row: (row["work_date"], row["courier"].pk), reverse=True)
     page = Paginator(queue, 10).get_page(request.GET.get("page"))
     return render(
@@ -424,6 +432,7 @@ def wages(request):
             "selected_date": selected_date,
             "selected_status": selected_status,
             "queue": page,
+            "counts": counts,
             "page_obj": page,
             "operation_id": uuid.uuid4(),
         },
@@ -583,12 +592,14 @@ def wage_history(request):
         "amount_low": ("total_amount", "pk"),
     }
     payouts = payouts.order_by(*sort_fields.get(sort, ("-created_at", "-pk")))
+    counts = dict(payouts.order_by().values("status").annotate(total=Count("pk")).values_list("status", "total"))
     page = Paginator(payouts, 10).get_page(request.GET.get("page"))
     return render(request, "settlements/wage_history.html", {
         "payouts": page, "page_obj": page,
         "couriers": User.objects.filter(role=UserRole.COURIER).order_by("display_name"),
         "operators": User.objects.filter(role=UserRole.ADMIN).order_by("display_name"),
         "status_choices": WagePayoutStatus.choices,
+        "counts": counts,
     })
 
 

@@ -2,20 +2,19 @@
 {% extends "layouts/base.html" %}
 {% block title %}代理人/代理批次 · 校驿{% endblock %}
 {% block content %}
-<main class="container py-4">
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div>
-      <h1 class="h3 mb-1">代理人/代理批次</h1>
-      <p class="cdd-muted mb-0">代理体系仅用于快递；临时收件人不会进入正式客户库。仅当全部批次已结算或已取消时可停用代理人。</p>
-    </div>
-    <div class="d-flex gap-2">
+<main class="container py-3 cdd-viewport-workspace cdd-list-workspace cdd-proxy-workspace">
+  <div class="cdd-proxy-header mb-2">
+    <h1 class="h3 mb-0">代理人/代理批次</h1>
+    <a class="btn btn-primary cdd-new-batch" href="{% url 'agents:batch-create' %}">新建批次</a>
+    <p class="cdd-muted mb-0">代理体系仅用于快递；临时收件人不会进入正式客户库。仅当全部批次已结算或已取消时可停用代理人。</p>
+    <div class="d-flex gap-2 cdd-proxy-actions">
+      <button class="btn btn-outline-primary cdd-mobile-filter-button" type="button" data-cdd-modal-open="proxy-search-dialog">搜索</button>
       <button class="btn btn-outline-primary" type="button" data-cdd-modal-open="proxy-agent-list">查看代理人</button>
       <a class="btn btn-outline-primary" href="{% url 'agents:agent-create' %}">新建代理人</a>
-      <a class="btn btn-primary" href="{% url 'agents:batch-create' %}">新建批次</a>
     </div>
   </div>
 
-  <form method="get" class="cdd-card p-3 mb-4" role="search">
+  <form method="get" class="cdd-card p-2 mb-2 cdd-desktop-filter" role="search">
     <input type="hidden" name="batch_tab" value="{{ batch_tab }}">
     <label class="form-label" for="proxy-search">搜索代理人、联系方式、批次备注或临时收件人</label>
     <div class="input-group">
@@ -23,6 +22,8 @@
       <button class="btn btn-primary">搜索</button>
     </div>
   </form>
+  {% if query %}<p class="small cdd-muted mb-2">已启用搜索 <a class="btn btn-sm btn-outline-secondary" href="{% url 'agents:workspace' %}?batch_tab={{ batch_tab }}">清除搜索</a></p>{% endif %}
+  <dialog class="cdd-modal" id="proxy-search-dialog"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭搜索">×</button><h2 class="h5">搜索代理批次</h2><form method="get"><input type="hidden" name="batch_tab" value="{{ batch_tab }}"><input class="form-control mb-3" type="search" name="q" value="{{ query }}" placeholder="代理人、联系信息、批次或收件人"><div class="cdd-action-row"><button class="btn btn-primary">确认搜索</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
 
   <dialog class="cdd-modal cdd-proxy-agent-modal" id="proxy-agent-list" {% if request.GET.agents %}data-cdd-auto-open{% endif %}>
   <div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭">×</button>
@@ -51,7 +52,7 @@
   </section>
   </div></dialog>
 
-  <section aria-labelledby="batches-heading">
+  <section aria-labelledby="batches-heading" class="cdd-proxy-batch-section">
     <h2 id="batches-heading" class="h5">代理批次</h2>
     <nav class="cdd-segmented-tabs mb-3" aria-label="批次状态">
       <a class="btn {% if batch_tab == 'active' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?q={{ query|urlencode }}&batch_tab=active">进行中／待结算</a>

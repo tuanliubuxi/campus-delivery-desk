@@ -164,7 +164,7 @@ def make_context(size=SizeClass.SMALL):
 
 
 @pytest.mark.django_db
-def test_settlement_record_filter_is_modal_and_unsettled_ignores_date_parameters():
+def test_settlement_history_is_records_only_and_legacy_unsettled_redirects():
     recorder, _, order = make_context()
     recorder.set_password("Strong-pass-123")
     recorder.save(update_fields=["password"])
@@ -181,15 +181,19 @@ def test_settlement_record_filter_is_modal_and_unsettled_ignores_date_parameters
     assert 'name="date_from"' in records_html
     assert 'name="status"' in records_html
     assert 'name="party_type"' in records_html
+    assert 'value="DRAFT"' in records_html
+    assert 'href="/recorder/settlements/?scope=unsettled"' not in records_html
     unsettled = client.get(reverse("settlements:history"), {
         "scope": "unsettled", "date_from": "2099-01-01", "date_to": "2099-01-31",
     })
-    assert unsettled.status_code == 200
-    unsettled_html = unsettled.content.decode()
-    assert 'name="date_from"' not in unsettled_html
-    assert 'name="date_to"' not in unsettled_html
-    assert 'name="status"' not in unsettled_html
-    assert order.fixed_id in unsettled_html
+    assert unsettled.status_code == 302
+    assert unsettled.url == reverse("settlements:workspace")
+    workspace = client.get(unsettled.url)
+    assert workspace.status_code == 200
+    assert any(
+        order.pk in {member.pk for member in item["group"].orders}
+        for item in workspace.context["work_items"] if item["kind"] == "candidate"
+    )
 
 
 @pytest.mark.django_db
@@ -233,7 +237,7 @@ def test_settlement_candidate_is_one_round_and_server_resolves_members():
     assert page.status_code == 200
     html = page.content.decode()
     assert html.count(f'value="round:{express_round.pk}"') == 1
-    assert 'type="checkbox" name="group_key"' in html
+    assert 'type="hidden" name="group_key"' in html
     assert 'name="orders" multiple' not in html
     assert 'cdd-viewport-workspace' in html
     settlement = build_settlement_group(
@@ -242,6 +246,11 @@ def test_settlement_candidate_is_one_round_and_server_resolves_members():
     assert set(settlement.settlement_orders.values_list("order_id", flat=True)) == {
         first.pk, second.pk,
     }
+    refreshed = client.get(reverse("settlements:workspace"))
+    entries = list(refreshed.context["work_items"])
+    assert any(item["kind"] == "settlement" and item["settlement"].pk == settlement.pk for item in entries)
+    assert not any(item["kind"] == "candidate" and item["group"].key == group.key for item in entries)
+    assert refreshed.context["counts"]["DRAFT"] == 1
 
 
 @pytest.mark.django_db

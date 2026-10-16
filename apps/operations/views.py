@@ -241,6 +241,8 @@ def media_delete(request, media_id):
             messages.error(request, str(exc))
         else:
             messages.success(request, "媒体文件已删除，metadata 与业务引用保留")
+    else:
+        messages.error(request, "请填写删除原因")
     return redirect("operations:media")
 
 
@@ -264,4 +266,6 @@ def media_bulk_delete(request):
             except ValidationError:
                 blocked += 1
         messages.success(request, f"已删除 {deleted} 个文件；异常保护阻止 {blocked} 个")
+    else:
+        messages.error(request, "请至少选择一个媒体文件并填写删除原因")
     return redirect("operations:media")

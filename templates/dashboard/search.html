@@ -3,11 +3,13 @@
 {% block title %}全局搜索 · 校驿{% endblock %}
 {% block content %}
 <main class="container py-3 cdd-viewport-workspace">
-  <h1 class="h3">全局订单搜索</h1>
-  <form method="get" class="input-group mb-3">
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-2 cdd-heading-actions"><h1 class="h3 mb-0">全局订单搜索</h1><button class="btn btn-outline-primary cdd-mobile-filter-button" type="button" data-cdd-modal-open="global-order-search">搜索</button></div>
+  <form method="get" class="input-group mb-2 cdd-desktop-filter">
     <input class="form-control" name="q" value="{{ query }}" placeholder="固定/动态订单号、收件人、尾号、取件标识" autofocus>
     <button class="btn btn-primary">搜索</button>
   </form>
+  {% if query %}<p class="small cdd-muted mb-2">已启用搜索 <a class="btn btn-outline-secondary btn-sm" href="{% url 'dashboard:global-search' %}">清除搜索</a></p>{% endif %}
+  <dialog class="cdd-modal" id="global-order-search"><div class="cdd-modal-panel"><button class="cdd-modal-close" type="button" data-cdd-modal-close aria-label="关闭搜索">×</button><h2 class="h5">搜索订单</h2><form method="get"><input class="form-control mb-3" type="search" name="q" value="{{ query }}" placeholder="订单号、收件人、取件标识"><div class="cdd-action-row"><button class="btn btn-primary">确认搜索</button><button class="btn btn-outline-secondary" type="button" data-cdd-modal-close>取消</button></div></form></div></dialog>
   <div class="list-group cdd-scroll-region">
     {% for order in orders %}
     <article class="list-group-item">

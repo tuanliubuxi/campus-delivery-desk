@@ -360,6 +360,70 @@ a, button, .btn, .cdd-card { transition: color .16s ease, background-color .16s 
   min-height: 44px;
 }
 
+/* The toolbar and pager reserve their real height; only the list consumes spare space. */
+.cdd-list-workspace > .cdd-scroll-region,
+.cdd-list-workspace > .cdd-compact-scroll,
+.cdd-list-workspace > .cdd-workspace-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+.cdd-status-summary { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .9rem; }
+.cdd-status-summary span { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }
+.cdd-status-summary .cdd-status-dot { flex: none; }
+.cdd-mobile-filter-button { display: none; }
+.cdd-history-link { align-self: center; }
+.cdd-proxy-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: center; }
+.cdd-proxy-header > p { grid-column: 1 / -1; }
+.cdd-proxy-header > .cdd-proxy-actions { grid-column: 1 / -1; justify-content: flex-end; }
+.cdd-proxy-batch-section,
+.cdd-user-workspace .cdd-roster-layout,
+.cdd-user-workspace .cdd-roster-layout > section,
+.cdd-list-workspace #media-delete-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.cdd-proxy-batch-section > .cdd-proxy-batch-list,
+.cdd-user-workspace .cdd-roster-list,
+.cdd-list-workspace #media-delete-form > .cdd-scroll-region {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+.cdd-proxy-batch-section > .cdd-pagination,
+.cdd-user-workspace .cdd-roster-layout .cdd-pagination { flex: 0 0 auto; }
+.cdd-statistics-list,
+.cdd-report-list {
+  display: flex;
+  flex-direction: column;
+  height: min(70dvh, 42rem);
+  min-height: 14rem;
+}
+.cdd-statistics-list > .cdd-scroll-region,
+.cdd-report-list > .cdd-scroll-region { flex: 1 1 auto; min-height: 0; max-height: none; }
+.cdd-statistics-list > .cdd-pagination,
+.cdd-report-list .cdd-pagination { flex: 0 0 auto; }
+.cdd-report-list > .card-body { flex: 0 0 auto; }
+.cdd-exception-workspace .cdd-exception-columns { flex: 1 1 auto; min-height: 0; }
+.cdd-exception-workspace .cdd-exception-pane { display: flex; flex-direction: column; min-height: 0; }
+.cdd-exception-workspace .cdd-exception-list { flex: 1 1 auto; min-height: 0; max-height: none; }
+.cdd-exception-workspace .cdd-pagination { flex: 0 0 auto; }
+@media (max-width: 767.98px) {
+  .cdd-mobile-filter-button { display: inline-flex; align-items: center; }
+  .cdd-desktop-filter { display: none !important; }
+  .cdd-heading-actions { flex-wrap: wrap; }
+  .cdd-heading-actions h1 { font-size: clamp(1.2rem, 5vw, 1.75rem); }
+  .cdd-proxy-header > p { display: none; }
+  .cdd-proxy-header > h1 { font-size: clamp(1.1rem, 5vw, 1.5rem); }
+  .cdd-proxy-header > .cdd-new-batch { white-space: nowrap; }
+  .cdd-proxy-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .cdd-statistics-list, .cdd-report-list { height: min(58dvh, 34rem); }
+  .cdd-exception-workspace .cdd-exception-pane:not(.is-mobile-active) { display: none; }
+}
+
 .cdd-dashboard-link {
   color: var(--cdd-text);
   text-decoration: none;

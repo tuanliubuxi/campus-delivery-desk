@@ -1,5 +1,6 @@
 """Read-only settlement candidates grouped by their real atomic business boundary."""
 
+from collections import Counter
 from dataclasses import dataclass
 
 from apps.agents.models import ProxyBatchStatus
@@ -13,7 +14,7 @@ from apps.orders.models import (
     SourceType,
 )
 
-from ..models import SettlementOrder, SettlementStatus
+from ..models import Settlement, SettlementOrder, SettlementStatus
 
 
 @dataclass
@@ -24,6 +25,7 @@ class SettlementCandidateGroup:
     orders: list[Order]
     blockers: list[str]
     warning: str = ""
+    occupied: bool = False
 
     @property
     def ready(self):
@@ -31,12 +33,12 @@ class SettlementCandidateGroup:
 
 
 def settlement_candidate_groups():
-    """Include every delivered, unsettled group without a silent recent-orders cutoff."""
+    """Include all active, unsettled groups; incomplete groups explain why they are blocked."""
     visible = list(
         Order.objects.filter(
-            delivery_status=DeliveryStatus.DELIVERED,
             settlement_status=OrderSettlementStatus.UNSETTLED,
         )
+        .exclude(delivery_status=DeliveryStatus.CANCELED)
         .select_related("express_detail", "proxy_batch__agent", "customer")
         .order_by("-created_at", "-pk")
     )
@@ -94,7 +96,8 @@ def settlement_candidate_groups():
             blockers.append("已送达的订单待同轮其他订单完成")
         if any(order.settlement_status != OrderSettlementStatus.UNSETTLED for order in orders):
             blockers.append("成员已进入其他结算状态")
-        if any(order.pk in occupied_ids for order in orders):
+        occupied = any(order.pk in occupied_ids for order in orders)
+        if occupied:
             blockers.append("成员已被其他有效账单占用")
         if key.startswith("round:"):
             round_ = first.express_detail.express_round
@@ -118,5 +121,46 @@ def settlement_candidate_groups():
             for order in orders
         ):
             warning = "可建立草稿；快递大小确认前不能生成有效凭证。"
-        result.append(SettlementCandidateGroup(key, title, subtitle, orders, blockers, warning))
+        result.append(SettlementCandidateGroup(key, title, subtitle, orders, blockers, warning, occupied))
     return result
+
+
+def settlement_work_items(*, business_type="", status="", query=""):
+    """One actionable card per atomic candidate group or open settlement."""
+    items = []
+    for group in settlement_candidate_groups():
+        if group.occupied:
+            continue
+        first = group.orders[0]
+        items.append({
+            "kind": "candidate", "status": "UNSTARTED" if group.ready else "BLOCKED",
+            "group": group, "title": group.title, "subtitle": group.subtitle,
+            "business_type": first.business_type,
+            "created_at": max(order.created_at for order in group.orders),
+            "order_count": len(group.orders),
+        })
+    open_settlements = (
+        Settlement.objects.filter(status__in=[SettlementStatus.DRAFT, SettlementStatus.WAITING_PAYMENT])
+        .select_related("customer", "agent", "proxy_batch")
+        .prefetch_related("settlement_orders")
+    )
+    for settlement in open_settlements:
+        items.append({
+            "kind": "settlement", "status": settlement.status,
+            "settlement": settlement,
+            "title": str(settlement.customer or settlement.agent or f"结算 #{settlement.pk}"),
+            "subtitle": f"{settlement.get_business_type_display()} · 结算 #{settlement.pk}",
+            "business_type": settlement.business_type,
+            "created_at": settlement.created_at,
+            "order_count": len(settlement.settlement_orders.all()),
+        })
+    if business_type:
+        items = [item for item in items if item["business_type"] == business_type]
+    if status:
+        items = [item for item in items if item["status"] == status]
+    if query:
+        needle = query.casefold()
+        items = [item for item in items if needle in (item["title"] + " " + item["subtitle"]).casefold()]
+    counts = Counter(item["status"] for item in items)
+    items.sort(key=lambda item: (item["created_at"], str(item["settlement"].pk) if item["kind"] == "settlement" else item["group"].key), reverse=True)
+    return items, counts

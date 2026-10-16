@@ -1,7 +1,7 @@
 {% extends "layouts/base.html" %}
 {% block title %}我的薪资 · 校驿{% endblock %}
 {% block content %}
-<main class="container py-3 cdd-courier-shell">
+<main class="container py-3 cdd-courier-shell cdd-viewport-workspace cdd-list-workspace">
   <h1 class="h3">我的薪资</h1><p class="text-secondary">按订单完成日归属；客户付款后才可计薪。“待发放”不表示钱已到账。</p>
   <div class="d-flex gap-2 mb-3">
     <details class="cdd-sort-menu"><summary class="btn btn-outline-primary" aria-label="排序">☷ 排序</summary><form method="get" class="cdd-sort-options"><input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="status" value="{{ request.GET.status }}"><button name="sort" value="newest">日期 ↓ 降序</button><button name="sort" value="oldest">日期 ↑ 升序</button><button name="sort" value="amount_high">金额 ↓ 降序</button><button name="sort" value="amount_low">金额 ↑ 升序</button></form></details>

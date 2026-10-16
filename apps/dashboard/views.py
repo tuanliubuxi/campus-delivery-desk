@@ -3,7 +3,6 @@
 from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import render
-from django.utils import timezone
 
 from apps.common.pagination import paginate
 from apps.common.permissions import admin_required, courier_required, recorder_or_admin_required
@@ -21,11 +20,7 @@ from apps.orders.selectors.orders import search_orders
 
 def _validated_filters(request, *, courier_id=None, include_courier=True):
     """Return one validated DTO; invalid queries fall back to an empty result-safe form."""
-    # Only a first visit defaults to today. Explicit ?clear=1 preserves the all-history view.
     data = request.GET.copy()
-    if not data:
-        today = timezone.localdate().isoformat()
-        data.update({"date_from": today, "date_to": today})
     form = DashboardFilterForm(data, include_courier=include_courier)
     if form.is_valid():
         return form, DashboardFilters.from_cleaned_data(form.cleaned_data, courier_id=courier_id)
@@ -38,13 +33,12 @@ def reports(request):
     order_page, order_query = paginate(
         request, filtered_orders(filters).order_by("-sequence_date", "-daily_sequence", "-pk")
     )
-    if not request.GET:
-        order_query = form.data.urlencode()
     return render(
         request,
         "dashboard/reports.html",
         {
             "form": form,
+            "mobile_form": DashboardFilterForm(form.data, auto_id="report_mobile_%s"),
             "filters": filters,
             "cards": dashboard_cards(filters),
             "charts": dashboard_charts(filters),
@@ -88,8 +82,6 @@ def courier_statistics(request):
         request,
         orders.prefetch_related("charge_items").order_by("-sequence_date", "-daily_sequence", "-pk"),
     )
-    if not request.GET:
-        order_query = form.data.urlencode()
     order_trend = list(
         orders.values("sequence_date")
         .order_by("sequence_date")

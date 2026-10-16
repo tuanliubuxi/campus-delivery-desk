@@ -15,13 +15,13 @@ from apps.settlements.forms import WageCalculatorForm
 
 
 @pytest.mark.django_db
-def test_date_controls_default_to_server_local_today_without_overwriting_inputs():
+def test_report_date_controls_default_to_all_history_without_overwriting_inputs():
     today = timezone.localdate()
     factory = RequestFactory()
     first_form, first_filters = _validated_filters(factory.get("/admin-console/reports/"))
-    assert first_form["date_from"].value() == today.isoformat()
-    assert first_filters.date_from == first_filters.date_to == today
-    assert first_form.data.urlencode() == f"date_from={today}&date_to={today}"
+    assert first_form["date_from"].value() is None
+    assert first_filters.date_from is None and first_filters.date_to is None
+    assert first_form.data.urlencode() == ""
 
     cleared_form, cleared_filters = _validated_filters(factory.get("/admin-console/reports/?clear=1"))
     assert cleared_form["date_from"].value() is None
